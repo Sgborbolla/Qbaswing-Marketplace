@@ -1,0 +1,44 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "qbaswing-marketplace"
+main = "./dist/_worker.js/index.js"
+compatibility_date = "2026-09-30"
+compatibility_flags = ["nodejs_compat"]
+
+# ---------------------------------------------------------------------------
+# Rutas
+# ---------------------------------------------------------------------------
+# El Documento Maestro pide backend en Cloudflare Workers. Con `output: 'static'`
+# en Astro no hay Worker de aplicacion: el sitio se sirve desde Pages y la API
+# va en un Worker aparte (ver wrangler.api.toml). Esta configuracion es la del
+# sitio.
+#
+# Cloudflare Pages ignora `main`: el frontend se despliega con `wrangler pages
+# deploy dist`, que lee el campo `pages_build_output_dir` de mas abajo.
+
+pages_build_output_dir = "./dist"
+
+# ---------------------------------------------------------------------------
+# D1
+# ---------------------------------------------------------------------------
+# Base de datos del marketplace. El ID viene del panel de Cloudflare:
+# dash.cloudflare.com -> Workers & Pages -> D1 -> qbaswing-marketplace
+#
+# IMPORTANTE: migraciones en db/migrations/, NUNCA con `wrangler d1 execute`
+# contra la base de produccion. `execute` es para consultas de lectura y para
+# desarrollo. Aplicar cambios de esquema es con `wrangler d1 migrations apply`.
+database_id = "636aa765-631e-494f-a6f1-7e9a545bd583"
+database_name = "qbaswing-marketplace"
+
+# ---------------------------------------------------------------------------
+# Variables expuestas al frontend
+# ---------------------------------------------------------------------------
+# Mismo valor que PUBLIC_API_BASE en .env. Se repite aqui porque Wrangler no
+# lee .env para el bundle del Worker.
+[vars]
+PUBLIC_API_BASE = "https://api.qbaswing-marketplace.workers.dev"
+
+# ---------------------------------------------------------------------------
+# Observabilidad
+# ---------------------------------------------------------------------------
+[observability]
+enabled = true

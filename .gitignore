@@ -1,0 +1,39 @@
+node_modules/
+dist/
+.astro/
+
+# ---------------------------------------------------------------------------
+# Credenciales
+# ---------------------------------------------------------------------------
+# NUNCA subir. Aqui viven los tokens de API y las notas de acceso a Cloudflare.
+# Los identificadores (account_id, database_id) NO van aca: son publicos y
+# viven en wrangler.toml, que si se versiona.
+CREDENCIALES*.txt
+credenciales/
+*.token
+secrets.toml
+
+# Variables de entorno (contenido real de las APIs / Cloudflare)
+.env
+.env.production
+.env.local
+.env.*.local
+
+#wrangler
+.wrangler/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Estaticos temporales de los mockups de Stitch
+# Las imagenes de Stitch viven en lh3.googleusercontent.com y sus URLs caducan.
+# Este directorio guarda las imagenes definitivas servidas desde el repo.
+public/_stitch-tmp/
