@@ -12,10 +12,15 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "astro": "astro"
+    "astro": "astro",
+    "validar": "node scripts/validar-schema.mjs",
+    "validar:datos": "node scripts/validar-datos.mjs",
+    "validar:alfabetos": "node scripts/validar-alfabetos.mjs",
+    "validar:todo": "npm run validar && npm run validar:datos && npm run validar:alfabetos && npm run check"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@cloudflare/workers-types": "^5.20261001.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.10.1",
     "astro": "^7.3.5",

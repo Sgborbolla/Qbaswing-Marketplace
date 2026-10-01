@@ -2,7 +2,31 @@
 # =============================================================================
 # CONFIGURACION DE LA API (Cloudflare Worker)
 # =============================================================================
+
+# -----------------------------------------------------------------------------
+# Identidad del Worker
+# -----------------------------------------------------------------------------
 #
+# EL NOMBRE ES LA URL. Cloudflare publica este Worker en
+# `qbaswing-api.workers.dev`, y esa direccion es la que va en el panel de
+# QvaPay como URL de notificacion. Renombrar el Worker cambia la URL y obliga a
+# corregir el panel de la pasarela, asi que el nombre no se toca nunca mas.
+#
+# EL DOMINIO ES GRATUITO Y ES SUFICIENTE. No hace falta comprar un dominio para
+# cobrar: lo que QvaPay y TropiPay necesitan es una direccion HTTPS que
+# responda en el webhook, y `workers.dev` lo es, con TLS valido y sin tarjeta.
+#
+# `main` apunta al entrypoint. Sin esto Wrangler busca `src/index.ts`, que no
+# existe, y el despliegue falla con un mensaje que no menciona `main`.
+# -----------------------------------------------------------------------------
+name = "qbaswing-api"
+main = "src/worker/index.ts"
+compatibility_date = "2026-10-01"
+# `nodejs_compat` habilita `node:crypto`. Sin el, el HMAC-SHA256 de los enlaces de
+# descarga no se puede calcular en el Worker y habria que implementarlo a mano.
+compatibility_flags = ["nodejs_compat"]
+
+# =============================================================================
 # Este es el backend del marketplace. Vive aparte de `wrangler.toml` porque es
 # otro despliegue: `wrangler deploy -c wrangler.api.toml`.
 #
@@ -63,13 +87,15 @@ d1_databases = [
 # tarjeta, se cambia esta linea a `r2_buckets` y el codigo no cambia, porque
 # todo el acceso pasa por `src/lib/almacenamiento.ts`.
 #
-# Hay que CREAR el namespace antes de desplegar:
+# El namespace se creo con:
 #   npx wrangler kv namespace create ARCHIVOS
-# El id que devuelve se pega abajo. Sin el, el despliegue falla.
+# El id esta pegado abajo. Es publico (no es una credencial) y por eso el archivo
+# si se versiona: el binding tiene que viajar al CI para que un despliegue
+# automatico encuentre el mismo namespace y no uno nuevo vacio.
 #
-# kv_namespaces = [
-#   { binding = "ARCHIVOS", id = "<PEGAR_AQUI>" }
-# ]
+kv_namespaces = [
+  { binding = "ARCHIVOS", id = "d17446bd79644534baad1a185830ad6e" }
+]
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
@@ -113,10 +139,10 @@ VENTANA_TIMESTAMP_SEG = "300"
 # -----------------------------------------------------------------------------
 # Estos NO se escriben aca. Se ponen con:
 #
+#   npx wrangler secret put QBASWING_SECRETO_FIRMA
 #   npx wrangler secret put QVAPAY_APP_SECRET
 #   npx wrangler secret put TROPIPAY_CLIENT_ID
 #   npx wrangler secret put TROPIPAY_CLIENT_SECRET
-#   npx wrangler secret put QBASWING_TOKEN_FIRMA
 #
 # `secret put` abre un prompt que no hace eco de lo que se escribe, y lo guarda
 # cifrado. Si se pusieran en `[vars]` quedarian en texto plano en este archivo y

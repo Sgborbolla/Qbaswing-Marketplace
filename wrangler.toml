@@ -48,11 +48,22 @@ pages_build_output_dir = "./dist"
 # NO deba salir al cliente va sin ese prefijo, y entonces solo es legible en el
 # servidor con `import.meta.env`.
 #
+# -----------------------------------------------------------------------------
+# API
+# -----------------------------------------------------------------------------
 # Esta es la URL del Worker de API, en `wrangler.api.toml`. Si cambia el nombre
 # del Worker, hay que cambiarla tambien aca, o el sitio llamara a un dominio
 # inexistente y cada pagina mostrara el estado de error.
+#
+# EL SUFIJO ES PARTE DE LA URL. Cloudflare publica en `<nombre>.<cuenta>.workers.dev`,
+# no en `<nombre>.workers.dev`: la primera version de este valor omitia el
+# `sgborbolla` y apuntaba a un dominio que no existe. El error se ve como "el
+# catalogo no carga" y no dice nada del dominio, porque el error lo produce el
+# navegador, no la pagina.
+#
+# La URL exacta se lee del panel o del resultado de `wrangler deploy`.
 [vars]
-PUBLIC_API_BASE = "https://qbaswing-api.workers.dev"
+PUBLIC_API_BASE = "https://qbaswing-api.sgborbolla.workers.dev"
 
 # -----------------------------------------------------------------------------
 # Observabilidad

@@ -99,8 +99,13 @@ interface OpcionesRequest {
 /**
  * GET contra el backend. Lanza `PendienteDeImplementar` si no hay API
  * configurada, de modo que la vista pueda distinguir "vacio" de "roto".
+ *
+ * Exportada para que `api-plataforma.ts` la reuse. Reimplementarla ahi seria
+ * duplicar el manejo de errores, y las dos copias divergirian: una existiria
+ * cuando la API devuelve 500 y la otra no. Con una sola version, el footer y el
+ * catalogo fallan exactamente igual.
  */
-async function pedir<T>(ruta: string, opciones: OpcionesRequest = {}): Promise<T> {
+export async function pedir<T>(ruta: string, opciones: OpcionesRequest = {}): Promise<T> {
   if (!backendConfigurado) {
     throw new PendienteDeImplementar(`GET ${ruta}`, `${API_BASE || '<PUBLIC_API_BASE>'}${ruta}`)
   }

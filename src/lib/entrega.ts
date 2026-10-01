@@ -58,8 +58,6 @@ export const EXPIRACION_ENLACE_SEG = 300
 
 /** Nombre del header que lleva la firma del enlace. */
 const HEADER_FIRMA = 'X-QBASWing-Firma'
-/** Nombre de la cookie de sesion, si en el futuro se usa. Hoy no. */
-const HEADER_TOKEN = 'X-QBASWing-Token'
 
 /* ===========================================================================
  * Resultado

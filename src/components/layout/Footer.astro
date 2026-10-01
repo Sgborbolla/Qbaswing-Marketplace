@@ -1,124 +1,321 @@
 ---
 /**
- * Pie de pagina.
+ * Pie de pagina, version empresarial.
  *
  * ============================================================================
- *  NOTA SOBRE LOS ENLACES
+ *  DE DONDE SALE ESTA ESTRUCTURA
  * ============================================================================
- * Las secciones del pie apuntan a rutas que todavia no existen (`/legal`,
- * `/terminos`). No se inventan paginas de relleno con texto lorem: el sitio
- * devuelve el 404 real hasta que esas rutas se construyan. Un enlace a una
- * pagina legal ficticia es peor que un enlace roto, porque aparenta cobertura
- * de un asunto que nadie reviso.
+ * La disposicion sigue el footer de Solaris-web (tu otro proyecto): cuatro
+ * columnas arriba, bloque de contacto con iconos, franja de redes sociales
+ * circulares separada por un borde, y barra de creditos al pie. Esa estructura
+ * funciona porque ordena por TIPO de contenido y no por importance: quien llega
+ * a buscar una respuesta ve primero las preguntas.
+ *
+ * Lo que cambia respecto a Solaris es el color y el origen de los datos:
+ *
+ *   - Fondo oscuro. Con logos e iconos de redes, un fondo claro los deja
+ *     invisibles. En movil, donde el footer se ve mucho, el contraste importa.
+ *   - Los datos salen de la API, no de `settings.phone` hardcodeado. El Owner
+ *     los edita desde el panel; si no los lleno, el bloque no se dibuja en vez
+ *     de mostrar un telefono de ejemplo que nadie puede marcar.
  *
  * ============================================================================
- *  LAS TRES REGLAS DE ORO
+ *  LOS DATOS VIENEN DEL BACKEND, NO DE AQUI
  * ============================================================================
- * Aparecen aqui y en la portada porque son la promesa comercial del
- * marketplace: son la razon por la que un seller se aquiena. Van con los
- * numeros en porcentaje y no con texto tipo "comisiones bajas", porque
- * "bajas" no significa nada.
+ * `listarRedes()` y `listarFAQ()` lanzan `PendienteDeImplementar` hasta que
+ * exista el Worker. El footer captura ese error y dibuja el estado sin datos: los
+ * enlaces de navegacion, que son fijos, y nada mas.
  *
- * Origen de los numeros: Documento Maestro. No son estimacion.
+ * La razon de no inventar redes: un icono de Instagram apuntando a una cuenta
+ * que no existe es PEOR que ningun icono. El visitante hace clic, ve que la
+ * cuenta no esta, y concluye que el marketplace es falso.
  */
 import Logo from '../Logo.astro'
+import { COMISIONES } from '../../lib/tipos'
+import { FAQ_INICIALES, REDES_INICIALES } from '../../lib/plataforma'
 
-const REGLAS = [
-  {
-    letra: 'A',
-    titulo: 'Software de terceros',
-    texto: '5% para QBASwing, 95% para el autor.',
-  },
-  {
-    letra: 'B',
-    titulo: 'Contenido propio',
-    texto: '0% de comision. El autor se lleva el 100%.',
-  },
-  {
-    letra: 'C',
-    titulo: 'Artesanias y productos',
-    texto: '0% de comision sobre la venta.',
-  },
-]
+/**
+ * while evita que una excepcion de la API tumbe la pagina entera.
+ *
+ * Un footer no vale un error de red. Si la API no responde, el sitio tiene que
+ * seguir mostrando productos; el footer se degrada a lo que no necesita backend.
+ */
+const cargar = async <T>(fn: () => Promise<T>, respaldo: T): Promise<T> => {
+  try {
+    return await fn()
+  } catch {
+    return respaldo
+  }
+}
+
+const { listarRedes, listarContacto, listarFAQ } = await import('../../lib/api-plataforma')
+const [redes, contacto, faqs] = await Promise.all([
+  cargar(() => listarRedes(), REDES_INICIALES),
+  cargar(() => listarContacto(), {}),
+  cargar(() => listarFAQ(), FAQ_INICIALES),
+])
+
+/** Redes con URL ya construida. Las vacias no entran. */
+const redesConUrl = redes
+  .filter((r) => r.activo && r.valor.trim())
+  .sort((a, b) => a.orden - b.orden)
+
+/** FAQ: solo las activas y con respuesta, para el acordeon. */
+const preguntas = faqs.filter((f) => f.activa && f.respuesta.trim()).sort((a, b) => a.orden - b.orden)
 
 const ICONO = {
   correo: 'mail',
+  telefono: 'call',
   ubicacion: 'location_on',
   verificado: 'verified',
+  reloj: 'schedule',
 } as const
 
 const anio = new Date().getFullYear()
 ---
 
-<footer class="mt-auto w-full border-t border-outline-variant/40 bg-surface-container-low">
+<footer class="mt-auto w-full bg-inverse-surface text-inverse-on-surface">
   <div class="container-page py-12 md:py-16">
-    <div class="grid gap-10 md:grid-cols-4">
-      <!-- Marca -->
-      <div class="md:col-span-1">
+    <div class="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+      <!-- Columna 1: la marca. Es la unica que no es una lista de enlaces. -->
+      <div class="lg:col-span-1">
         <a href="/" class="flex items-center gap-2.5" aria-label="QBASwing Marketplace, ir al inicio">
-          <Logo altura={32} />
-          <span class="font-headline text-title-md font-semibold text-primary">QBASwing</span>
+          <Logo altura={40} />
+          <span class="font-headline text-title-md font-semibold text-white">QBASwing</span>
         </a>
-        <p class="mt-4 text-body-md text-on-surface-variant">
+        <p class="mt-4 text-body-md text-inverse-on-surface/70">
           Marketplace de software, plantillas, productos digitales y artesanias de
           Cuba y el mundo.
         </p>
-      </div>
 
-      <!-- Secciones. <nav> con aria-label propio: hay varios bloques de
-           enlaces y sin esto un lector de pantalla solo anuncia "enlace". -->
-      <nav aria-label="Marketplace" class="md:col-span-1">
-        <h2 class="font-headline text-title-md font-semibold text-on-surface">Marketplace</h2>
-        <ul class="mt-4 space-y-2">
-          <li><a href="/productos" class="text-body-md text-on-surface-variant hover:text-primary">Productos</a></li>
-          <li><a href="/espacios" class="text-body-md text-on-surface-variant hover:text-primary">Espacios y paquetes</a></li>
-          <li><a href="/vender" class="text-body-md text-on-surface-variant hover:text-primary">Vender</a></li>
-          <li><a href="/carrito" class="text-body-md text-on-surface-variant hover:text-primary">Carrito</a></li>
-        </ul>
-      </nav>
-
-      <nav aria-label="Cuenta" class="md:col-span-1">
-        <h2 class="font-headline text-title-md font-semibold text-on-surface">Cuenta</h2>
-        <ul class="mt-4 space-y-2">
-          <li><a href="/cuenta" class="text-body-md text-on-surface-variant hover:text-primary">Iniciar sesion</a></li>
-          <li><a href="/registro" class="text-body-md text-on-surface-variant hover:text-primary">Crear cuenta</a></li>
-          <li><a href="/panel" class="text-body-md text-on-surface-variant hover:text-primary">Panel del vendedor</a></li>
-        </ul>
-      </nav>
-
-      <!-- Reglas de Oro. El bloque mas importante del pie: es la promesa
-           economica de la plataforma y por eso va con los numeros exactos. -->
-      <div class="md:col-span-1">
-        <h2 class="font-headline text-title-md font-semibold text-on-surface">Reglas de Oro</h2>
-        <ul class="mt-4 space-y-3">
+        <!--
+          Las Reglas de Oro van en el footer y no solo en la portada porque es la
+          promesa economica: es la razon por la que alguien publica aqui. Con los
+          numeros exactos, porque "comisiones bajas" no significa nada.
+        -->
+        <ul class="mt-6 space-y-2">
           {
-            REGLAS.map((r) => (
-              <li class="flex gap-2.5">
-                <span
-                  class="material-symbols-outlined mt-0.5 text-label-md text-success"
-                  aria-hidden="true"
-                >
+            (['A', 'B', 'C'] as const).map((r) => (
+              <li class="flex items-start gap-2">
+                <span class="material-symbols-outlined mt-0.5 text-[16px] text-tertiary-container" aria-hidden="true">
                   {ICONO.verificado}
                 </span>
-                <p class="text-body-sm text-on-surface-variant">
-                  <span class="font-semibold text-on-surface">Regla {r.letra}</span>
-                  {' — '}
-                  {r.texto}
+                <p class="text-body-sm text-inverse-on-surface/70">
+                  <span class="font-semibold text-white">Regla {r}</span>
+                  {' · '}
+                  {r === 'A'
+                    ? `${COMISIONES.A.comisionQBASwing}% para QBASwing`
+                    : `${COMISIONES[r].comisionQBASwing}% de comision`}
                 </p>
               </li>
             ))
           }
         </ul>
       </div>
+
+      <!-- Columna 2: navegacion. Las rutas fijas del sitio. -->
+      <nav aria-label="Marketplace">
+        <h2 class="font-headline text-title-md font-semibold text-primary-container">Marketplace</h2>
+        <ul class="mt-4 space-y-2">
+          <li><a href="/productos" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Productos</a></li>
+          <li><a href="/espacios" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Espacios y paquetes</a></li>
+          <li><a href="/vender" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Vender</a></li>
+          <li><a href="/carrito" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Carrito</a></li>
+          <li><a href="/panel" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Panel del vendedor</a></li>
+        </ul>
+      </nav>
+
+      <!-- Columna 3: ayuda y empresa. -->
+      <nav aria-label="Ayuda">
+        <h2 class="font-headline text-title-md font-semibold text-primary-container">Ayuda</h2>
+        <ul class="mt-4 space-y-2">
+          <li><a href="/faq" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Preguntas frecuentes</a></li>
+          <li><a href="/contacto" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Contacto</a></li>
+          <li><a href="/nosotros" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Nosotros</a></li>
+          <li><a href="/terminos" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Terminos</a></li>
+          <li><a href="/privacidad" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Privacidad</a></li>
+        </ul>
+      </nav>
+
+      <!-- Columna 4: contacto. Cada bloque solo aparece si hay dato, porque un
+           telefono de ejemplo es peor que ningun telefono: se puede marcar. -->
+      <div>
+        <h2 class="font-headline text-title-md font-semibold text-primary-container">Contacto</h2>
+        {
+          contacto.telefono && (
+            <a
+              href={`tel:${contacto.telefono}`}
+              class="mt-4 flex items-start gap-2 text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
+            >
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary-container" aria-hidden="true">
+                {ICONO.telefono}
+              </span>
+              {contacto.telefono}
+            </a>
+          )
+        }
+        {
+          contacto.email && (
+            <a
+              href={`mailto:${contacto.email}`}
+              class="mt-3 flex items-start gap-2 text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
+            >
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary-container" aria-hidden="true">
+                {ICONO.correo}
+              </span>
+              {contacto.email}
+            </a>
+          )
+        }
+        {
+          contacto.whatsapp && (
+            <a
+              href={`https://wa.me/${contacto.whatsapp.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="mt-3 flex items-start gap-2 text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
+            >
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary-container" aria-hidden="true">
+                chat
+              </span>
+              {contacto.whatsapp}
+            </a>
+          )
+        }
+        {
+          contacto.direccion && (
+            <p class="mt-3 flex items-start gap-2 text-body-md text-inverse-on-surface/70">
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary-container" aria-hidden="true">
+                {ICONO.ubicacion}
+              </span>
+              {contacto.direccion}
+            </p>
+          )
+        }
+
+        <!-- Sin datos cargados: se dice, en vez de dejar un bloque vacio que
+             parece un fallo de la pagina. -->
+        {
+          !contacto.telefono && !contacto.email && !contacto.whatsapp && !contacto.direccion && (
+            <p class="mt-4 text-body-sm text-inverse-on-surface/50">
+              Datos de contacto en carga.
+            </p>
+          )
+        }
+
+        <!--
+          Las redes van aqui como circulos, como en el footer de referencia.
+          Solo si hay URL: un icono sin destino no se dibuja.
+        -->
+        {
+          redesConUrl.length > 0 && (
+            <div class="mt-6 border-t border-inverse-on-surface/15 pt-6">
+              <h3 class="text-label-lg font-semibold text-inverse-on-surface">Siguenos</h3>
+              <ul class="mt-3 flex flex-wrap gap-3">
+                {redesConUrl.map((r) => (
+                  <li>
+                    <a
+                      href={r.valor.startsWith('http') ? r.valor : `${r.base ?? ''}${r.valor}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={r.etiqueta}
+                      aria-label={r.etiqueta}
+                      class="flex size-11 items-center justify-center rounded-full bg-inverse-on-surface/10 text-inverse-on-surface/80 transition-all duration-300 hover:bg-primary hover:text-on-primary hover:scale-110"
+                    >
+                      <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
+                        {r.icono}
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        }
+      </div>
     </div>
 
-    <div
-      class="mt-10 flex flex-col gap-3 border-t border-outline-variant/40 pt-6 text-body-sm text-on-surface-variant sm:flex-row sm:items-center sm:justify-between"
-    >
-      <p>&copy; {anio} QBASwing Marketplace</p>
-      <p class="flex items-center gap-1.5">
-        <span class="material-symbols-outlined text-label-sm" aria-hidden="true">{ICONO.ubicacion}</span>
-        Cuba
+    <!--
+      FAQ resumida en el footer. Cuatro preguntas, no las diez: un footer con
+      diez preguntas es una segunda pagina de FAQ metida abajo de todo, y empuja
+      el resto del pie fuera de la pantalla. Las demas viven en /faq.
+    -->
+    {
+      preguntas.length > 0 && (
+        <div class="mt-12 border-t border-inverse-on-surface/15 pt-10">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="font-headline text-title-lg font-semibold text-white">
+              Preguntas frecuentes
+            </h2>
+            <a
+              href="/faq"
+              class="text-label-md text-primary-container transition-colors hover:text-white"
+            >
+              Ver todas
+            </a>
+          </div>
+
+          <div class="mt-6 grid gap-x-8 gap-y-2 md:grid-cols-2">
+            {preguntas.slice(0, 4).map((f) => (
+              <details class="group border-b border-inverse-on-surface/10 py-3">
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-body-md text-inverse-on-surface/85">
+                  <span>{f.pregunta}</span>
+                  <span
+                    class="material-symbols-outlined shrink-0 text-[18px] transition-transform group-open:rotate-180"
+                    aria-hidden="true"
+                  >
+                    expand_more
+                  </span>
+                </summary>
+                <p class="mt-2 text-body-sm leading-relaxed text-inverse-on-surface/65">
+                  {f.respuesta}
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+      )
+    }
+  </div>
+
+  <!--
+    Barra de creditos. Tres lineas porque hay tres consultas distintas que
+    responder, y separarlas evita que se lea como una sola frase larga:
+
+      1. Que es esto        -> el nombre del proyecto
+      2. Quien lo sostiene   -> quien lo patrocina y quien lo disena
+      3. De quien es         -> la reserva legal
+
+    "Patrocinado por Freeman" es una afirmacion sobre una persona real, asi que
+    lleva su nombre al lado. No se inventa un patrocinador anonimo ni un nombre
+    de estudio que no existe.
+  -->
+  <div class="border-t border-inverse-on-surface/15">
+    <div class="container-page py-7">
+      <!-- 1. Nombre del proyecto -->
+      <p class="font-headline text-title-md font-semibold text-inverse-on-surface">
+        QBASwing Marketplace
+      </p>
+
+      <!-- 2. Quien lo sostiene y quien lo disena -->
+      <div class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-body-sm text-inverse-on-surface/65">
+        <p class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-label-sm text-tertiary-container" aria-hidden="true">
+            verified
+          </span>
+          Patrocinado por <span class="font-semibold text-inverse-on-surface/90">Freeman</span>
+        </p>
+        <p class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-label-sm text-primary-container" aria-hidden="true">
+            palette
+          </span>
+          Disenado por <span class="font-semibold text-inverse-on-surface/90">QBASwing Designer</span>
+        </p>
+      </div>
+
+      <!-- 3. La reserva legal -->
+      <p class="mt-3 text-body-sm text-inverse-on-surface/55">
+        &copy; {anio} QBASwing Designer. Todos los derechos reservados.
       </p>
     </div>
   </div>
