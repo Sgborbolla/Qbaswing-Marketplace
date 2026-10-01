@@ -1,0 +1,221 @@
+---
+/**
+ * Selector de idioma.
+ *
+ * ============================================================================
+ *  POR QUE ES UN <details> Y NO UN <select>
+ * ============================================================================
+ * `<select>` con 22 opciones no se puede usar bien con el teclado ni con el
+ * dedo en un movil, y ademas obliga a elegir antes de poder leer como se llama
+ * cada idioma en su propio idioma. Un menu desplegable con banderas se abre,
+ * se mira y se elige.
+ *
+ * `<details>`/`<summary>` es lo unico que da ese comportamiento sin JavaScript:
+ * el HTML lo abre y lo cierra solo. Con 22 idiomas, un menu que depende de un
+ * script y falla si el script no carga deja al visitante sin forma de cambiar de
+ * idioma.
+ *
+ * ============================================================================
+ *  LOS IDIOMAS SIN TRADUCCION SE MUESTRAN MARCADOS
+ * ============================================================================
+ * Un idioma incompleto es peor que uno ausente. Si se ofrecen los 22 como si
+ * todos estuvieran completos, el visitante elige japones, lee la mitad de la
+ * pagina en espanol y concluye que el sitio esta roto.
+ *
+ * Por eso cada entrada del menu dice si esta completa. Los incompletos se
+ * pueden visitar (el sitio cae al espanol por `fallbackType: 'rewrite'`, que
+ * conserva la URL), pero no se presentan como traduccion disponible.
+ *
+ * ============================================================================
+ *  LA URL ACTUAL SE CONSERVA
+ * ============================================================================
+ * Cambiar de idioma no puede tirar al visitante a la portada. Va a la MISMA
+ * pagina en el otro idioma: lo que estaba leyendo en `/pt-BR/productos` sigue
+ * en `/ja/productos`. Eso lo resuelve `cambiarIdioma()` en `i18n/diccionario.ts`,
+ * que es donde esta el unico lugar donde se decide eso.
+ */
+import { IDIOMAS } from '../i18n/config'
+import { cambiarIdioma, idiomaCompleto } from '../i18n/diccionario'
+
+/**
+ * Iniciales de cada idioma: dos letras, como se ven en un selector de pais.
+ *
+ * POR QUE INICIALES Y NO BANDERAS
+ *
+ * Las banderas de emoji NO funcionan en Windows. Se escriben con los caracteres
+ * de Indicadores Regionales, que existen como letras y pares de letras en el
+ * estandar Unicode, y Windows no los tiene en ninguna fuente: el navegador los
+ * dibuja como las dos letras del pais. Se veria "CU" donde deberia verse la
+ * bandera de Cuba, y el mismo emoji se ve bien en un telefono Android y mal en
+ * una laptop con Windows, que es justo el caso de uso principal aqui.
+ *
+ * Las iniciales son texto, y el texto se ve igual en todos los sistemas. Ademas
+ * pesan cero: no hay que descargar 22 imagenes.
+ */
+const INICIALES: Record<string, string> = {
+  es: 'ES',
+  en: 'EN',
+  pt: 'PT',
+  'pt-BR': 'BR',
+  fr: 'FR',
+  'fr-CA': 'CA',
+  de: 'DE',
+  it: 'IT',
+  ca: 'CT',
+  gl: 'GL',
+  eu: 'EU',
+  'en-GB': 'UK',
+  'en-US': 'US',
+  'es-MX': 'MX',
+  'es-AR': 'AR',
+  'es-CO': 'CO',
+  'zh-CN': '简',
+  'zh-TW': '繁',
+  ja: '日',
+  ko: '한',
+  ru: 'РУ',
+  ar: 'ع',
+}
+
+/** Sacar las iniciales de un idioma sin tabla, por si falta alguna. */
+function iniciales(codigo: string): string {
+  if (INICIALES[codigo]) return INICIALES[codigo]
+  const partes = codigo.split('-')
+  if (partes.length > 1) return partes[1].toUpperCase()
+  return codigo.slice(0, 2).toUpperCase()
+}
+
+/** Como se llama cada idioma, en su propio idioma. */
+const NOMBRES: Record<string, string> = {
+  es: 'Español',
+  en: 'English',
+  pt: 'Português',
+  'pt-BR': 'Português (Brasil)',
+  fr: 'Français',
+  'fr-CA': 'Français (Canada)',
+  de: 'Deutsch',
+  it: 'Italiano',
+  ca: 'Català',
+  gl: 'Galego',
+  eu: 'Euskara',
+  'en-GB': 'English (UK)',
+  'en-US': 'English (US)',
+  'es-MX': 'Español (México)',
+  'es-AR': 'Español (Argentina)',
+  'es-CO': 'Español (Colombia)',
+  'zh-CN': '简体中文',
+  'zh-TW': '繁體中文',
+  ja: '日本語',
+  ko: '한국어',
+  ru: 'Русский',
+  ar: 'العربية',
+}
+
+/**
+ * RTL: el arabe se escribe de derecha a izquierda.
+ *
+ * Sin esto, todo el menu aparece con los textos pegados al margen equivocado y
+ * los puntos de la lista quedan fuera de pantalla en movil. Un solo idioma de
+ * la lista necesita `dir="rtl"` en el elemento que lo contiene.
+ */
+const RTL = new Set(['ar'])
+
+const actual = Astro.currentLocale ?? 'es'
+
+/** El idioma actual, translated, en su propio nombre. */
+const nombreActual = NOMBRES[actual] ?? actual
+
+interface Props {
+  /** Si el visitante eligio un idioma explicito. Cambia el tratamiento visual. */
+  guardado?: boolean
+}
+
+const { guardado = false } = Astro.props
+
+const entradas = IDIOMAS.map((codigo: string) => ({
+  codigo,
+  nombre: NOMBRES[codigo] ?? codigo,
+  iniciales: iniciales(codigo),
+  completo: idiomaCompleto(codigo),
+  activo: codigo === actual,
+  href: cambiarIdioma(Astro.url, codigo),
+}))
+---
+
+<details class="group relative" id="selector-idioma">
+  <summary
+    class="flex cursor-pointer list-none items-center gap-1 rounded-lg px-2 py-1.5 text-on-surface-variant/70 transition-colors hover:bg-primary/6 hover:text-primary"
+    aria-label={`Idioma actual: ${nombreActual}. Cambiar idioma`}
+  >
+    <span class="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
+      language
+    </span>
+    <span class="sr-only">Idioma: {nombreActual}</span>
+  </summary>
+
+  <div
+    class="absolute right-0 z-50 mt-1.5 max-h-[70vh] w-56 overflow-y-auto rounded-xl border border-outline-variant/50 bg-surface-container-high/95 p-1 shadow-xl backdrop-blur-xl"
+  >
+    <p class="px-2.5 py-1.5 text-[11px] leading-snug text-on-surface-variant/70">
+      Conserva la pagina actual
+    </p>
+    <ul class="space-y-px">
+      {
+        entradas.map((e) => (
+          <li>
+            <a
+              href={e.href}
+              hreflang={e.codigo}
+              lang={e.codigo}
+              dir={RTL.has(e.codigo) ? 'rtl' : 'ltr'}
+              aria-current={e.activo ? 'true' : undefined}
+              class:list={[
+                'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors',
+                e.activo
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-on-surface-variant hover:bg-primary/8 hover:text-on-surface',
+              ]}
+            >
+              <span
+                class:list={[
+                  'flex size-5 shrink-0 items-center justify-center rounded text-[9px] font-semibold uppercase leading-none',
+                  e.activo ? 'bg-primary/20 text-primary' : 'text-on-surface-variant/45',
+                ]}
+              >
+                {e.iniciales}
+              </span>
+
+              <span class="flex-1 truncate">{e.nombre}</span>
+
+              {!e.completo && (
+                <span
+                  class="material-symbols-outlined shrink-0 text-[13px] text-on-surface-variant/40"
+                  aria-hidden="true"
+                  title="Traduccion en curso"
+                >
+                  progress_activity
+                </span>
+              )}
+              {e.activo && (
+                <span
+                  class="material-symbols-outlined shrink-0 text-[14px] text-primary"
+                  aria-hidden="true"
+                >
+                  check
+                </span>
+              )}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    {
+      guardado && (
+        <p class="border-t border-outline-variant/40 px-3 py-2 text-label-sm text-on-surface-variant/80">
+          Guardamos tu preferencia para la proxima visita.
+        </p>
+      )
+    }
+  </div>
+</details>

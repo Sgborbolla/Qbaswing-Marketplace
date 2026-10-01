@@ -198,11 +198,17 @@ export interface ReglaComision {
  *
  * Antes estaban duplicadas aqui con solo 4 valores y otro criterio, y eso era un
  * bug esperando: una transaccion creada con una pasarela de `pagos.ts` no
- *existia en este tipo, y el `CHECK` de la base rechazaba pagos legitimos.
+ * existia en este tipo, y el `CHECK` de la base rechazaba pagos legitimos.
  * Una sola fuente de verdad.
+ *
+ * El `import` tambien hace falta, no basta con `export type {...}`: `export type`
+ * solo reexporta, no trae el nombre al ambito de este archivo, asi que
+ * `Transaccion` no podria usarlo en su campo `pasarela`.
  */
 
-export type { Pasarela, ClasePasarela, EstadoPago } from './pagos'
+import type { ClasePasarela, EstadoPago, Pasarela } from './pagos'
+
+export type { Pasarela, ClasePasarela, EstadoPago }
 
 export interface Transaccion {
   id: string

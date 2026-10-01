@@ -17,6 +17,7 @@
  * de pantalla. Aqui el `alt` es obligatorio y no decorativo.
  */
 import Logo from '../Logo.astro'
+import SelectorIdioma from '../SelectorIdioma.astro'
 
 /** Enlaces de navegacion principal. Rutas de referencia: se crean con las 16
  *  paginas del plan. Hoy apuntan a rutas que todavia no existen, y por eso el
@@ -103,8 +104,12 @@ const ICONO = {
     </form>
 
     <!-- Iconos de accion. Cada uno es un enlace con etiqueta, no un boton sin
-         nombre: "carrito" a secas no dice nada en un lector de pantalla. -->
-    <div class="flex items-center gap-1">
+         nombre: "carrito" a secas no dice nada en un lector de pantalla.
+         El selector de idioma va primero: cambiar el idioma es lo que un
+         visitante hace al llegar si no entiende el sitio. -->
+    <div class="flex items-center gap-0.5">
+      <SelectorIdioma />
+
       <a
         href="/cuenta"
         class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
