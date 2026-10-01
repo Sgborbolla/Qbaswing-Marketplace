@@ -107,10 +107,21 @@ async function contacto(env: Env): Promise<Record<string, unknown> | null> {
   return Object.fromEntries(campos.map((c) => [c, fila[c]]))
 }
 
-/** FAQ activa, en el orden que fijo el Owner. */
+/**
+ * FAQ activa, en el orden que fijo el Owner.
+ *
+ * `activa` se devuelve aunque la consulta ya la haya filtrado. No es redundancia
+ * por descuido: el frontend compara `f.activa` para decidir si pinta la
+ * pregunta, y sin la columna descartaba las veinte. Un filtro que el servidor ya
+ * aplico vuelve a ser responsabilidad de quien consume, y las dos reglas se
+ * contradicen en silencio cuando eso pasa.
+ *
+ * Lo que si es redundante y no se devuelve: el texto de la tabla de quien la
+ * edito. No lo necesita ningun visitante.
+ */
 async function faq(env: Env): Promise<Record<string, unknown>[]> {
   const { results } = await env.DB.prepare(
-    `SELECT pregunta, respuesta, orden
+    `SELECT pregunta, respuesta, orden, activa
        FROM faq
       WHERE activa = 1
       ORDER BY orden, id`,

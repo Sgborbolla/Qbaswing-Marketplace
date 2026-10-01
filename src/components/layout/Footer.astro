@@ -8,8 +8,8 @@
  * La disposicion sigue el footer de Solaris-web (tu otro proyecto): cuatro
  * columnas arriba, bloque de contacto con iconos, franja de redes sociales
  * circulares separada por un borde, y barra de creditos al pie. Esa estructura
- * funciona porque ordena por TIPO de contenido y no por importance: quien llega
- * a buscar una respuesta ve primero las preguntas.
+ * funciona porque ordena por TIPO de contenido y no por importancia: quien
+ * busca una respuesta ve primero las preguntas.
  *
  * Lo que cambia respecto a Solaris es el color y el origen de los datos:
  *
@@ -35,12 +35,18 @@ import { COMISIONES } from '../../lib/tipos'
 import { FAQ_INICIALES, REDES_INICIALES } from '../../lib/plataforma'
 
 /**
- * while evita que una excepcion de la API tumbe la pagina entera.
+ * Ejecuta una llamada a la API y, si falla, devuelve el respaldo.
  *
  * Un footer no vale un error de red. Si la API no responde, el sitio tiene que
  * seguir mostrando productos; el footer se degrada a lo que no necesita backend.
+ *
+ * Se declara como `function` y no como flecha con `<T>`. En el frontmatter de un
+ * `.astro` la flecha generica `async <T>(...)` no la parsea el compilador: se
+ * interpreta como JSX y el error que sale es "Expected `,` or `)` but found
+ * `:`", que no señala ni la linea ni la causa. Una declaracion de funcion con
+ * el mismo generico no tiene esa ambiguedad.
  */
-const cargar = async <T>(fn: () => Promise<T>, respaldo: T): Promise<T> => {
+async function cargar<T>(fn: () => Promise<T>, respaldo: T): Promise<T> {
   try {
     return await fn()
   } catch {
