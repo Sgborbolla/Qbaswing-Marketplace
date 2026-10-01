@@ -1,0 +1,132 @@
+---
+/**
+ * Pago cancelado.
+ *
+ * ============================================================================
+ *  CANCELAR NO ES LO MISMO QUE FALLAR
+ * ============================================================================
+ * Cuando el comprador cancela, el dinero NO se cobró. Se registra la
+ * transacción como `rechazado` en la base y el carrito se conserva intacto, para
+ * que pueda reintentar con otra pasarela.
+ *
+ * Esto importa porque en Cuba el pago suele fallar por motivos concretos: la
+ * pasarela no tiene saldo, la tarjeta rebotó, el cambio de moneda no cuadra.
+ * Un mensaje de "algo salió mal" manda al cliente a pensar que el marketplace
+ * está roto. Este mensaje le dice exactamente qué pasó y qué puede hacer.
+ *
+ * La lista de motivos viene de la query, no se adivina: el Worker la arma
+ * segun por qué se canceló.
+ *
+ * ============================================================================
+ *  LO QUE NO HACE
+ * ============================================================================
+ * No confirma ni desmiente el pago. Si el comprador canceló pero el webhook
+ * llegó después (carrera entre el navegador y la pasarela), el estado real lo
+ * tiene el Worker. Por eso el texto dice "si ya habías pagado, contacta" en vez
+ * de afirmar que no se cobró nada.
+ */
+import Layout from '../layouts/Base.astro'
+import Logo from '../components/Logo.astro'
+import { backendConfigurado } from '../lib/api'
+
+const ref = Astro.url.searchParams.get('ref') ?? ''
+const motivo = Astro.url.searchParams.get('motivo') ?? ''
+
+/**
+ * Motivos conocidos, con su texto. Si el motivo no esta en la lista, se muestra
+ * el generico: inventar una explicacion para un motivo desconocido es peor que
+ * no explicarlo.
+ */
+const MOTIVOS: Record<string, string> = {
+  saldo: 'Tu cuenta en la pasarela no tiene saldo suficiente para completar el pago.',
+  rechazo: 'La pasarela rechazó la operación. No se realizó ningún cargo.',
+  timeout: 'La operación tardó demasiado y se canceló para proteger tu dinero.',
+  usuario: 'Cancelaste el pago antes de completarlo.',
+  cambio: 'El tipo de cambio no estaba disponible en el momento del intento.',
+}
+
+const explicacion = MOTIVOS[motivo] ?? 'El pago no se completó.'
+
+const ICONO = {
+  cerrar: 'cancel',
+  reintentar: 'refresh',
+  volver: 'arrow_back',
+} as const
+---
+
+<Layout
+  title="Pago cancelado"
+  descripcion="El pago no se completo en QBASwing Marketplace."
+>
+  <section class="container-page flex min-h-[70vh] items-center justify-center py-16">
+    <div class="w-full max-w-lg text-center">
+      <div class="flex justify-center">
+        <Logo altura={64} alt="" />
+      </div>
+
+      <h1 class="mt-6 font-headline text-headline-md text-on-surface">
+        El pago no se completó
+      </h1>
+
+      <p class="mt-3 text-body-lg text-on-surface-variant">{explicacion}</p>
+
+      {
+        ref && (
+          <p class="mt-4 inline-block rounded-md bg-surface-container px-3 py-1.5 font-mono text-code text-on-surface-variant">
+            Referencia: {ref}
+          </p>
+        )
+      }
+
+      {/*
+        Aviso sobre la carrera entre el navegador y la pasarela. Es real: si el
+        comprador cierra la pestana justo cuando QvaPay confirma, el pago
+        puede haberse cobrado igual. Decirlo evita un reembolso innecesario.
+      */}
+      <p
+        class="mt-6 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-left text-body-sm text-on-surface-variant"
+        role="note"
+      >
+        Si ya habías completado el pago en tu banco o en la pasarela y ves esto,
+        puede ser un retraso en la confirmación. Revisá tu cuenta en unos
+        minutos antes de volver a intentar: no se te cobrará dos veces.
+      </p>
+
+      <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <a
+          href="/carrito"
+          class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
+        >
+          <span class="material-symbols-outlined text-label-md" aria-hidden="true">
+            {ICONO.reintentar}
+          </span>
+          Intentar de nuevo
+        </a>
+        <a
+          href="/productos"
+          class="inline-flex items-center justify-center gap-2 rounded-full border border-outline px-6 py-3 text-label-md font-semibold text-primary transition-colors hover:bg-surface-container"
+        >
+          <span class="material-symbols-outlined text-label-md" aria-hidden="true">
+            {ICONO.volver}
+          </span>
+          Volver al catálogo
+        </a>
+      </div>
+
+      {/*
+        Solo se ofrece ayuda si hay backend: sin el, un formulario de soporte
+        no tiene a donde enviar nada.
+      */}
+      {
+        backendConfigurado && (
+          <p class="mt-8 text-body-sm text-on-surface-variant">
+            ¿Necesitás ayuda?{' '}
+            <a href="/contacto" class="font-semibold text-primary underline">
+              Escribinos
+            </a>
+          </p>
+        )
+      }
+    </div>
+  </section>
+</Layout>

@@ -1,0 +1,125 @@
+---
+/**
+ * Pie de pagina.
+ *
+ * ============================================================================
+ *  NOTA SOBRE LOS ENLACES
+ * ============================================================================
+ * Las secciones del pie apuntan a rutas que todavia no existen (`/legal`,
+ * `/terminos`). No se inventan paginas de relleno con texto lorem: el sitio
+ * devuelve el 404 real hasta que esas rutas se construyan. Un enlace a una
+ * pagina legal ficticia es peor que un enlace roto, porque aparenta cobertura
+ * de un asunto que nadie reviso.
+ *
+ * ============================================================================
+ *  LAS TRES REGLAS DE ORO
+ * ============================================================================
+ * Aparecen aqui y en la portada porque son la promesa comercial del
+ * marketplace: son la razon por la que un seller se aquiena. Van con los
+ * numeros en porcentaje y no con texto tipo "comisiones bajas", porque
+ * "bajas" no significa nada.
+ *
+ * Origen de los numeros: Documento Maestro. No son estimacion.
+ */
+import Logo from '../Logo.astro'
+
+const REGLAS = [
+  {
+    letra: 'A',
+    titulo: 'Software de terceros',
+    texto: '5% para QBASwing, 95% para el autor.',
+  },
+  {
+    letra: 'B',
+    titulo: 'Contenido propio',
+    texto: '0% de comision. El autor se lleva el 100%.',
+  },
+  {
+    letra: 'C',
+    titulo: 'Artesanias y productos',
+    texto: '0% de comision sobre la venta.',
+  },
+]
+
+const ICONO = {
+  correo: 'mail',
+  ubicacion: 'location_on',
+  verificado: 'verified',
+} as const
+
+const anio = new Date().getFullYear()
+---
+
+<footer class="mt-auto w-full border-t border-outline-variant/40 bg-surface-container-low">
+  <div class="container-page py-12 md:py-16">
+    <div class="grid gap-10 md:grid-cols-4">
+      <!-- Marca -->
+      <div class="md:col-span-1">
+        <a href="/" class="flex items-center gap-2.5" aria-label="QBASwing Marketplace, ir al inicio">
+          <Logo altura={32} />
+          <span class="font-headline text-title-md font-semibold text-primary">QBASwing</span>
+        </a>
+        <p class="mt-4 text-body-md text-on-surface-variant">
+          Marketplace de software, plantillas, productos digitales y artesanias de
+          Cuba y el mundo.
+        </p>
+      </div>
+
+      <!-- Secciones. <nav> con aria-label propio: hay varios bloques de
+           enlaces y sin esto un lector de pantalla solo anuncia "enlace". -->
+      <nav aria-label="Marketplace" class="md:col-span-1">
+        <h2 class="font-headline text-title-md font-semibold text-on-surface">Marketplace</h2>
+        <ul class="mt-4 space-y-2">
+          <li><a href="/productos" class="text-body-md text-on-surface-variant hover:text-primary">Productos</a></li>
+          <li><a href="/espacios" class="text-body-md text-on-surface-variant hover:text-primary">Espacios y paquetes</a></li>
+          <li><a href="/vender" class="text-body-md text-on-surface-variant hover:text-primary">Vender</a></li>
+          <li><a href="/carrito" class="text-body-md text-on-surface-variant hover:text-primary">Carrito</a></li>
+        </ul>
+      </nav>
+
+      <nav aria-label="Cuenta" class="md:col-span-1">
+        <h2 class="font-headline text-title-md font-semibold text-on-surface">Cuenta</h2>
+        <ul class="mt-4 space-y-2">
+          <li><a href="/cuenta" class="text-body-md text-on-surface-variant hover:text-primary">Iniciar sesion</a></li>
+          <li><a href="/registro" class="text-body-md text-on-surface-variant hover:text-primary">Crear cuenta</a></li>
+          <li><a href="/panel" class="text-body-md text-on-surface-variant hover:text-primary">Panel del vendedor</a></li>
+        </ul>
+      </nav>
+
+      <!-- Reglas de Oro. El bloque mas importante del pie: es la promesa
+           economica de la plataforma y por eso va con los numeros exactos. -->
+      <div class="md:col-span-1">
+        <h2 class="font-headline text-title-md font-semibold text-on-surface">Reglas de Oro</h2>
+        <ul class="mt-4 space-y-3">
+          {
+            REGLAS.map((r) => (
+              <li class="flex gap-2.5">
+                <span
+                  class="material-symbols-outlined mt-0.5 text-label-md text-success"
+                  aria-hidden="true"
+                >
+                  {ICONO.verificado}
+                </span>
+                <p class="text-body-sm text-on-surface-variant">
+                  <span class="font-semibold text-on-surface">Regla {r.letra}</span>
+                  {' — '}
+                  {r.texto}
+                </p>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+
+    <div
+      class="mt-10 flex flex-col gap-3 border-t border-outline-variant/40 pt-6 text-body-sm text-on-surface-variant sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p>&copy; {anio} QBASwing Marketplace</p>
+      <p class="flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-label-sm" aria-hidden="true">{ICONO.ubicacion}</span>
+        Cuba
+      </p>
+    </div>
+  </div>
+</footer>

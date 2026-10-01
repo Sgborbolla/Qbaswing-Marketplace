@@ -1,0 +1,82 @@
+---
+/**
+ * Logotipo de QBASwing.
+ *
+ * ============================================================================
+ *  POR QUE ESTE COMPONENTE EXISTE
+ * ============================================================================
+ * El mismo archivo se usa en cuatro lugares y a cuatro escalas: cabecera
+ * (40 px), pie (32 px), pagina 404 (96 px) y favicon. Si cada sitio escribiera
+ * su propio <img>, cambiar la ruta o el texto alternativo seria una edicion en
+ * cuatro archivos, y es exactamente el tipo de duplication que produjo los 43
+ * `data-alt` de los mockups de Stitch (atributo que no existe en HTML y por lo
+ * tanto no llenaba el `alt`).
+ *
+ * ============================================================================
+ *  SOBRE EL ARCHIVO
+ * ============================================================================
+ * public/logo-qbaswing.png — 1024x1024 px, RGBA con canal alfa, 1.6 MB.
+ * Provisto por el propietario, copiado byte a byte: el hash SHA-256 del
+ * original y el de la copia coinciden, no se reproceso.
+ *
+ * 1.6 MB para un logo que se muestra a 40 px es desproporcionado. Un PNG de
+ * 1024x1024 pesa ~1.3 MB solo por el canal alfa. Cuando exista una version
+ * optimizada (WebP o un SVG con trazados) este componente debe aceptar una
+ * `fuente` distinta sin tocar los cuatro lugares de uso. Esa es la razon de
+ * que la ruta sea un parametro y no una constante incrustada en el marcado.
+ *
+ * NO se reescala ni se convierte aca a proposito: cualquier recompresion
+ * pierde calidad de forma irreversible, y el original es la fuente de verdad.
+ * El dimensionado lo hace el navegador con width/height.
+ */
+interface Props {
+  /**
+   * Alto en px. El ancho se deriva del aspect ratio real del archivo, que es
+   * 1:1, asi que solo hay que declarar una dimension.
+   */
+  altura?: number
+  /**
+   * Ruta alternativa, para cuando exista un asset optimizado.
+   * Por defecto, el logo provisto.
+   */
+  fuente?: string
+  /**
+   * Texto alternativo. `''` lo marca como decorativo y lo omite de la
+   * accesibilidad: solo corresponde cuando el nombre de la marca ya esta escrito
+   * al lado, como en la cabecera. En el pie y el 404, donde el nombre no esta,
+   * el valor por defecto es el nombre completo.
+   */
+  alt?: string
+  /** Anima la aparicion. Se usa en el 404, que aparece sin contexto previo. */
+  prioritario?: boolean
+}
+
+const {
+  altura = 40,
+  fuente = '/logo-qbaswing.png',
+  alt = 'QBASwing Marketplace',
+  prioritario = false,
+} = Astro.props
+
+// Intrinseco del archivo. Declarar width y height evita el desplazamiento de
+// contenido (CLS): el navegador reserva el espacio antes de descargar el PNG.
+const ANCHO_NATURAL = 1024
+const ALTO_NATURAL = 1024
+---
+
+{/*
+  `alt=""` es valido y correcto para imagen decorativa; el problema de los
+  mockups fue no tener alt en absoluto. Este ternario deja explicita la
+  diferencia entre "sin descripcion porque el texto ya esta al lado" y
+  "necesita descripcion".
+*/}
+<img
+  src={fuente}
+  alt={alt}
+  width={ALTO_NATURAL}
+  height={ALTO_NATURAL}
+  style={`height:${altura}px; width:auto;`}
+  decoding={prioritario ? 'sync' : 'async'}
+  fetchpriority={prioritario ? 'high' : 'auto'}
+  class="shrink-0 object-contain select-none"
+/>

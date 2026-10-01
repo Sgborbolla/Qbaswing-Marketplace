@@ -62,15 +62,25 @@ CREATE TABLE IF NOT EXISTS usuarios (
 );
 
 CREATE INDEX IF NOT EXISTS idx_usuarios_rol      ON usuarios(rol);
-CREATE INDEX idx_usuarios_vendedor ON usuarios(vendedor_id);
+-- `IF NOT EXISTS` en TODOS los CREATE, sin exception. Una migracion de D1
+-- puede ejecutarse mas de una vez (un re-despliegue, una restauracion, un
+-- `wrangler d1 migrations apply` repetido) y sin esta linea la segunda corrida
+-- aborta con "index already exists" a mitad del esquema, dejando la base a
+-- medias. Se detecto con scripts/validar-schema.mjs, que aplica el esquema dos
+-- veces justamente para cazar esto.
+CREATE INDEX IF NOT EXISTS idx_usuarios_vendedor ON usuarios(vendedor_id);
 
 
 -- ---------------------------------------------------------------------------
 -- Owners fundacionales: registro que los crea como owner
 -- ---------------------------------------------------------------------------
--- Los dos owners de la plataforma (identificados abajo) no se registran como
--- compradores y despues se les cambia el rol a mano. Al registrarse, la base
--- los reconoce y les asigna 'owner' sin intervencion del Worker.
+-- El owner de la plataforma (identificado abajo) no se registra como comprador
+-- y despues se le cambia el rol a mano. Al registrarse, la base lo reconoce y
+-- le asigna 'owner' sin intervencion del Worker.
+--
+-- Ojo con la palabra "owners": hay UN owner (el creador). La otra cuenta
+-- fundacional, la del patrocinador, NO entra por esta puerta: no es owner y no
+-- tiene por que serlo. Va exenta por `exencion_usuario`, que es otra cosa.
 --
 -- POR QUE UNA TABLA Y NO UNA CONSTANTE EN EL CODIGO
 --
@@ -79,9 +89,26 @@ CREATE INDEX idx_usuarios_vendedor ON usuarios(vendedor_id);
 -- para cambiar un correo, y nadie podria responder "desde cuando es owner este
 -- usuario" con una consulta.
 --
--- Dónde queda la exención de comisión: NO acá. La comision 0% de los owners se
--- resuelve en la tabla `configuracion` (clave 'exencion_owner') y la aplica el
--- Worker al repartir. Esta tabla solo decide el ROL.
+-- Dónde queda la exención de comisión: NO acá, y NO solo acá.
+--
+-- Hay DOS mecanismos, porque son dos preguntas distintas:
+--
+--   1. Por ROL   -> esta tabla, clave 'exencion_owner'. Dice "cualquier owner
+--                    no paga comision". Es la regla general.
+--   2. Por PERSONA -> tabla `exencion_usuario`, columna 'exento_comision'.
+--                    Dice "esta cuenta concreta no paga", sin importar su rol.
+--
+-- Se necesitan los dos porque el patrocinador tiene la misma exencion del
+-- creador pero NO es owner. Si la exencion fuera solo por rol, a el se le
+-- cobraria el 5%; si fuera solo por persona, un tercer owner futuro pagaria.
+--
+-- PREVALENCIA: gana la exencion por persona. Si una cuenta estuviera
+-- en las dos, el resultado es el mismo (0%), asi que el orden no cambia nada
+-- en el resultado, pero importa para el log de auditoria: el Worker debe
+-- registrar cual de los dos mecanismo aplico, o nadie puede explicar despues
+-- por que esa venta no retuvo nada.
+--
+-- Esta tabla solo decide el ROL. La exencion vive en `exencion_usuario`.
 
 CREATE TABLE IF NOT EXISTS owner_registro_preautorizado (
   email       TEXT PRIMARY KEY,
@@ -90,22 +117,52 @@ CREATE TABLE IF NOT EXISTS owner_registro_preautorizado (
   -- puso.
   autorizado_por TEXT   NOT NULL DEFAULT 'fundacion',
   nota        TEXT,
+  -- QUE PUEDE HACER, no solo QUE ES.
+  --
+  -- 'completo' -> edita catalogo, perfiles, usuarios, comisiones, precios y
+  --               contenido del sitio. Es el rol del creador.
+  -- 'limitado' -> opera y consulta, pero NO modifica datos de terceros ni
+  --               configuracion que altere lo que gana otra persona.
+  --
+  -- Existe como columna y no como `if (email = ...)` en el codigo por dos
+  -- razones: el siguiente owner hereda el alcance que se le asigne sin tocar
+  -- TypeScript, y cambiar el alcance de alguien es un UPDATE de una fila, no
+  -- un redespliegue.
+  --
+  -- El valor por defecto es 'limitado'. Si alguien agrega una fila sin
+  -- acordarse de esto, nace sin permiso de escritura sobre terceros, que es el
+  -- fallo que duele.
+  alcance     TEXT    NOT NULL DEFAULT 'limitado' CHECK (alcance IN ('completo', 'limitado')),
   -- 1 = puede registrarse y recibir rol owner. 0 = se le revoca el privilegio
   -- sin borrar la fila, para conservar la bitacora.
   activo      INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
   creado_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
--- Fechas de alta de los dos owners fundacionales.
-INSERT OR IGNORE INTO owner_registro_preautorizado (email, autorizado_por, nota) VALUES
-  ('sgborbolla@gmail.com', 'fundacion',
-   'Owner fundacional. Acceso total, exento de comision.'),
-  ('frankfreemansariol2016@gmail.com', 'fundacion',
-   'Owner fundacional. Acceso total, exento de comision.');
+-- UN SOLO OWNER.
+--
+-- sgborbolla@gmail.com es el creador y dueno del marketplace, y el unico con
+-- todos los privilegios: edita catalogo, perfiles, usuarios, comisiones,
+-- precios y contenido del sitio.
+--
+-- Quien es PATROCINADOR (frankfreemansariol2016@gmail.com) NO esta en esta tabla
+-- y no debe agregarse. Es un usuario comun con exencion economica: no paga
+-- paquetes de espacios ni comision. Va en `exencion_usuario` de mas abajo.
+--
+-- La razon de separarlos es que las dos cosas son de naturaleza distinta. Ser
+-- owner concede poder de escritura sobre el marketplace entero; la exencion
+-- concede que no se cobre una factura. Meter la exencion dentro del rol owner
+-- obligaria a darle el panel de administracion a quien solo debe quedar
+-- exento de pago, y eso le daria a un tercero capacidad de cambiar las
+-- comisiones que se aplican a todos los demas.
+INSERT OR IGNORE INTO owner_registro_preautorizado
+  (email, autorizado_por, alcance, nota) VALUES
+  ('sgborbolla@gmail.com', 'fundacion', 'completo',
+   'Creador y dueno del marketplace. Unico owner con alcance completo.');
 
 -- TRIGGER 1: nadie puede auto-asignarse 'owner'.
 --
--- Sin esto, cualquiera que奋发 un POST a /api/registro con {"rol":"owner"}
+-- Sin esto, cualquiera que mande un POST a /api/registro con {"rol":"owner"}
 -- queda como owner. El trigger aborta la insercion, no la "corrige": un
 -- registro que pide privilegios no elevated tiene que fallar de forma visible.
 --
@@ -155,6 +212,85 @@ BEGIN
          vendedor_id = NULL
    WHERE id = NEW.id;
 END;
+
+
+-- ---------------------------------------------------------------------------
+-- Exenciones economicas (NO son permisos)
+-- ---------------------------------------------------------------------------
+--
+-- QUE ES ESTA TABLA
+-- Registra a quien NO se le cobra algo. No concede ningun poder: no da acceso
+-- al panel, no cambia el rol, no permite ver metricas de la plataforma. Solo
+-- hace que una cuenta concreta no genere un cargo.
+--
+-- POR QUE NO ES "ROL OWNER"
+-- La exencion no es un privilegio de administracion. Si el patrocinador fuera
+-- owner para no pagar, recibiria tambien el panel de administracion completo,
+-- con la capacidad de editar los productos, los perfiles y las comisiones de
+-- todos los demás. Eso es mucho mas poder del que hace falta para no facturar.
+-- Con esta tabla el patrocinador queda como usuario: compra y vende como
+-- cualquiera, exento de pagar paquetes y sin un solo permiso de escritura.
+--
+-- QUE HACE CADA COLUMNA
+--   exento_comision  -> no se retiene el porcentaje de QBASwing. Se consulta
+--                       en `repartir()`, en el Worker, al calcular cada venta.
+--   slots_ilimitados -> puede publicar sin limite y no necesita comprar
+--                       ningun paquete de espacios.
+--
+-- POR QUE `slots_ilimitados` Y NO TAMBIEN `exento_espacios`
+-- Los paquetes de espacios no son otra cosa mas que la via de conseguir slots:
+-- se pagan para tener donde publicar. Si una cuenta tiene slots ilimitados, no
+-- hay nada que comprar, asi que "exento de espacios" y "slots ilimitados"
+-- serian dos banderas que nunca pueden tener valores distintos. Una sola
+-- columna evita el estado imposible y evita que alguien lea una y olvide
+-- consultar la otra al decidir si puede publicar.
+--
+-- Se aplica en el Worker ANTES de contar `v_slots_usados`: si el usuario esta
+-- exento, el conteo no se hace. No es solo un salto en la interfaz, porque si
+-- el conteo se aplicara igual en la base, un producto publicado de mas
+-- terminaria con el contador en negativo.
+--
+-- SE RESUELVE POR CORREO, NO POR ID
+-- Igual que `owner_registro_preautorizado`: la exencion tiene que existir
+-- ANTES de que la persona se registre, porque si dependiera del id habria que
+-- crearla despues y habria una ventana en la que se le cobra de mas.
+--
+-- `INSERT OR IGNORE` en el trigger de alta: si alguien se registra con un
+-- correo exento, la fila ya esta y no se toca. Si se registra otro, no hay fila
+-- y paga normal.
+CREATE TABLE IF NOT EXISTS exencion_usuario (
+  email            TEXT PRIMARY KEY,
+  -- No se le retiene el porcentaje de QBASwing. 0 = se le aplica la Regla de Oro.
+  exento_comision  INTEGER NOT NULL DEFAULT 0 CHECK (exento_comision IN (0, 1)),
+  -- Publica sin limite y no compra ningun paquete de espacios.
+  -- 0 = su capacidad la dan los slots de `suscripciones_espacios`.
+  slots_ilimitados INTEGER NOT NULL DEFAULT 0 CHECK (slots_ilimitados IN (0, 1)),
+  autorizado_por   TEXT   NOT NULL,
+  -- Por que se exime. Es la bitacora: una exencion sin motivo escrito no se
+  -- puede defender despues ante una revision.
+  motivo         TEXT   NOT NULL,
+  -- 1 = vigente, 0 = revocada. No se borra la fila, para conservar el
+  -- historial de quien estuvo exento y desde cuando.
+  activo         INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
+  creado_at      TEXT   NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  revocado_at    TEXT
+);
+
+-- Las dos cuentas fundacionales, con la MISMA exencion economica.
+--
+-- Lo que las diferencia NO esta en esta tabla: esta en `usuarios.rol`.
+-- sgborbolla es owner y ademas administra el marketplace.
+-- frankfreeman es usuario comun, sin ningun permiso de administracion.
+-- Las dos pagan cero por comision y las dos publican sin limite.
+--
+-- El motivo de cada una esta escrito para que la proxima persona que lea el
+-- esquema no deduzca que falto una fila ni que sobro un owner.
+INSERT OR IGNORE INTO exencion_usuario
+  (email, exento_comision, slots_ilimitados, autorizado_por, motivo) VALUES
+  ('sgborbolla@gmail.com', 1, 1, 'fundacion',
+   'Creador y dueno del marketplace. Exento de comision y con slots ilimitados. Es el unico owner: administracion completa.'),
+  ('frankfreemansariol2016@gmail.com', 1, 1, 'fundacion',
+   'Patrocinador de la plataforma. Exento de comision y con slots ilimitados. Usuario comun: SIN permisos de administracion.');
 
 
 -- ---------------------------------------------------------------------------

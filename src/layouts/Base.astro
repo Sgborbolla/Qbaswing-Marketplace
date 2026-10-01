@@ -31,7 +31,13 @@ const {
 
 // Nombre de la pagina: "Detalle | QBASwing" salvo en la home.
 const tituloCompleto = title === 'QBASwing Marketplace' ? title : `${title} · QBASwing`
-const urlCanonica = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin)
+
+// Origen absoluto para canonical y Open Graph. `Astro.site` viene de
+// `site:` en astro.config.mjs; sin el, cae al origen de la peticion, que en
+// desarrollo es localhost y en produccion el dominio real.
+const origen = Astro.site ?? Astro.url.origin
+const urlCanonica = new URL(Astro.url.pathname, origen)
+const urlLogo = new URL('/logo-qbaswing.png', origen)
 ---
 
 <!doctype html>
@@ -57,11 +63,23 @@ const urlCanonica = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin)
 
     <!--
       Las imagenes de los mockups de Stitch apuntan a lh3.googleusercontent.com
-      con URLs temporales. No se referencian aca a proposito: cuando existan los
-      assets reales (en public/ o servidos por R2), se agrega og:image.
+      con URLs temporales, asi que no se referencian. El logo real si esta, en
+      public/logo-qbaswing.png.
     -->
+    <meta property="og:image" content={urlLogo} />
+    <meta property="og:image:width" content="1024" />
+    <meta property="og:image:height" content="1024" />
+    <meta property="og:image:alt" content="QBASwing Marketplace" />
+    <meta name="twitter:image" content={urlLogo} />
+    <link rel="apple-touch-icon" href="/logo-qbaswing.png" />
 
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      El favicon referencia el PNG y no un .svg: el logo provisto es raster
+      (1024x1024 RGBA) y no hay version vectorial. Se declara ademas el tipo
+      MIME real, porque algunos navegadores descartan un favicon al que le
+      declaran extension svg.
+    -->
+    <link rel="icon" type="image/png" href="/logo-qbaswing.png" />
 
     <!--
       Una sola peticion por familia. Material Symbols se pide con el eje `opsz`

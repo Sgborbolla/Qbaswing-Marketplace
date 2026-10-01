@@ -74,7 +74,7 @@ export interface Vendedor {
     productos: number
     ventas: number
     valoracion: number
-    OpinionCount: number
+    opinionCount: number
   }
   specialties: Categoria[]
 }
@@ -193,19 +193,16 @@ export interface ReglaComision {
  * Pasarelas de pago (seccion 5)
  * ----------------------------------------------------------------------- */
 
-export type Pasarela = 'qva-pay' | 'tropi-pay' | 'crypto' | 'tarjeta-qbaswing'
+/**
+ * Las pasarelas las declara `pagos.ts`, no este archivo.
+ *
+ * Antes estaban duplicadas aqui con solo 4 valores y otro criterio, y eso era un
+ * bug esperando: una transaccion creada con una pasarela de `pagos.ts` no
+ *existia en este tipo, y el `CHECK` de la base rechazaba pagos legitimos.
+ * Una sola fuente de verdad.
+ */
 
-export interface PasarelaInfo {
-  id: Pasarela
-  nombre: string
-  /** `true` si liquida en automatico via webhook firmado. */
-  automatica: boolean
-  mercados: string[]
-  monedas: Moneda[]
-  /** Formato de la referencia de conciliacion, si aplica. */
-  formatoReferencia?: string
-  descripcion: string
-}
+export type { Pasarela, ClasePasarela, EstadoPago } from './pagos'
 
 export interface Transaccion {
   id: string

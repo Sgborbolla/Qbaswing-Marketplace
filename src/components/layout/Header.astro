@@ -1,0 +1,129 @@
+---
+/**
+ * Cabecera del sitio.
+ *
+ * ============================================================================
+ *  POR QUE NO HAY UN COMPONENTE <Logo> SEPARADO
+ * ============================================================================
+ * El logo aparece en tres lugares (esta cabecera, el pie y la pagina 404) con
+ * tamanos muy distintos: 40 px en la cabecera, 32 px en el pie, 96 px en el 404.
+ * Si el marcado se duplica en cada uno, cambiar el camino del archivo o el
+ * texto alternativo significa editar tres archivos. El `Logo.astro` centraliza
+ * las tres cosas que nunca deben cambiar: la ruta, las dimensiones intrinsecas
+ * y el texto alternativo. El tamano lo decide cada sitio.
+ *
+ * NOTA SOBRE EL ALTERNATIVO: los mockups de Stitch usaban `data-alt` en lugar
+ * de `alt` en las 43 imagenes, lo que deja el logo sin descripcion para lectores
+ * de pantalla. Aqui el `alt` es obligatorio y no decorativo.
+ */
+import Logo from '../Logo.astro'
+
+/** Enlaces de navegacion principal. Rutas de referencia: se crean con las 16
+ *  paginas del plan. Hoy apuntan a rutas que todavia no existen, y por eso el
+ *  sitio entrega un 404 real en vez de un placeholder. */
+const NAVEGACION = [
+  { href: '/productos', etiqueta: 'Productos' },
+  { href: '/espacios', etiqueta: 'Espacios' },
+  { href: '/vender', etiqueta: 'Vender' },
+]
+
+/** Rutas con `data-alt` en los mockups y nombre de icono Material equivalente. */
+const ICONO = {
+  buscar: 'search',
+  carrito: 'shopping_cart',
+  cuenta: 'account_circle',
+  menu: 'menu',
+  cerrar: 'close',
+} as const
+---
+
+<header
+  class="sticky top-0 z-40 w-full border-b border-outline-variant/40 bg-surface/85 backdrop-blur-md supports-[backdrop-filter]:bg-surface/70"
+>
+  <div class="container-page flex h-16 items-center gap-4">
+    <!-- Marca: siempre el primer elemento del DOM y lo primero que ve un
+         lector de pantalla, por eso el skip-link de Base.astro va antes. -->
+    <a
+      href="/"
+      class="flex shrink-0 items-center gap-2.5 rounded-md"
+      aria-label="QBASwing Marketplace, ir al inicio"
+    >
+      <Logo altura={40} />
+      <span class="font-headline text-title-md font-semibold tracking-tight text-primary">
+        QBASwing
+      </span>
+    </a>
+
+    <!-- Navegacion de escritorio. El <nav> lleva aria-label porque hay varios
+         bloques de enlaces y un lector de pantalla necesita distinguirlos. -->
+    <nav aria-label="Navegacion principal" class="hidden md:block">
+      <ul class="flex items-center gap-1">
+        {
+          NAVEGACION.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                class="rounded-full px-4 py-2 text-label-md font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+              >
+                {item.etiqueta}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <div class="flex-1"></div>
+
+    <!-- Buscador. Es un <form method="get"> y no un input suelto para que
+         funcione sin JavaScript: el navegador lo envia a /productos?q=... -->
+    <form
+      action="/productos"
+      method="get"
+      role="search"
+      class="hidden lg:block"
+    >
+      <label for="busqueda" class="sr-only">Buscar productos</label>
+      <div class="relative">
+        <span
+          class="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-label-md text-on-surface-variant"
+          aria-hidden="true"
+        >
+          {ICONO.buscar}
+        </span>
+        <input
+          type="search"
+          id="busqueda"
+          name="q"
+          placeholder="Buscar productos"
+          autocomplete="off"
+          class="w-64 rounded-full border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 text-body-md text-on-surface placeholder:text-on-surface-variant focus:border-primary"
+        />
+      </div>
+    </form>
+
+    <!-- Iconos de accion. Cada uno es un enlace con etiqueta, no un boton sin
+         nombre: "carrito" a secas no dice nada en un lector de pantalla. -->
+    <div class="flex items-center gap-1">
+      <a
+        href="/cuenta"
+        class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+        aria-label="Mi cuenta"
+      >
+        <span class="material-symbols-outlined text-headline-sm" aria-hidden="true">
+          {ICONO.cuenta}
+        </span>
+      </a>
+
+      <a
+        href="/carrito"
+        class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+        aria-label="Carrito de compras"
+      >
+        <span class="material-symbols-outlined text-headline-sm" aria-hidden="true">
+          {ICONO.carrito}
+        </span>
+      </a>
+    </div>
+  </div>
+</header>

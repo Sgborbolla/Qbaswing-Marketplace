@@ -8,7 +8,7 @@
  * Astro genera las 20+ rutas solo (ver i18n.fallback en astro.config.mjs).
  * Este modulo define COMO se resuelve el texto dentro de cada pagina.
  *
- * El原则: nunca se escribe el texto de la interfaz directo en el .astro.
+ * El principio: nunca se escribe el texto de la interfaz directo en el .astro.
  * Se escribe `t('nav.catalogo')`. Cuando falte una traduccion, `t()` devuelve
  * el texto en espanol y la pagina sigue funcionando. Cuando se traduzca,
  * cambia una linea y todas las paginas la toman.

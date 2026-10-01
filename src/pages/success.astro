@@ -1,0 +1,145 @@
+---
+/**
+ * Resultado del pago: exito.
+ *
+ * ============================================================================
+ *  ESTA PAGINA NO CONFIRMA EL PAGO. SOLO MUESTRA QUE TERMINO.
+ * ============================================================================
+ *
+ * Este es el punto mas importante del archivo, asi que va primero: la
+ * confirmacion del pago la hace el webhook de QvaPay o TropiPay, en el Worker,
+ * no esta pagina.
+ *
+ * Por que no esta pagina:
+ *
+ *  1. El comprador puede cerrar la pestana antes de que termine de redirigir.
+ *     Si la confirmacion dependiera de esta pantalla, el pago quedaria
+ *     'pendiente' para siempre aunque el dinero fueraNOUNCA LO LLEGO.
+ *
+ *  2. Se puede falsear. Cualquiera puede navegar a /success?ref=MP-123.
+ *
+ *  3. El unico que sabe si el pago quedo verificado es el que recibio el
+ *     webhook firmado: el Worker.
+ *
+ * Entonces esta pagina hace lo correcto: le dice al comprador que espere un
+ * momento y consulta el estado real. Muestra 'pendiente' mientras llega el
+ * webhook, y el boton de descarga solo aparece cuando la compra esta
+ * verificada de verdad.
+ *
+ * ============================================================================
+ *  POR QUE NO HAY DATOS INVENTADOS
+ * ============================================================================
+ * El catalogo esta vacio y no hay backend. En vez de mostrar una pantalla
+ * bonita con un numero de pedido ficticio y un boton que no hace nada, esta
+ * pagina detecta que no hay API y lo dice. Ver `EstadoPago.astro`.
+ */
+import Layout from '../layouts/Base.astro'
+import Logo from '../components/Logo.astro'
+import { backendConfigurado } from '../lib/api'
+
+// Referencia del pago, si vino en la query. Es solo para MOSTRAR: no se usa
+// para decidir nada.
+const ref = Astro.url.searchParams.get('ref') ?? ''
+
+const ICONO = {
+  check: 'check_circle',
+  reloj: 'schedule',
+  archivo: 'download',
+  error: 'error_outline',
+} as const
+---
+
+<Layout
+  title="Pago recibido"
+  descripcion="Confirmacion de pago en QBASwing Marketplace."
+>
+  <section class="container-page flex min-h-[70vh] items-center justify-center py-16">
+    <div class="w-full max-w-lg text-center">
+      <div class="flex justify-center">
+        <Logo altura={72} alt="" />
+      </div>
+
+      {
+        /* Sin backend no hay nada que verificar. Se dice, en vez de fingir. */
+        !backendConfigurado ? (
+          <div
+            class="mt-8 rounded-lg border border-outline-variant bg-surface-container p-8"
+            role="status"
+          >
+            <span class="material-symbols-outlined text-headline-lg text-on-surface-variant" aria-hidden="true">
+              {ICONO.error}
+            </span>
+            <h1 class="mt-4 font-headline text-headline-sm text-on-surface">
+              El pago se recibio, pero no se puede confirmar todavia
+            </h1>
+            <p class="mt-3 text-body-md text-on-surface-variant">
+              La pasarela de pago todavia no esta conectada a este sitio. Tu pago
+              no se ha perdido: queda registrado en la pasarela y se acreditara
+              cuando la integracion este activa.
+            </p>
+            <a
+              href="/"
+              class="mt-6 inline-flex items-center rounded-full bg-primary px-6 py-3 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
+            >
+              Volver al inicio
+            </a>
+          </div>
+        ) : (
+          <div class="mt-8">
+            {/* El icono y el titulo definitivos los decide el Worker, via el
+                parametro `estado`. Sin ese parametro, esta en espera. */}
+            <h1 class="font-headline text-headline-md text-on-surface">
+              {Astro.url.searchParams.get('estado') === 'verificado'
+                ? 'Pago confirmado'
+                : 'Confirmando tu pago'}
+            </h1>
+
+            <p class="mt-3 text-body-lg text-on-surface-variant">
+              {Astro.url.searchParams.get('estado') === 'verificado'
+                ? 'Tu compra ya esta disponible en tu biblioteca.'
+                : 'Esto toma unos segundos. No cierres esta ventana.'}
+            </p>
+
+            {ref && (
+              <p class="mt-4 inline-block rounded-md bg-surface-container px-3 py-1.5 font-mono text-code text-on-surface-variant">
+                Referencia: {ref}
+              </p>
+            )}
+
+            {/* En espera, con lo que el usuario puede hacer mientras tanto.
+                Es la diferencia entre una espera de 5 segundos y la sensacion de
+                que el sitio se quedo colgado. */}
+            <div
+              class="mt-8 flex items-center justify-center gap-2 text-body-md text-on-surface-variant"
+              role="status"
+              aria-live="polite"
+            >
+              <span class="material-symbols-outlined text-label-md" aria-hidden="true">
+                {ICONO.reloj}
+              </span>
+              <span>Verificando el pago con la pasarela</span>
+            </div>
+
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <a
+                href="/cuenta"
+                class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
+              >
+                <span class="material-symbols-outlined text-label-md" aria-hidden="true">
+                  {ICONO.archivo}
+                </span>
+                Ir a mi biblioteca
+              </a>
+              <a
+                href="/productos"
+                class="inline-flex items-center justify-center rounded-full border border-outline px-6 py-3 text-label-md font-semibold text-primary transition-colors hover:bg-surface-container"
+              >
+                Seguir comprando
+              </a>
+            </div>
+          </div>
+        )
+      }
+    </div>
+  </section>
+</Layout>

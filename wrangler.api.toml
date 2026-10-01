@@ -1,0 +1,128 @@
+#:schema node_modules/wrangler/config-schema.json
+# =============================================================================
+# CONFIGURACION DE LA API (Cloudflare Worker)
+# =============================================================================
+#
+# Este es el backend del marketplace. Vive aparte de `wrangler.toml` porque es
+# otro despliegue: `wrangler deploy -c wrangler.api.toml`.
+#
+# -----------------------------------------------------------------------------
+# QUE VIVE ACA Y QUE NO
+# -----------------------------------------------------------------------------
+#
+#   ESTA PAGINA PUBLICA (wrangler.toml)
+#     Sirve HTML estatico. Sin Node, sin base, sin secretos. La cachea el CDN.
+#     Solo hace fetch a la API desde el navegador del visitante.
+#
+#   ESTA API (aca)
+#     Todo lo que necesita una credencial:
+#       - verificar que quien descarga compro
+#       - firmar y validar los enlaces de descarga
+#       - validar la firma de los webhooks de QvaPay y TropiPay
+#       - leer y escribir en D1
+#       - guardar y sacar archivos de KV
+#
+# -----------------------------------------------------------------------------
+# POR QUE NO SE SIRVE LA API DESDE PAGES
+# -----------------------------------------------------------------------------
+# Pages puede ejecutar funciones, pero solo con Pages Functions y sin acceso a
+# las variables de entorno del proyecto de la misma forma. Un Worker separado da
+# una URL distinta (`workers.dev`), unos limites distintos y un despliegue
+# distinto: cambiar la API no toca el sitio.
+#
+# Tambien evita el acoplamiento: el sitio puede seguir publicandose aunque la
+# API este caida. El visitante ve la pagina y un aviso de que no se pudo cargar
+# el catalogo, en vez de una pantalla en blanco.
+#
+# -----------------------------------------------------------------------------
+# D1
+# -----------------------------------------------------------------------------
+# El binding se llama `DB` y no `database_id` porque asi lo pide el codigo:
+# `env.DB.prepare(...)`. El nombre del binding es parte de la API del Worker; si
+# cambia, hay que cambiarlo en el codigo tambien, y por eso queda declarado en
+# un solo lugar.
+#
+d1_databases = [
+  { binding = "DB", database_name = "qbaswing_marketplace", database_id = "636aa765-631e-494f-a6f1-7e9a545bd583" },
+]
+
+# -----------------------------------------------------------------------------
+# Workers KV: los archivos de los productos
+# -----------------------------------------------------------------------------
+#
+# POR QUE KV Y NO R2, Y POR QUE NO D1
+#
+#   D1  -> tope de 2 MB por fila. Un ZIP de 50 MB no entra. Ademas el tope no
+#          sube con plan pagado: es absoluto.
+#   KV  -> 25 MiB por valor, 1 GB en total en el plan gratis, SIN tarjeta. Es lo
+#          que alcanza para arrancar.
+#   R2  -> sin limite por archivo, 10 GB gratis, PERO exige metodo de pago.
+#          Como no hay tarjeta bancaria, R2 queda descartado por ahora.
+#
+# El binding es `ARCHIVOS` y no `KV` a proposito: dentro de un mes, cuando haya
+# tarjeta, se cambia esta linea a `r2_buckets` y el codigo no cambia, porque
+# todo el acceso pasa por `src/lib/almacenamiento.ts`.
+#
+# Hay que CREAR el namespace antes de desplegar:
+#   npx wrangler kv namespace create ARCHIVOS
+# El id que devuelve se pega abajo. Sin el, el despliegue falla.
+#
+# kv_namespaces = [
+#   { binding = "ARCHIVOS", id = "<PEGAR_AQUI>" }
+# ]
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Migraciones
+# -----------------------------------------------------------------------------
+# D1 busca las migraciones en `migrations/` y NO hay forma de cambiarlo desde
+# el `.toml`: Wrangler rechaza `migrations_dir` como campo de nivel superior
+# ("Unexpected fields found in top-level field"). Se intento y el error lo dice.
+#
+# Consecuencia: el directorio tiene que llamarse `migrations/`. Por eso el
+# esquema vive en `db/0001_esquema_inicial.sql` y NO en `db/schema.sql`, y por
+# eso ese archivo se llama asi aunque parezca un nombre de migracion: es
+# exactamente eso, y al mismo tiempo es la documentacion del esquema.
+#
+# Hay un solo archivo de esquema, no una copia en cada carpeta. Dos archivos
+# identicos divergen sin aviso: uno se editaba y el otro se quedaba atras, y el
+# fallo aparecia en produccion y no en el editor. `scripts/validar-schema.mjs`
+# lee ESTE archivo y lo aplica dos veces para comprobar que es reejecutable.
+#
+# NUNCA aplicar el esquema con `wrangler d1 execute --command ".read ..."` en
+# produccion: no deja registro de que se aplico, asi que no hay forma de saber
+# si la proxima corrida debe hacerlo o no.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Variables NO secretas
+# -----------------------------------------------------------------------------
+# Se pueden ver en el panel y en el bundle. Solo lo que no es credencial.
+[vars]
+# Origen permitido del Worker. Sin esto, cualquiera podria llamar la API desde
+# su pagina. En produccion va el dominio real de Pages.
+ALLOWED_ORIGIN = "https://qbaswing-marketplace.pages.dev"
+# Vida del enlace de descarga, en segundos. Corta a proposito: el enlace no es
+# una URL permanente del archivo, es un permiso temporal.
+EXPIRACION_ENLACE_SEG = "300"
+# Ventana de tolerancia del timestamp de los webhooks, en segundos.
+VENTANA_TIMESTAMP_SEG = "300"
+
+# -----------------------------------------------------------------------------
+# SECRETOS: van FUERA de este archivo
+# -----------------------------------------------------------------------------
+# Estos NO se escriben aca. Se ponen con:
+#
+#   npx wrangler secret put QVAPAY_APP_SECRET
+#   npx wrangler secret put TROPIPAY_CLIENT_ID
+#   npx wrangler secret put TROPIPAY_CLIENT_SECRET
+#   npx wrangler secret put QBASWING_TOKEN_FIRMA
+#
+# `secret put` abre un prompt que no hace eco de lo que se escribe, y lo guarda
+# cifrado. Si se pusieran en `[vars]` quedarian en texto plano en este archivo y
+# en el repositorio, y un `app-secret` filtrado permite crear facturas a nombre
+# del marketplace.
+#
+# Los tokens de TropiPay ya estan creados en el panel de TropiPay; lo que falta
+# es pegarlos aca con el comando de arriba. Cada uno va a `secret put` en
+# cuanto exista este Worker desplegado.

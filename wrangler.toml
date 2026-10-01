@@ -1,44 +1,74 @@
 #:schema node_modules/wrangler/config-schema.json
+# =============================================================================
+# CONFIGURACION DEL SITIO (Cloudflare Pages)
+# =============================================================================
+#
+# QUE HAY EN ESTE ARCHIVO Y QUE NO
+#
+# Aqui va SOLO lo del frontend. La API va en `wrangler.api.toml`. Estaban juntos
+# en un solo archivo y Wrangler lo senalaba con "Unexpected fields found in
+# top-level field: database_id, database_name": un archivo de Pages no admite
+# `database_id` en la raiz porque no tiene un Worker al que asociarle una base.
+#
+# Se separan por una razon que no es de estilo: los dos se despliegan con
+# comandos distintos y en momentos distintos. El sitio se sube con
+# `wrangler pages deploy`, la API con `wrangler deploy -c wrangler.api.toml`.
+# Si compartieran archivo, cambiar la API obligaria a redesplegar el sitio, y
+# cada redespliegue del sitio es una ventana donde la web puede caerse.
+#
+# -----------------------------------------------------------------------------
+# QUE ES ESTO Y QUE NO ES ESTO
+# -----------------------------------------------------------------------------
+# PAGES sirve el HTML. WORKERS sirve la API. No son el mismo despliegue ni el
+# mismo proceso:
+#
+#   Pages   -> los .astro ya renderizados. No hay Node, no hay base de datos,
+#              no hay secretos. Es el archivo estatico y ya esta.
+#   Worker  -> la logica de negocio: verificar compras, firmar enlaces de
+#              descarga, validar webhooks de QvaPay y TropiPay.
+#
+# El sitio NO lee la base de datos jamas. Si lo hiciera, cada pagina publica
+# tendria que ser server-rendered y perderia el CDN gratis de Pages. Esa es la
+# razon de que exista un Worker: la logica que necesita credenciales vive alla,
+# y el sitio publico no las tiene.
+# -----------------------------------------------------------------------------
+
 name = "qbaswing-marketplace"
-main = "./dist/_worker.js/index.js"
 compatibility_date = "2026-09-30"
 compatibility_flags = ["nodejs_compat"]
 
-# ---------------------------------------------------------------------------
-# Rutas
-# ---------------------------------------------------------------------------
-# El Documento Maestro pide backend en Cloudflare Workers. Con `output: 'static'`
-# en Astro no hay Worker de aplicacion: el sitio se sirve desde Pages y la API
-# va en un Worker aparte (ver wrangler.api.toml). Esta configuracion es la del
-# sitio.
-#
-# Cloudflare Pages ignora `main`: el frontend se despliega con `wrangler pages
-# deploy dist`, que lee el campo `pages_build_output_dir` de mas abajo.
-
+# Cloudflare Pages ignora `main`: el frontend se despliega con
+# `wrangler pages deploy dist`, que lee este campo.
 pages_build_output_dir = "./dist"
 
-# ---------------------------------------------------------------------------
-# D1
-# ---------------------------------------------------------------------------
-# Base de datos del marketplace. El ID viene del panel de Cloudflare:
-# dash.cloudflare.com -> Workers & Pages -> D1 -> qbaswing-marketplace
+# -----------------------------------------------------------------------------
+# Variables del frontend
+# -----------------------------------------------------------------------------
+# `PUBLIC_` es intencional: Astro las expone al navegador. Cualquier cosa que
+# NO deba salir al cliente va sin ese prefijo, y entonces solo es legible en el
+# servidor con `import.meta.env`.
 #
-# IMPORTANTE: migraciones en db/migrations/, NUNCA con `wrangler d1 execute`
-# contra la base de produccion. `execute` es para consultas de lectura y para
-# desarrollo. Aplicar cambios de esquema es con `wrangler d1 migrations apply`.
-database_id = "636aa765-631e-494f-a6f1-7e9a545bd583"
-database_name = "qbaswing-marketplace"
-
-# ---------------------------------------------------------------------------
-# Variables expuestas al frontend
-# ---------------------------------------------------------------------------
-# Mismo valor que PUBLIC_API_BASE en .env. Se repite aqui porque Wrangler no
-# lee .env para el bundle del Worker.
+# Esta es la URL del Worker de API, en `wrangler.api.toml`. Si cambia el nombre
+# del Worker, hay que cambiarla tambien aca, o el sitio llamara a un dominio
+# inexistente y cada pagina mostrara el estado de error.
 [vars]
-PUBLIC_API_BASE = "https://api.qbaswing-marketplace.workers.dev"
+PUBLIC_API_BASE = "https://qbaswing-api.workers.dev"
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Observabilidad
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Registra las peticiones al sitio. Es lo que permite ver un 500 desde el panel
+# en vez de enterarse porque un cliente aviso.
 [observability]
 enabled = true
+
+# -----------------------------------------------------------------------------
+# QUE NO VA EN ESTE ARCHIVO
+# -----------------------------------------------------------------------------
+#   database_id, d1_databases  -> en wrangler.api.toml (solo el Worker tiene base)
+#   kv_namespaces             -> en wrangler.api.toml
+#   secrets                   -> NUNCA. Van con `wrangler secret put`, que los
+#                                escribe cifrados en el Secret Store.
+#
+# Un secreto en `[vars]` queda en texto plano, en este archivo, y se sube al
+# repositorio. Los `app-secret` de QvaPay y TropiPay no van aqui nunca.
