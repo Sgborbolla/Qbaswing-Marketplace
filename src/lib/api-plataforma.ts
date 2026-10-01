@@ -15,22 +15,24 @@
  * importa `api-plataforma` no puede por error alcanzar cifras de la plataforma.
  *
  * ============================================================================
- *  HOY: TODO LANZA `PendienteDeImplementar`
+ *  LECTURA: YA FUNCIONA CONTRA EL WORKER
  * ============================================================================
- * No hay datos ficticios. Cuando exista el Worker, se implementan las funciones
- * de abajo contra estos mismos endpoints y el footer, la pagina de contacto y
- * la de FAQ empiezan a mostrar contenido sin tocarse.
+ * Los tres endpoints de lectura estan desplegados. Las funciones de escritura
+ * NO, y lanzan `PendienteDeImplementar` a proposito: son escrituras
+ * autenticadas y un `fetch` sin verificacion de rol seria un endpoint que
+ * acepta un POST de cualquiera.
  *
- * Endpoints esperados (ver PENDIENTES-PAGOS.md para el orden de despliegue):
- *   GET /api/plataforma/redes
- *   GET /api/plataforma/contacto
- *   GET /api/plataforma/faq
- *   PUT /api/plataforma/contacto     (solo owner)
- *   PUT /api/plataforma/redes/:id    (solo owner)
- *   POST/PUT /api/plataforma/faq     (solo owner)
+ * Endpoints:
+ *   GET /api/plataforma/redes        -> { ok, redes }
+ *   GET /api/plataforma/contacto     -> { ok, contacto }   contacto es null si esta vacio
+ *   GET /api/plataforma/faq          -> { ok, faq }
+ *   PUT /api/plataforma/contacto     (solo owner)   pendiente
+ *   PUT /api/plataforma/redes/:id    (solo owner)   pendiente
+ *   POST /api/plataforma/faq         (solo owner)   pendiente
+ * ============================================================================
  */
 
-import { API_BASE, backendConfigurado, pedir, PendienteDeImplementar } from './api'
+import { API_BASE, ApiError, backendConfigurado, pedir, PendienteDeImplementar } from './api'
 import { FAQ_INICIALES, REDES_INICIALES, type RedSocialPlataforma } from './plataforma'
 
 /* -------------------------------------------------------------------------
@@ -52,51 +54,84 @@ export interface ContactoPlataforma {
  * ---------------------------------------------------------------------- */
 
 /**
- * GET generico para estos tres endpoints.
+ * La API envuelve todo en `{ ok: true, ... }` y mete la lista en una clave
+ * distinta segun el endpoint: `redes`, `contacto`, `faq`.
  *
- * Lanza `PendienteDeImplementar` si no hay backend, que es lo que permite que el
- * footer distinguishes "todavia no hay datos" de "el servidor se cayo".
+ * Por eso hay que leer el sobre y no devolverlo entero. Y por eso `contacto`
+ * devuelve `null` cuando la fila esta vacia, que se traduce a `{}` aca: el
+ * footer hace `contacto.telefono` y un `null` lo rompia con "no se puede leer
+ * la propiedad de null" en vez de mostrar el bloque de contacto como vacio.
  */
-async function pedirPlataforma<T>(ruta: string): Promise<T> {
+async function pedirLista<T>(ruta: string, clave: string): Promise<T[]> {
   if (!backendConfigurado) {
     throw new PendienteDeImplementar(`GET ${ruta}`, `${API_BASE || '<PUBLIC_API_BASE>'}${ruta}`)
   }
-  return pedir<T>(ruta)
+  const cuerpo = await pedir(ruta)
+  const valor = cuerpo[clave]
+  if (!Array.isArray(valor)) {
+    throw new ApiError(
+      `${ruta} no devolvio la lista "${clave}".`,
+      `${API_BASE}${ruta}`,
+    )
+  }
+  return valor as T[]
 }
 
 /**
  * Redes sociales del marketplace.
  *
- * Devuelve `REDES_INICIALES` con los campos de id y valor vacios para que el
- * Owner las complete desde el panel. NO devuelve `@usuario` de ejemplo: un icono
- * que apunta a una cuenta inexistente es peor que no tener icono.
+ * Devuelve las ocho redes con `valor: ''` porque eso es lo que hay en la base:
+ * el Owner todavia no completo ninguna. NO devuelve `@usuario` de ejemplo: un
+ * icono de Instagram que apunta a una cuenta inexistente es PEOR que ningun
+ * icono, porque el visitante hace clic, ve que la cuenta no esta, y concluye que
+ * el marketplace es falso. El footer filtra las vacias y no las dibuja.
  */
-export async function listarRedes(): Promise<(RedSocialPlataforma & { id: string; valor: string })[]> {
-  const redes = await pedirPlataforma<(RedSocialPlataforma & { id: string; valor: string })[]>(
-    '/api/plataforma/redes',
-  )
+export async function listarRedes(): Promise<RedSocialPlataforma[]> {
+  const redes = await pedirLista<RedSocialPlataforma>('/api/plataforma/redes', 'redes')
   return redes.sort((a, b) => a.orden - b.orden)
 }
 
-/** Datos de contacto. Objeto vacio si no hay backend. */
+/**
+ * Datos de contacto.
+ *
+ * `{}` cuando la API dice `null`, o sea cuando la fila esta vacia o no existe.
+ * Es un caso real: la migracion `0002` deja el contacto vacio a proposito.
+ */
 export async function listarContacto(): Promise<ContactoPlataforma> {
-  return pedirPlataforma<ContactoPlataforma>('/api/plataforma/contacto')
+  if (!backendConfigurado) {
+    throw new PendienteDeImplementar('GET /api/plataforma/contacto', `${API_BASE}/api/plataforma/contacto`)
+  }
+  const cuerpo = await pedir('/api/plataforma/contacto')
+  const valor = cuerpo.contacto
+  if (!valor || typeof valor !== 'object') return {}
+  const c = valor as ContactoPlataforma
+  // Se descartan los campos en blanco. El router ya devuelve `null` si la fila
+  // entera esta vacia, pero un contacto a medio llenar llega con cadenas vacias
+  // en los huecos, y `contacto.telefono && (...)` los trataria como datos.
+  return Object.fromEntries(
+    Object.entries(c).filter(([, v]) => String(v ?? '').trim() !== ''),
+  ) as ContactoPlataforma
 }
 
 /**
- * Preguntas frecuentes.
+ * Preguntas frecuentes, en el orden que fijo el Owner.
  *
- * Devuelve `FAQ_INICIALES` cuando no hay backend. No es un dato ficticio: son
- * respuestas escritas a mano que dicen la verdad sobre como funciona ESTE
- * proyecto, no sobre un marketplace imaginario.
+ * Ordenar en el cliente y no confiar en el orden del servidor no aporta nada:
+ * el router ya manda `ORDER BY orden, id`. Se deja igual, porque el fallback
+ * (`FAQ_INICIALES`) viene de una constante y ese si hay que ordenar.
  */
 export async function listarFAQ(): Promise<
   { id: string; pregunta: string; respuesta: string; orden: number; activa: boolean }[]
 > {
-  const faqs = await pedirPlataforma<
-    { id: string; pregunta: string; respuesta: string; orden: number; activa: boolean }[]
-  >('/api/plataforma/faq')
-  return faqs.sort((a, b) => a.orden - b.orden)
+  const faqs = await pedirLista<{
+    pregunta: string
+    respuesta: string
+    orden: number
+    activa: number
+  }>('/api/plataforma/faq', 'faq')
+  return faqs
+    .map((f) => ({ ...f, id: String(f.orden), activa: f.activa === 1 }))
+    .sort((a, b) => a.orden - b.orden)
 }
 
 /* -------------------------------------------------------------------------
@@ -156,11 +191,11 @@ export async function guardarFAQ(_datos: {
  * visita, la edicion se perderia.
  */
 export function datosIniciales(): {
-  redes: (Omit<RedSocialPlataforma, 'id'> & { valor: string })[]
-  faqs: (Omit<(typeof FAQ_INICIALES)[number], 'id'>)[]
+  redes: Omit<RedSocialPlataforma, 'id'>[]
+  faqs: Omit<(typeof FAQ_INICIALES)[number], 'id'>[]
 } {
   return {
-    redes: REDES_INICIALES.map((r) => ({ ...r, valor: '' })),
+    redes: REDES_INICIALES,
     faqs: FAQ_INICIALES,
   }
 }

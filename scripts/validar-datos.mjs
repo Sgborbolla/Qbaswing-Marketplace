@@ -45,6 +45,7 @@ const MIGRACIONES = [
   '0001_esquema_inicial.sql',
   '0002_datos_plataforma.sql',
   '0003_tarifas_espacios.sql',
+  '0004_orden_redes.sql',
 ]
 
 const HASH = 'x'.repeat(64)
@@ -101,6 +102,63 @@ ok(
 )
 ok('hay 1 fila de contacto', contar('SELECT COUNT(*) n FROM contacto_plataforma') === 1)
 ok('hay 20 FAQ', contar('SELECT COUNT(*) n FROM faq') === 20)
+
+/* ---------------------------------------------------------------------------
+ * 2 bis. El orden de las redes (0004)
+ * ------------------------------------------------------------------------ */
+
+/*
+ * POR QUE SE COMPRUEBA EL ORDEN Y NO SOLO QUE HAYAN 8
+ *
+ * Las ocho redes existieron con otro orden durante meses y nada se rompio: el
+ * footer los muestra, solo que en un orden que no es el que se quiere. Un error
+ * de orden es el unico de esta migracion que no da error de SQL, no rompe el
+ * tipo de una columna y no se ve en ninguna prueba. Si nadie lo mira, el
+ * footer va a seguir saliendo en el orden viejo indefinidamente.
+ *
+ * Por eso se comparan las ocho contra una lista escrita aqui, y no contra un
+ * numero suelto: asi el fallo dice CUAL se movio.
+ */
+const ORDEN_ESPERADO = [
+  'Telegram',
+  'WhatsApp',
+  'Facebook',
+  'Instagram',
+  'LinkedIn',
+  'YouTube',
+  'GitHub',
+  'Discord',
+]
+
+const ordenReal = db
+  .prepare('SELECT etiqueta FROM redes_sociales WHERE activo = 1 ORDER BY orden')
+  .all()
+  .map((f) => f.etiqueta)
+
+ok(
+  'las 8 redes activas estan en el orden decidido',
+  ordenReal.join('>') === ORDEN_ESPERADO.join('>'),
+  ordenReal.join('>') === ORDEN_ESPERADO.join('>')
+    ? ''
+    : `esperado ${ORDEN_ESPERADO.join('>')} y hay ${ordenReal.join('>')}`,
+)
+
+ok(
+  'los numeros de orden son 1 a 8 sin huecos ni repetidos',
+  contar('SELECT COUNT(DISTINCT orden) n FROM redes_sociales WHERE activo = 1') === 8 &&
+    contar('SELECT MIN(orden) n FROM redes_sociales WHERE activo = 1') === 1 &&
+    contar('SELECT MAX(orden) n FROM redes_sociales WHERE activo = 1') === 8,
+  'si dos redes comparten orden, el ORDER BY no las separa y el orden es aleatorio',
+)
+
+/*
+ * La fila inactiva NO cuenta para el orden visible, pero tampoco puede quedar
+ * con un numero que pise a una activa: el indice `idx_redes_orden` es parcial
+ * (`WHERE activo = 1`), asi que una inactiva con el mismo numero que una
+ * activa es legal en SQLite y no rompe nada hoy. Se documenta en vez de
+ * probarse: no hay forma de que rompa sin anadir antes el filtro por `activo`
+ * en la consulta, y ese filtro esta en `routers/plataforma.ts`.
+ */
 
 let emailInvalidoAceptado = false
 try {

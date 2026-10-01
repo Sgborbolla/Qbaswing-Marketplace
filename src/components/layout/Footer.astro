@@ -5,26 +5,56 @@
  * ============================================================================
  *  DE DONDE SALE ESTA ESTRUCTURA
  * ============================================================================
- * La disposicion sigue el footer de Solaris-web (tu otro proyecto): cuatro
- * columnas arriba, bloque de contacto con iconos, franja de redes sociales
- * circulares separada por un borde, y barra de creditos al pie. Esa estructura
- * funciona porque ordena por TIPO de contenido y no por importancia: quien
- * busca una respuesta ve primero las preguntas.
+ * La disposicion sigue el pie de la pasarela con la que se cobra,
+ * https://www.qvapay.com, leido de su HTML:
  *
- * Lo que cambia respecto a Solaris es el color y el origen de los datos:
+ *   1. Identidad  -> logo, nombre, una frase, y la fila de redes
+ *   2. Enlaces    -> cuatro columnas de navegacion
+ *   3. Bloques    -> FAQ, contacto
+ *   4. Descargo   -> un parrafo corto de alcance y responsabilidades
+ *   5. Barra      -> creditos, idioma, y las redes repetidas al 60%
  *
- *   - Fondo oscuro. Con logos e iconos de redes, un fondo claro los deja
- *     invisibles. En movil, donde el footer se ve mucho, el contraste importa.
- *   - Los datos salen de la API, no de `settings.phone` hardcodeado. El Owner
- *     los edita desde el panel; si no los lleno, el bloque no se dibuja en vez
- *     de mostrar un telefono de ejemplo que nadie puede marcar.
+ * Se replico la ESTRUCTURA y no la lista. Alli son ocho enlaces de una
+ * pasarela de pagos; aca son enlaces de un marketplace. Y no se replica la
+ * paleta: su color de marca es un violeta (`#6759ef`) porque son una pasarela,
+ * y aca el azul `#004199` viene del Documento Maestro. Un marketplace que se ve
+ * igual que la pasarela que le cobra confunde sobre quien guarda el dinero.
+ *
+ * DOS DETALLES DE SU PIE QUE SI SE COPIAN
+ *
+ * Las redes se REPITEN en la barra final, al 60% de opacidad. Quien llega al
+ * fondo sin haber mirado arriba tambien las tiene a mano, y repetir un enlace
+ * en un pie de pagina no cuesta nada porque el sitio ya esta cacheado.
+ *
+ * El idioma va en la barra final, separado por una linea vertical. Ahi es
+ * informacion, no un control: el selector de verdad esta en la cabecera, que
+ * esta siempre visible. Dos selectores de idioma iguales en la misma pagina
+ * hacen que el visitante dude de si hay dos.
  *
  * ============================================================================
- *  LOS DATOS VIENEN DEL BACKEND, NO DE AQUI
+ *  LAS DIECIOCHO PAGINAS, Y POR QUE LOS ENLACES AUN DAN 404
  * ============================================================================
- * `listarRedes()` y `listarFAQ()` lanzan `PendienteDeImplementar` hasta que
- * exista el Worker. El footer captura ese error y dibuja el estado sin datos: los
- * enlaces de navegacion, que son fijos, y nada mas.
+ * Este pie enlaza a las dieciocho rutas del marketplace. En el momento del
+ * despliegue solo existen la portada y las dos de pasarela, asi que los demas
+ * enlaces dan 404 hasta que se escriban.
+ *
+ * Se dejaron asi a proposito, y es la unica decision de este archivo que se va a
+ * revertir. La alternativa era quitar los enlaces y ponerlos al final, cuando las
+ * paginas existieran; el problema es que un pie con dos enlaces se ve como un
+ * sitio abandonado, y durante la construccion eso es justo lo que se quiere
+ * evitar. Un 404 visible es mejor que un hueco.
+ *
+ * Las cuatro legales (`/contacto`, `/nosotros`, `/terminos`, `/privacidad`)
+ * SI entran, en la cuarta columna: son cuatro paginas mas y el total es
+ * dieciocho. Lo que no hacen falta todavia es el texto largo de cada una —eso
+ * depende de lo que el Owner quiera declarar— y por eso las paginas se
+ * escribiran con el esqueleto y un aviso honesto, no con relleno inventado.
+ *
+ * ============================================================================
+ *  LOS DATOS VIENEN DEL BACKEND
+ * ============================================================================
+ * `listarRedes()`, `listarContacto()` y `listarFAQ()` leen de la API. Si
+ * fallan, el pie dibuja lo que no necesita backend y nada mas.
  *
  * La razon de no inventar redes: un icono de Instagram apuntando a una cuenta
  * que no existe es PEOR que ningun icono. El visitante hace clic, ve que la
@@ -32,13 +62,14 @@
  */
 import Logo from '../Logo.astro'
 import { COMISIONES } from '../../lib/tipos'
-import { FAQ_INICIALES, REDES_INICIALES } from '../../lib/plataforma'
+import { urlDeRed } from '../../lib/plataforma'
+import { infoIdioma } from '../../i18n/idiomas'
 
 /**
  * Ejecuta una llamada a la API y, si falla, devuelve el respaldo.
  *
- * Un footer no vale un error de red. Si la API no responde, el sitio tiene que
- * seguir mostrando productos; el footer se degrada a lo que no necesita backend.
+ * Un pie de pagina no vale un error de red. Si la API no responde, el sitio tiene
+ * que seguir mostrando productos; el pie se degrada a lo que no necesita backend.
  *
  * Se declara como `function` y no como flecha con `<T>`. En el frontmatter de un
  * `.astro` la flecha generica `async <T>(...)` no la parsea el compilador: se
@@ -55,56 +86,156 @@ async function cargar<T>(fn: () => Promise<T>, respaldo: T): Promise<T> {
 }
 
 const { listarRedes, listarContacto, listarFAQ } = await import('../../lib/api-plataforma')
+const { REDES_INICIALES, FAQ_INICIALES } = await import('../../lib/plataforma')
 const [redes, contacto, faqs] = await Promise.all([
   cargar(() => listarRedes(), REDES_INICIALES),
   cargar(() => listarContacto(), {}),
   cargar(() => listarFAQ(), FAQ_INICIALES),
 ])
 
-/** Redes con URL ya construida. Las vacias no entran. */
+/**
+ * Redes con URL ya construida. Las vacias no entran.
+ *
+ * El `href` sale de `urlDeRed()` y no se arma aqui. Esa funcion existe, ya sabe
+ * distinguir `tipo: 'usuario'` de `tipo: 'url'`, y le quita la `@` al usuario.
+ * Reconstruirla en el componente es como se produce un enlace a
+ * `https://t.me/@qbapay` cuando el Owner escribio `qbapay`: funciona en una
+ * red y se rompe en otra, segun como se haya escrito.
+ */
 const redesConUrl = redes
-  .filter((r) => r.activo && r.valor.trim())
+  .map((r) => ({ ...r, href: urlDeRed(r) }))
+  .filter((r): r is typeof r & { href: string } => r.activo && r.href !== null)
   .sort((a, b) => a.orden - b.orden)
 
 /** FAQ: solo las activas y con respuesta, para el acordeon. */
-const preguntas = faqs.filter((f) => f.activa && f.respuesta.trim()).sort((a, b) => a.orden - b.orden)
+const preguntas = faqs
+  .filter((f) => f.activa && f.respuesta.trim())
+  .sort((a, b) => a.orden - b.orden)
+
+/**
+ * Las columnas de enlaces.
+ *
+ * Cada entrada apunta a una de las catorce rutas. Se declaran aqui y no en el
+ * marcado porque el marcado las recorre: escribirlas en el HTML obliga a
+ * repetirlas y a que una de las copias se quede vieja.
+ *
+ * `externo: true` marca lo que sale del sitio. No hay ninguno todavia, pero el
+ * atributo queda para que el dia que lo haya no haya que buscar las cuatro
+ *Occurrencias de `target="_blank"`.
+ */
+const COLUMNAS = [
+  {
+    titulo: 'Marketplace',
+    enlaces: [
+      { texto: 'Catalogo', href: '/catalogo' },
+      { texto: 'Destacados', href: '/catalogo?orden=destacados' },
+      { texto: 'Espacios y paquetes', href: '/espacios' },
+      { texto: 'Vendedores', href: '/catalogo?vista=vendedores' },
+    ],
+  },
+  {
+    titulo: 'Comprar',
+    enlaces: [
+      { texto: 'Carrito', href: '/carrito' },
+      { texto: 'Pasar por caja', href: '/pagar' },
+      { texto: 'Mis descargas', href: '/descargas' },
+      { texto: 'Preguntas frecuentes', href: '/faq' },
+    ],
+  },
+  {
+    titulo: 'Vender',
+    enlaces: [
+      { texto: 'Panel del vendedor', href: '/panel' },
+      { texto: 'Subir producto', href: '/panel/nuevo' },
+      { texto: 'Consola del Owner', href: '/owner' },
+      { texto: 'Crear cuenta', href: '/registro' },
+    ],
+  },
+  {
+    titulo: 'Plataforma',
+    enlaces: [
+      { texto: 'Contacto', href: '/contacto' },
+      { texto: 'Nosotros', href: '/nosotros' },
+      { texto: 'Terminos', href: '/terminos' },
+      { texto: 'Privacidad', href: '/privacidad' },
+    ],
+  },
+] as const
 
 const ICONO = {
   correo: 'mail',
   telefono: 'call',
   ubicacion: 'location_on',
-  verificado: 'verified',
-  reloj: 'schedule',
 } as const
+
+/**
+ * El idioma actual, en su propia lengua.
+ *
+ * Sale de `InfoIdioma.nombre` y no de una tabla local. El selector de idioma
+ * tenia su propia copia de los 22 nombres; se borro por ser identica, y dejar
+ * una sola fuente es lo que evita que el menu diga una cosa y el pie otra.
+ */
+const idiomaActual = infoIdioma(Astro.currentLocale ?? 'es')
 
 const anio = new Date().getFullYear()
 ---
 
 <footer class="mt-auto w-full bg-inverse-surface text-inverse-on-surface">
-  <div class="container-page py-12 md:py-16">
-    <div class="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
-      <!-- Columna 1: la marca. Es la unica que no es una lista de enlaces. -->
-      <div class="lg:col-span-1">
+  <div class="container-page pt-12 md:pt-16">
+    <!--
+      ZONA 1 Y 2. La identidad ocupa menos que los enlaces, con la misma regla
+      de la pasarela: `lg:grid-cols-12`, identidad en 4 y enlaces en 8.
+    -->
+    <div class="grid gap-10 lg:grid-cols-12">
+      <div class="lg:col-span-4">
         <a href="/" class="flex items-center gap-2.5" aria-label="QBASwing Marketplace, ir al inicio">
           <Logo altura={40} />
           <span class="font-headline text-title-md font-semibold text-white">QBASwing</span>
         </a>
-        <p class="mt-4 text-body-md text-inverse-on-surface/70">
+        <p class="mt-4 max-w-sm text-body-md text-inverse-on-surface/70">
           Marketplace de software, plantillas, productos digitales y artesanias de
           Cuba y el mundo.
         </p>
 
         <!--
-          Las Reglas de Oro van en el footer y no solo en la portada porque es la
+          Las redes van aqui, en la identidad, y NO en la barra final. Las suyas
+          salen dos veces: arriba al 100% y abajo al 60%. Aqui salen una vez, en
+          la zona de arriba, que es la que se ve en la pantalla de un movil. La
+          repeticion de abajo es el plan, no una copia de mas.
+        -->
+        {
+          redesConUrl.length > 0 && (
+            <ul class="mt-6 flex flex-wrap gap-3">
+              {redesConUrl.map((r) => (
+                <li>
+                  <a
+                    href={r.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex size-11 items-center justify-center rounded-full bg-inverse-on-surface/10 text-inverse-on-surface/80 transition-all duration-300 hover:bg-primary hover:text-on-primary hover:scale-110"
+                  >
+                    <span class="sr-only">{r.etiqueta}</span>
+                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
+                      {r.icono}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+
+        <!--
+          Las Reglas de Oro van en el pie y no solo en la portada porque es la
           promesa economica: es la razon por la que alguien publica aqui. Con los
           numeros exactos, porque "comisiones bajas" no significa nada.
         -->
-        <ul class="mt-6 space-y-2">
+        <ul class="mt-8 space-y-2">
           {
             (['A', 'B', 'C'] as const).map((r) => (
               <li class="flex items-start gap-2">
                 <span class="material-symbols-outlined mt-0.5 text-[16px] text-tertiary-container" aria-hidden="true">
-                  {ICONO.verificado}
+                  verified
                 </span>
                 <p class="text-body-sm text-inverse-on-surface/70">
                   <span class="font-semibold text-white">Regla {r}</span>
@@ -119,132 +250,36 @@ const anio = new Date().getFullYear()
         </ul>
       </div>
 
-      <!-- Columna 2: navegacion. Las rutas fijas del sitio. -->
-      <nav aria-label="Marketplace">
-        <h2 class="font-headline text-title-md font-semibold text-primary-container">Marketplace</h2>
-        <ul class="mt-4 space-y-2">
-          <li><a href="/productos" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Productos</a></li>
-          <li><a href="/espacios" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Espacios y paquetes</a></li>
-          <li><a href="/vender" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Vender</a></li>
-          <li><a href="/carrito" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Carrito</a></li>
-          <li><a href="/panel" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Panel del vendedor</a></li>
-        </ul>
-      </nav>
-
-      <!-- Columna 3: ayuda y empresa. -->
-      <nav aria-label="Ayuda">
-        <h2 class="font-headline text-title-md font-semibold text-primary-container">Ayuda</h2>
-        <ul class="mt-4 space-y-2">
-          <li><a href="/faq" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Preguntas frecuentes</a></li>
-          <li><a href="/contacto" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Contacto</a></li>
-          <li><a href="/nosotros" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Nosotros</a></li>
-          <li><a href="/terminos" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Terminos</a></li>
-          <li><a href="/privacidad" class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white">Privacidad</a></li>
-        </ul>
-      </nav>
-
-      <!-- Columna 4: contacto. Cada bloque solo aparece si hay dato, porque un
-           telefono de ejemplo es peor que ningun telefono: se puede marcar. -->
-      <div>
-        <h2 class="font-headline text-title-md font-semibold text-primary-container">Contacto</h2>
+      <!-- Las cuatro columnas de enlaces. -->
+      <div class="grid gap-8 sm:grid-cols-2 lg:col-span-8 lg:grid-cols-4">
         {
-          contacto.telefono && (
-            <a
-              href={`tel:${contacto.telefono}`}
-              class="mt-4 flex items-start gap-2 text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
-            >
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary-container" aria-hidden="true">
-                {ICONO.telefono}
-              </span>
-              {contacto.telefono}
-            </a>
-          )
-        }
-        {
-          contacto.email && (
-            <a
-              href={`mailto:${contacto.email}`}
-              class="mt-3 flex items-start gap-2 text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
-            >
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary-container" aria-hidden="true">
-                {ICONO.correo}
-              </span>
-              {contacto.email}
-            </a>
-          )
-        }
-        {
-          contacto.whatsapp && (
-            <a
-              href={`https://wa.me/${contacto.whatsapp.replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="mt-3 flex items-start gap-2 text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
-            >
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary-container" aria-hidden="true">
-                chat
-              </span>
-              {contacto.whatsapp}
-            </a>
-          )
-        }
-        {
-          contacto.direccion && (
-            <p class="mt-3 flex items-start gap-2 text-body-md text-inverse-on-surface/70">
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary-container" aria-hidden="true">
-                {ICONO.ubicacion}
-              </span>
-              {contacto.direccion}
-            </p>
-          )
-        }
-
-        <!-- Sin datos cargados: se dice, en vez de dejar un bloque vacio que
-             parece un fallo de la pagina. -->
-        {
-          !contacto.telefono && !contacto.email && !contacto.whatsapp && !contacto.direccion && (
-            <p class="mt-4 text-body-sm text-inverse-on-surface/50">
-              Datos de contacto en carga.
-            </p>
-          )
-        }
-
-        <!--
-          Las redes van aqui como circulos, como en el footer de referencia.
-          Solo si hay URL: un icono sin destino no se dibuja.
-        -->
-        {
-          redesConUrl.length > 0 && (
-            <div class="mt-6 border-t border-inverse-on-surface/15 pt-6">
-              <h3 class="text-label-lg font-semibold text-inverse-on-surface">Siguenos</h3>
-              <ul class="mt-3 flex flex-wrap gap-3">
-                {redesConUrl.map((r) => (
+          COLUMNAS.map((col) => (
+            <nav aria-label={col.titulo}>
+              <h2 class="font-headline text-title-md font-semibold text-primary-container">
+                {col.titulo}
+              </h2>
+              <ul class="mt-4 space-y-2">
+                {col.enlaces.map((e) => (
                   <li>
                     <a
-                      href={r.valor.startsWith('http') ? r.valor : `${r.base ?? ''}${r.valor}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={r.etiqueta}
-                      aria-label={r.etiqueta}
-                      class="flex size-11 items-center justify-center rounded-full bg-inverse-on-surface/10 text-inverse-on-surface/80 transition-all duration-300 hover:bg-primary hover:text-on-primary hover:scale-110"
+                      href={e.href}
+                      class="text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
                     >
-                      <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
-                        {r.icono}
-                      </span>
+                      {e.texto}
                     </a>
                   </li>
                 ))}
               </ul>
-            </div>
-          )
+            </nav>
+          ))
         }
       </div>
     </div>
 
     <!--
-      FAQ resumida en el footer. Cuatro preguntas, no las diez: un footer con
-      diez preguntas es una segunda pagina de FAQ metida abajo de todo, y empuja
-      el resto del pie fuera de la pantalla. Las demas viven en /faq.
+      ZONA 3. FAQ. Cuatro preguntas, no las veinte: un pie con veinte preguntas
+      es una segunda pagina de FAQ metida abajo de todo, y empuja el resto fuera
+      de la pantalla. Las demas viven en /faq, y el enlace esta en el titulo.
     -->
     {
       preguntas.length > 0 && (
@@ -253,10 +288,7 @@ const anio = new Date().getFullYear()
             <h2 class="font-headline text-title-lg font-semibold text-white">
               Preguntas frecuentes
             </h2>
-            <a
-              href="/faq"
-              class="text-label-md text-primary-container transition-colors hover:text-white"
-            >
+            <a href="/faq" class="text-label-md text-primary-container transition-colors hover:text-white">
               Ver todas
             </a>
           </div>
@@ -282,47 +314,189 @@ const anio = new Date().getFullYear()
         </div>
       )
     }
+
+    <!--
+      ZONA 3 bis. Contacto. Cada bloque solo aparece si hay dato, porque un
+      telefono de ejemplo es peor que ningun telefono: se puede marcar.
+    -->
+    <div class="mt-12 border-t border-inverse-on-surface/15 pt-10">
+      <h2 class="font-headline text-title-lg font-semibold text-white">Contacto</h2>
+
+      <ul class="mt-5 flex flex-wrap gap-x-8 gap-y-3">
+        {
+          contacto.telefono && (
+            <li>
+              <a
+                href={`tel:${contacto.telefono}`}
+                class="flex items-center gap-2 text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
+              >
+                <span class="material-symbols-outlined text-[16px] text-primary-container" aria-hidden="true">
+                  {ICONO.telefono}
+                </span>
+                {contacto.telefono}
+              </a>
+            </li>
+          )
+        }
+        {
+          contacto.email && (
+            <li>
+              <a
+                href={`mailto:${contacto.email}`}
+                class="flex items-center gap-2 text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
+              >
+                <span class="material-symbols-outlined text-[16px] text-primary-container" aria-hidden="true">
+                  {ICONO.correo}
+                </span>
+                {contacto.email}
+              </a>
+            </li>
+          )
+        }
+        {
+          contacto.whatsapp && (
+            <li>
+              <a
+                href={`https://wa.me/${contacto.whatsapp.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex items-center gap-2 text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
+              >
+                <span class="material-symbols-outlined text-[16px] text-primary-container" aria-hidden="true">
+                  chat
+                </span>
+                {contacto.whatsapp}
+              </a>
+            </li>
+          )
+        }
+        {
+          contacto.direccion && (
+            <li class="flex items-center gap-2 text-body-md text-inverse-on-surface/70">
+              <span class="material-symbols-outlined text-[16px] text-primary-container" aria-hidden="true">
+                {ICONO.ubicacion}
+              </span>
+              {contacto.direccion}
+            </li>
+          )
+        }
+      </ul>
+
+      <!-- Sin datos cargados: se dice, en vez de dejar un bloque vacio que
+           parece un fallo de la pagina. -->
+      {
+        !contacto.telefono && !contacto.email && !contacto.whatsapp && !contacto.direccion && (
+          <p class="mt-5 text-body-sm text-inverse-on-surface/50">
+            El Owner aun no publico datos de contacto. Escribe por Telegram o WhatsApp
+            desde los botones de arriba.
+          </p>
+        )
+      }
+    </div>
+
+    <!--
+      ZONA 4. El descargo. La pasarela tiene cinco frases y ninguna se puede
+      copiar: su descargo habla de FDIC, de QUSD y de una politica de
+      prevention de lavado, que aqui no aplican porque este marketplace no es
+      una institucion financiera.
+
+      Lo que se escribe es lo que este sistema HACE, y se puede comprobar en el
+      codigo:
+        - la Regla A retiene el 5% y obliga a pagar por la plataforma
+        - las Reglas B y C no tocan el dinero del comprador
+        - el enlace de descarga dura 5 minutos
+      Nada de eso es una intencion: son las reglas del Documento Maestro ya
+      escritas en `tipos.ts` y en los triggers de la base.
+    -->
+    <div class="mt-12 border-t border-inverse-on-surface/15 pt-8">
+      <p class="max-w-4xl text-body-sm leading-relaxed text-inverse-on-surface/55">
+        QBASwing Marketplace no es una institucion financiera y no custodia fondos. En la
+        Regla A el pago pasa por la pasarela y la plataforma retiene el 5% que fija la
+        regla; en las Reglas B y C el pago va directo al autor y la plataforma no
+        interviene. Los enlaces de descarga de productos digitales duran 5 minutos y solo
+        funcionan para quien compro. Los productos digitales de autores externos se
+        publican despues de que el Owner los apruebe.
+      </p>
+    </div>
   </div>
 
   <!--
-    Barra de creditos. Tres lineas porque hay tres consultas distintas que
-    responder, y separarlas evita que se lea como una sola frase larga:
+    ZONA 5. Barra final. Tres lineas de creditos porque hay tres consultas
+    distintas que responder, y separarlas evita que se lea como una sola frase
+    larga:
 
       1. Que es esto        -> el nombre del proyecto
-      2. Quien lo sostiene   -> quien lo patrocina y quien lo disena
+      2. Quien lo sostiene  -> quien lo patrocina y quien lo disena
       3. De quien es         -> la reserva legal
 
     "Patrocinado por Freeman" es una afirmacion sobre una persona real, asi que
     lleva su nombre al lado. No se inventa un patrocinador anonimo ni un nombre
     de estudio que no existe.
   -->
-  <div class="border-t border-inverse-on-surface/15">
-    <div class="container-page py-7">
-      <!-- 1. Nombre del proyecto -->
-      <p class="font-headline text-title-md font-semibold text-inverse-on-surface">
-        QBASwing Marketplace
-      </p>
-
-      <!-- 2. Quien lo sostiene y quien lo disena -->
-      <div class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-body-sm text-inverse-on-surface/65">
-        <p class="flex items-center gap-1.5">
-          <span class="material-symbols-outlined text-label-sm text-tertiary-container" aria-hidden="true">
-            verified
-          </span>
-          Patrocinado por <span class="font-semibold text-inverse-on-surface/90">Freeman</span>
+  <div class="mt-12 border-t border-inverse-on-surface/15">
+    <div class="container-page flex flex-col gap-6 py-7 md:flex-row md:items-center md:justify-between">
+      <div>
+        <p class="font-headline text-title-md font-semibold text-inverse-on-surface">
+          QBASwing Marketplace
         </p>
-        <p class="flex items-center gap-1.5">
-          <span class="material-symbols-outlined text-label-sm text-primary-container" aria-hidden="true">
-            palette
-          </span>
-          Disenado por <span class="font-semibold text-inverse-on-surface/90">QBASwing Designer</span>
+
+        <div class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-body-sm text-inverse-on-surface/65">
+          <p class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-label-sm text-tertiary-container" aria-hidden="true">
+              verified
+            </span>
+            Patrocinado por <span class="font-semibold text-inverse-on-surface/90">Freeman</span>
+          </p>
+          <p class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-label-sm text-primary-container" aria-hidden="true">
+              palette
+            </span>
+            Disenado por <span class="font-semibold text-inverse-on-surface/90">QBASwing Designer</span>
+          </p>
+        </div>
+
+        <p class="mt-3 text-body-sm text-inverse-on-surface/55">
+          &copy; {anio} QBASwing Designer. Todos los derechos reservados.
         </p>
       </div>
 
-      <!-- 3. La reserva legal -->
-      <p class="mt-3 text-body-sm text-inverse-on-surface/55">
-        &copy; {anio} QBASwing Designer. Todos los derechos reservados.
-      </p>
+      <!--
+        El idioma y las redes repetidas, como en la pasarela. El idioma es
+        INFORMACION, no un control: el selector de verdad esta en la cabecera.
+        Por eso no es un `<details>` como el de arriba. Dos selectores iguales en
+        la misma pagina hacen dudar de si hay dos.
+      -->
+      <div class="flex items-center gap-x-4">
+        <span
+          class="border-r border-inverse-on-surface/20 pr-4 text-label-sm text-inverse-on-surface/70"
+          title={`Idioma: ${idiomaActual.nombre}`}
+        >
+          {idiomaActual.codigo.slice(0, 2).toUpperCase()}
+          <span class="sr-only">Idioma actual: {idiomaActual.nombre}</span>
+        </span>
+
+        {
+          redesConUrl.length > 0 && (
+            <ul class="flex flex-wrap gap-x-4">
+              {redesConUrl.map((r) => (
+                <li>
+                  <a
+                    href={r.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-inverse-on-surface/60 transition-colors hover:text-white"
+                  >
+                    <span class="sr-only">{r.etiqueta}</span>
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">
+                      {r.icono}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </div>
     </div>
   </div>
 </footer>

@@ -56,18 +56,29 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_redes_etiqueta ON redes_sociales(etiqueta)
 
 -- Las 8 redes previstas, con el usuario VACIO.
 --
--- Discord y Telegram estan porque el publico de los productos digitales es
--- tecnico, y esos son los canales que usan. WhatsApp esta porque en Cuba es el
--- canal real, no un extra.
+-- EL ORDEN DE ESTE LISTADO ES EL DEFINITIVO. La migracion 0004 lo cambio: Telegram
+-- paso de 7 a 1 y Discord de 6 a 8. Esta semilla esta ALINEADA con lo que hizo 0004,
+-- y aunque se desalineara otra vez, 0004 volveria a corregirlo: las dos cosas son
+-- idempotentes, asi que una instalacion nueva termina en el mismo estado que la
+-- base remota.
+--
+-- Las dos primeras no son las mas populares, son las que CONVIERTEN. Telegram es el
+-- canal de soporte y de venta, y WhatsApp el de la compra por transferencia. En
+-- Cuba es por ahi donde llega la gente, y el orden de un pie de pagina se decide
+-- por quien compra, no por quien tiene mas seguidores.
+--
+-- Discord va el ultimo a proposito: es el canal mas especifico de la lista y
+-- sirve para la comunidad tecnica, que es el publico de los productos digitales,
+-- pero no es por donde entra un comprador nuevo.
 INSERT OR IGNORE INTO redes_sociales (tipo, base, etiqueta, icono, orden) VALUES
-  ('usuario', 'https://facebook.com/',    'Facebook',  'facebook',      1),
-  ('usuario', 'https://instagram.com/',   'Instagram', 'photo_camera',  2),
-  ('usuario', 'https://linkedin.com/in/', 'LinkedIn',  'work',          3),
-  ('usuario', 'https://youtube.com/@',    'YouTube',   'smart_display', 4),
-  ('usuario', 'https://github.com/',      'GitHub',    'code',          5),
-  ('url',     NULL,                       'Discord',   'forum',         6),
-  ('usuario', 'https://t.me/',            'Telegram',  'send',          7),
-  ('url',     NULL,                       'WhatsApp',  'chat',          8);
+  ('usuario', 'https://t.me/',            'Telegram',  'send',          1),
+  ('url',     NULL,                       'WhatsApp',  'chat',          2),
+  ('usuario', 'https://facebook.com/',    'Facebook',  'facebook',      3),
+  ('usuario', 'https://instagram.com/',   'Instagram', 'photo_camera',  4),
+  ('usuario', 'https://linkedin.com/in/', 'LinkedIn',  'work',          5),
+  ('usuario', 'https://youtube.com/@',    'YouTube',   'smart_display', 6),
+  ('usuario', 'https://github.com/',      'GitHub',    'code',          7),
+  ('url',     NULL,                       'Discord',   'forum',         8);
 
 -- -----------------------------------------------------------------------------
 -- Contacto

@@ -36,6 +36,7 @@
  */
 import { IDIOMAS } from '../i18n/config'
 import { cambiarIdioma, idiomaCompleto } from '../i18n/diccionario'
+import { infoIdioma } from '../i18n/idiomas'
 
 /**
  * Iniciales de cada idioma: dos letras, como se ven en un selector de pais.
@@ -85,30 +86,21 @@ function iniciales(codigo: string): string {
   return codigo.slice(0, 2).toUpperCase()
 }
 
-/** Como se llama cada idioma, en su propio idioma. */
-const NOMBRES: Record<string, string> = {
-  es: 'Español',
-  en: 'English',
-  pt: 'Português',
-  'pt-BR': 'Português (Brasil)',
-  fr: 'Français',
-  'fr-CA': 'Français (Canada)',
-  de: 'Deutsch',
-  it: 'Italiano',
-  ca: 'Català',
-  gl: 'Galego',
-  eu: 'Euskara',
-  'en-GB': 'English (UK)',
-  'en-US': 'English (US)',
-  'es-MX': 'Español (México)',
-  'es-AR': 'Español (Argentina)',
-  'es-CO': 'Español (Colombia)',
-  'zh-CN': '简体中文',
-  'zh-TW': '繁體中文',
-  ja: '日本語',
-  ko: '한국어',
-  ru: 'Русский',
-  ar: 'العربية',
+/**
+ * Como se llama cada idioma, en su propio idioma.
+ *
+ * ANTES AQUI HABIA UNA CONSTANTE `NOMBRES` CON LOS 22 NOMBRES. Se borro porque
+ * `i18n/idiomas.ts` ya los tiene todos en `InfoIdioma.nombre`, y eran copias
+ * identicas verificadas una por una. Dos tablas con el mismo dato no fallan
+ * juntas: se edita una, el menu sigue mostrando el otro, y el nombre de un
+ * idioma cambia de un sitio a otro sin que nada avise.
+ *
+ * La fuente es ahora una sola. `infoIdioma()` devuelve el idioma pedido y, si no
+ * existe, el de por defecto, asi que no hay que comprobar la clave: el
+ * descriptor cae al primer idioma en vez de romperse.
+ */
+function nombreDe(codigo: string): string {
+  return infoIdioma(codigo).nombre
 }
 
 /**
@@ -122,8 +114,8 @@ const RTL = new Set(['ar'])
 
 const actual = Astro.currentLocale ?? 'es'
 
-/** El idioma actual, translated, en su propio nombre. */
-const nombreActual = NOMBRES[actual] ?? actual
+/** El idioma actual, en su propio nombre. */
+const nombreActual = nombreDe(actual)
 
 interface Props {
   /** Si el visitante eligio un idioma explicito. Cambia el tratamiento visual. */
@@ -134,7 +126,7 @@ const { guardado = false } = Astro.props
 
 const entradas = IDIOMAS.map((codigo: string) => ({
   codigo,
-  nombre: NOMBRES[codigo] ?? codigo,
+  nombre: nombreDe(codigo),
   iniciales: iniciales(codigo),
   completo: idiomaCompleto(codigo),
   activo: codigo === actual,

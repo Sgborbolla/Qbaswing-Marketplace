@@ -56,10 +56,35 @@ export interface RedSocialPlataforma {
  *
  * Se crean vacias al aplicar el esquema. El Owner las completa desde el panel.
  *
- * La de Discord esta aparte porque es la que mas se usa para soporte en Cuba,
- * donde WhatsApp es el canal principal y Discord casi no. Se incluye porque el
- * Owner la pidio como "otro que recomiendas": es la unica que sirve para
- * comunidad tecnica, que es el publico de los productos digitales.
+ * ============================================================================
+ *  EL ORDEN: TELEGRAM PRIMERO, DISCORD AL ULTIMO
+ * ============================================================================
+ * Este orden lo fijo la migracion `0004`, despues de mirar el footer de la
+ * pasarela con la que se cobra: https://www.qvapay.com
+ *
+ * Lo que hace esa pasarela es poner Telegram el primero de sus ocho, y no por
+ * costumbre: su canal de soporte (`t.me/qvapaysupport_bot`) y el de ventas son
+ * el mismo, y ahi es donde llega la gente. En Cuba pasa igual, asi que aqui se
+ * replica la LOGICA y no la lista.
+ *
+ * Lo que NO se replica es su paleta. Alli el color de marca es un violeta
+ * (`#6759ef`) porque son una pasarela de pagos; aca el azul `#004199` viene del
+ * Documento Maestro. Un marketplace que se ve igual que su pasarela de pago
+ * confunde sobre quien esta guardando el dinero del comprador.
+ *
+ * El orden de un pie de pagina lo decide quien COMPRA:
+ *   1. Telegram  el canal de soporte y de venta
+ *   2. WhatsApp  el canal real de la compra por transferencia
+ *   3-6. Facebook, Instagram, LinkedIn, YouTube  presencia y credibilidad
+ *   7. GitHub    el codigo, que es lo que importa en productos digitales
+ *   8. Discord   comunidad tecnica: es el mas especifico de la lista y no es
+ *                por donde entra un comprador nuevo, pero se queda porque el
+ *                Owner lo pidio y porque un enlace al fondo sigue siendo util
+ *
+ * La version anterior de esta constante tenia Facebook primero y Discord en el
+ * puesto 6, que era el peor sitio posible para el: quedaba entre GitHub y
+ * Telegram, ni por arriba con los que compran ni por abajo con los que se
+ * adhieren.
  */
 /**
  * `valor: ''` esta EXPLICITO en cada red, y no se omite con `Omit`.
@@ -80,6 +105,25 @@ export interface RedSocialPlataforma {
  */
 export const REDES_INICIALES: Omit<RedSocialPlataforma, 'id'>[] = [
   {
+    etiqueta: 'Telegram',
+    icono: 'send',
+    tipo: 'usuario',
+    base: 'https://t.me/',
+    valor: '',
+    activo: true,
+    mostrarVacia: false,
+    orden: 1,
+  },
+  {
+    etiqueta: 'WhatsApp',
+    icono: 'chat',
+    tipo: 'url',
+    valor: '',
+    activo: true,
+    mostrarVacia: false,
+    orden: 2,
+  },
+  {
     etiqueta: 'Facebook',
     icono: 'facebook',
     tipo: 'usuario',
@@ -87,7 +131,7 @@ export const REDES_INICIALES: Omit<RedSocialPlataforma, 'id'>[] = [
     valor: '',
     activo: true,
     mostrarVacia: false,
-    orden: 1,
+    orden: 3,
   },
   {
     etiqueta: 'Instagram',
@@ -97,7 +141,7 @@ export const REDES_INICIALES: Omit<RedSocialPlataforma, 'id'>[] = [
     valor: '',
     activo: true,
     mostrarVacia: false,
-    orden: 2,
+    orden: 4,
   },
   {
     etiqueta: 'LinkedIn',
@@ -107,7 +151,7 @@ export const REDES_INICIALES: Omit<RedSocialPlataforma, 'id'>[] = [
     valor: '',
     activo: true,
     mostrarVacia: false,
-    orden: 3,
+    orden: 5,
   },
   {
     etiqueta: 'YouTube',
@@ -117,7 +161,7 @@ export const REDES_INICIALES: Omit<RedSocialPlataforma, 'id'>[] = [
     valor: '',
     activo: true,
     mostrarVacia: false,
-    orden: 4,
+    orden: 6,
   },
   {
     etiqueta: 'GitHub',
@@ -127,7 +171,7 @@ export const REDES_INICIALES: Omit<RedSocialPlataforma, 'id'>[] = [
     valor: '',
     activo: true,
     mostrarVacia: false,
-    orden: 5,
+    orden: 7,
   },
   {
     etiqueta: 'Discord',
@@ -136,31 +180,29 @@ export const REDES_INICIALES: Omit<RedSocialPlataforma, 'id'>[] = [
     valor: '',
     activo: true,
     mostrarVacia: false,
-    orden: 6,
-  },
-  {
-    etiqueta: 'Telegram',
-    icono: 'send',
-    tipo: 'usuario',
-    base: 'https://t.me/',
-    valor: '',
-    activo: true,
-    mostrarVacia: false,
-    orden: 7,
-  },
-  {
-    etiqueta: 'WhatsApp',
-    icono: 'chat',
-    tipo: 'url',
-    valor: '',
-    activo: true,
-    mostrarVacia: false,
     orden: 8,
   },
 ]
 
+/**
+ * Los tres campos que necesita construir una URL, y nada mas.
+ *
+ * Antes el parametro era `RedSocialPlataforma`, que incluye `id`. Eso obligaba a
+ * que el llamador tuviera la fila completa, y el respaldo del pie
+ * (`REDES_INICIALES`) no la tiene: es `Omit<..., 'id'>` justamente porque el
+ * `id` lo pone la base. El error era real y no de forma.
+ *
+ * Estrechar a lo que la funcion lee hace que acepte las dos: la fila de la API y
+ * la constante de respaldo. Y deja de fallar si mañana hace falta el `id`.
+ */
+export interface DatosUrlRed {
+  valor: string
+  tipo: 'usuario' | 'url'
+  base?: string
+}
+
 /** Construye el href de una red, o `null` si todavia no esta configurada. */
-export function urlDeRed(red: RedSocialPlataforma): string | null {
+export function urlDeRed(red: DatosUrlRed): string | null {
   const valor = red.valor.trim()
   if (!valor) return null
   if (red.tipo === 'url') {
