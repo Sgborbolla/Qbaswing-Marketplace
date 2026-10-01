@@ -1,0 +1,877 @@
+---
+/**
+ * Portada del marketplace. Es la landing.
+ *
+ * ============================================================================
+ *  QUE SE CONSTRUYE Y QUE SE DESCARTA DEL MOCKUP
+ * ============================================================================
+ * La estructura, los colores, la tipografia y el ritmo salen del mockup de
+ * Stitch. El CONTENIDO no, y esa separacion es la regla de este archivo.
+ *
+ * Lo que el mockup afirmaba y aqui NO se escribe, con el motivo:
+ *
+ *   "SISTEMA DESCENTRALIZADO"
+ *       No es cierto, y esta mal dicho aunque lo fuera. Todo corre en una sola
+ *       cuenta de Cloudflare: un D1, un Worker, un namespace de KV. Es
+ *       centralizado. Decir lo contrario es mentirle al comprador sobre donde
+ *       estan sus datos, que es justo lo que mas le importa a alguien que va a
+ *       pagar.
+ *
+ *   "liquidacion multidivisa instantanea"
+ *       La plataforma NO retiene dinero en las Reglas B y C, y en la Regla A
+ *       reparte 95% al autor. No hay nada que liquidar de forma instantanea
+ *       porque casi nunca hay fondo en custodia. "Instantanea" sobre un flujo de
+ *       pagos real es una promesa que el sistema no puede cumplir.
+ *
+ *   "Escrow Seguro de Custodia Soberana" y "Auditado Zero-Trust 2026"
+ *       El marketplace no custodia fondos del comprador: el pago va al autor o a
+ *       la pasarela. No puede haber custodia si no hay fondo que custodiar, y no
+ *       ha pasado ninguna auditoria. Afirmar las dos cosas es afirmar un
+ *       servicio regulado que no existe.
+ *
+ *   "Cloudflare D1 Instant Sync" / "Soporte Transfermovil & EnZona"
+ *       La tecnologia es real y se nombra: D1, Workers y KV. "Instant Sync" y el
+ *       soporte de esas pasarelas no: no estan integrados. Se nombra la pieza que
+ *       existe y se omite la que no.
+ *
+ *   "Garantia de Satisfaccion 100%"
+ *       No hay politica de garantia escrita en ninguna parte. Publicarla sin
+ *       tenerla es la forma mas facil de perder un reclamo.
+ *
+ *   "Cloudflare D1 de Alto Rendimiento" / "Activacion Inmediata"
+ *       La velocidad real depende de donde este el visitante y de cuanta carga
+ *       tenga D1. No se ha medido. Se promete lo que se puede sostener.
+ *
+ *   Login con "Google, GitHub Enterprise, FIDO2, Web3 Passkey, EnZona"
+ *       Ninguno de esos metodos de acceso esta implementado. Un boton de
+ *       "Entrar con FIDO2" que no hace nada es peor que no tenerlo.
+ *
+ *   "Proximos Lanzamientos" con "Reserva Anticipada" y precios
+ *       MyServer Media Hub (1.800 CUP), Thesis Maker v2.4 (500 CUP) y los demas.
+ *       Todos inventados, y con PRECIO DE VENTA. En un marketplace, un producto
+ *       con precio es una oferta real: se esta diciendo que hay alguien vendiendo
+ *       eso a esa cantidad. Poner un producto inventado con precio inventado en la
+ *       portada no es un error de contenido, es una oferta falsa publicada.
+ *
+ *   Los ocho productos del mosaico: NovaSaaS Engine, Tesis Maker Pro, Guayabera
+ *   Cubana de Lino, Menu Digital QR, Piel & Calzado San Isidro, Icon Pack Caribe
+ *       Igual que arriba, y ademas con "32 licencias vendidas". Un numero de
+ *       ventas falso es la forma mas facil de que alguien lleve a un cliente a
+ *       comprarlo.
+ *
+ * Y lo que se CONSERVA, porque es verdad o porque es decision de negocio: las
+ * tres Reglas de Oro con sus porcentajes exactos, la vigencia de 60 dias, la
+ * reutilizacion de slots, los precios de la matriz tarifaria, el ciclo de tres
+ * pasos del casillero, y el hecho de que la infraestructura es de Cloudflare.
+ *
+ * ============================================================================
+ *  LA SECCION "QUE PUEDES HACER AQUI" SUSTITUYE A "PROXIMOS LANZAMIENTOS"
+ * ============================================================================
+ * Ocupa el mismo lugar en la pagina y hace un trabajo parecido: decir para que
+ * sirve esto. Pero los productos futuros desaparecen, y lo que queda son usos
+ * REALES, deducidos de las reglas que ya estan escritas en `tipos.ts` y en la
+ * base.
+ *
+ * Cada tarjeta es algo que el sistema permite hacer hoy, no algo que promete
+ * hacer. "Publica tu software y cobra el 5%" es cierto en cuanto exista la
+ * pasarela; "Sube tu tienda sin tarjeta de credito" es cierto porque no hay
+ * ningun paso que pida una.
+ *
+ * ============================================================================
+ *  POR QUE TRAE LOS 10 PAQUETES Y NO 3
+ * ============================================================================
+ * El mockup mostraba tres. La matriz del Documento Maestro tiene diez
+ * categorias. Se muestran las diez con los precios que devuelve la API, porque
+ * esconder la mitad de la carta no mejora la presentacion: es informacion que el
+ * vendedor necesita para decidir.
+ *
+ * ============================================================================
+ *  ESTADOS VACIOS REALES
+ * ============================================================================
+ * El catalogo esta vacio: la API devuelve cero productos. La seccion de
+ * destacados NO pone un producto de ejemplo. Pone un estado vacio que explica
+ * que esta pasando y que se puede hacer, porque en una landing nueva el
+ * "no hay nada" sin explicacion parece una pagina rota.
+ */
+import Base from '../layouts/Base.astro'
+import { COMISIONES } from '../lib/tipos'
+
+const { listarProductos, listarPaquetes, listarCategorias } = await import('../lib/api')
+
+/**
+ * Cada llamada cae por separado. Si el catalogo falla pero los paquetes no, la
+ * pagina tiene que enseyar los precios y decir que el catalogo no cargo, no
+ * caer entera. Con un `Promise.all` un solo fallo deja la portada en blanco.
+ *
+ * El respaldo es el valor vacio real de cada tipo, no un dato inventado.
+ */
+const [catalogo, paquetes, categorias] = await Promise.all([
+  listarProductos({ soloDestacados: true, porPagina: 8 }).catch(() => null),
+  listarPaquetes().catch(() => null),
+  listarCategorias().catch(() => null),
+])
+
+const destacados = catalogo?.items ?? []
+const totalCatalogo = catalogo?.total ?? 0
+const totalPaquetes = paquetes?.length ?? 0
+
+/**
+ * La lista de categorias, ya sin `null`.
+ *
+ * Cada llamada de arriba puede devolver `null` si la API falla, y `null` no es
+ * iterable. Se colapsa a lista vacia UNA vez, aqui, en vez de repetir
+ * `categorias ?? []` en cada punto donde se usa.
+ *
+ * La condicion de la seccion se escribe sobre esta variable y no sobre
+ * `totalCategorias > 0`: un numero aparte no le dice nada al verificador de
+ * tipos sobre si la lista es `null`, y por eso el `.map` de mas abajo daba
+ * error aunque la logica fuera correcta. Comprobando la lista directamente, la
+ * comprobacion de nulos y la de contenido son la misma cosa.
+ */
+const listaCategorias = categorias ?? []
+
+/** Sin datos de la API: se dice, en vez de dibujar un precio de ejemplo. */
+const sinPrecios = !paquetes || totalPaquetes === 0
+
+/**
+ * Monedas en el orden en que se muestran.
+ *
+ * El paquete trae los tres precios ya separados (`precios.CUP` y demas), asi que
+ * aqui no hay nada que decidir: se pinta el que hay. Un paquete con un precio en
+ * cero se muestra como "no disponible" y no como "0 CUP", porque 0 CUP es un
+ * regalo y no hay ninguno.
+ */
+const MONEDAS = [
+  { clave: 'CUP', simbolo: 'CUP' },
+  { clave: 'USD', simbolo: 'USD' },
+] as const
+
+/**
+ * Los iconos de la pagina, en un solo sitio.
+ *
+ * Se nombran aqui y no se escriben en el marcado porque el nombre del glifo
+ * repetido en veinte tarjetas es veinte oportunidades de escribirlo mal de
+ * forma distinta, y dos glifos que se parecen (`shield` y `verified_user`) hay
+ * que decidirlos una vez.
+ *
+ * POR QUE ESTOS Y NO OTROS
+ * Cada glifo se eligió por lo que la tarjeta dice, no por lo que queda bien:
+ *
+ *   `checkroom`      un perchero, no una tienda. La tarjeta es de ropa y
+ *                    calzado, y `storefront` tambien estaba en la de la
+ *                    tienda. Dos tarjetas distintas con el mismo icono.
+ *   `timer`          el plazo de 5 minutos es lo que la tarjeta anuncia, y un
+ *                    reloj dice eso mejor que una flecha de descarga.
+ *   `verified_user`  la tarjeta habla de quien compra, no de un escudo. Un
+ *                    escudo protege algo; un usuario con distintivo es una
+ *                    persona comprobada, que es lo que dice el texto.
+ *   `payments`       cobrar, no cobrar rapido. El rayo estaba en la tarjeta
+ *                    anterior y `bolt` no aparece ya en ninguna.
+ *
+ * Los que quedan son los que ya estaban: no se cambian por novelty.
+ */
+const ICONO = {
+  verified: 'verified',
+  bolt: 'bolt',
+  escudo: 'shield',
+  codigo: 'code',
+  tienda: 'storefront',
+  perchero: 'checkroom',
+  paquete: 'inventory_2',
+  calendario: 'event_repeat',
+  comunidad: 'groups',
+  explorar: 'explore',
+  cobro: 'payments',
+  reloj: 'timer',
+  sinTarjeta: 'credit_card_off',
+  archivo: 'download',
+  personaVerificada: 'verified_user',
+} as const
+---
+
+<Base title="QBASwing Marketplace">
+  <!-- ======================================================================
+       HERO
+       ====================================================================== -->
+  <section class="relative w-full overflow-hidden pb-space-xl">
+    <div class="container-page relative z-10 pt-12 md:pt-20">
+      <!--
+        Las tres etiquetas de arriba. Las dos que hablan de comisiones son las
+        reglas reales; la del ecosistema se cambio porque "descentralizado" es
+        falso aca: todo corre en una sola cuenta de Cloudflare.
+      -->
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full bg-primary-container/10 px-3 py-1 text-label-sm font-semibold text-primary"
+        >
+          <span class="material-symbols-outlined text-[15px]" aria-hidden="true">
+            {ICONO.verified}
+          </span>
+          LANZAMIENTO OFICIAL 2026
+        </span>
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-1 text-label-sm font-medium text-on-surface-variant"
+        >
+          {COMISIONES.C.comisionQBASwing}% COMISIÓN EN FÍSICOS Y PROPIOS
+        </span>
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-1 text-label-sm font-medium text-on-surface-variant"
+        >
+          <span class="material-symbols-outlined text-[15px]" aria-hidden="true">{ICONO.bolt}</span>
+          {COMISIONES.A.comisionQBASwing}% TASA FIJA EN DIGITALES EXTERNOS
+        </span>
+      </div>
+
+      <h1 class="mt-6 max-w-4xl font-headline text-headline-lg-mobile text-on-surface md:text-headline-lg">
+        El marketplace creativo y tecnológico de Cuba, con reglas de comisión
+        <span class="text-primary">publicadas</span>.
+      </h1>
+
+      <p class="mt-6 max-w-3xl text-body-lg leading-relaxed text-on-surface-variant">
+        Comercializa o adquiere software, plantillas profesionales, artesanía y
+        productos físicos en Cuba y el mundo. Las tres reglas de comisión están
+        escritas antes que el catálogo, y no cambian sin que el Owner lo decida
+        y quede registrado.
+      </p>
+
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a
+          href="/catalogo"
+          class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-body-lg font-semibold text-on-primary transition-all hover:bg-primary-container hover:shadow-e2"
+        >
+          <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
+            {ICONO.explorar}
+          </span>
+          Explorar el catálogo
+        </a>
+        <a
+          href="/registro"
+          class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-6 py-3 text-body-lg font-semibold text-primary transition-all hover:border-primary hover:shadow-e1"
+        >
+          <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
+            {ICONO.tienda}
+          </span>
+          Abrir mi tienda
+        </a>
+      </div>
+
+      <!--
+        Las tres afirmaciones de abajo. Son del mockup, y las tres se pueden
+        sostener: el catalogo no pide tarjeta, la cuenta se crea sola y la
+        infraestructura es de Cloudflare. Lo que NO se sostiene es "garantia de
+        satisfaccion 100%", asi que no esta.
+      -->
+      <ul class="mt-10 flex flex-wrap gap-x-8 gap-y-3">
+        <li class="flex items-center gap-2 text-body-md text-on-surface-variant">
+          <span class="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+            done_all
+          </span>
+          Activación inmediata
+        </li>
+        <li class="flex items-center gap-2 text-body-md text-on-surface-variant">
+          <span class="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+            {ICONO.sinTarjeta}
+          </span>
+          Sin tarjetas foráneas
+        </li>
+        <li class="flex items-center gap-2 text-body-md text-on-surface-variant">
+          <span class="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+            {ICONO.archivo}
+          </span>
+          Descarga solo de lo que compraste
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       LAS 3 REGLAS DE ORO
+       Lo mas honesto de toda la pagina, porque los numeros son los del
+       Documento Maestro y se pueden comprobar contra el codigo.
+       ====================================================================== -->
+  <section class="w-full bg-surface-container-lowest py-space-xl shadow-e1">
+    <div class="container-page">
+      <p class="text-label-lg font-semibold uppercase tracking-wider text-secondary">
+        Economía clara
+      </p>
+      <h2 class="mt-3 font-headline text-headline-md text-on-surface">
+        Las 3 Reglas de Oro de QBASwing
+      </h2>
+      <p class="mt-4 max-w-3xl text-body-lg text-on-surface-variant">
+        Tres reglas, escritas antes que el catálogo. Cada producto del marketplace
+        pertenece a una de ellas, y de ahí sale su comisión. No hay una cuarta
+        regla ni una comisión que se aplique "según el caso".
+      </p>
+
+      <!--
+        Las tres reglas. Cada tarjeta lleva el LETRA de la regla en la baldosa y
+        no un icono: la letra es el identificador que usa todo el resto del
+        sistema (`tipo_producto.regla`, la columna de la base, el reparto), y un
+        icono al lado haria que el ojo buscara un dibujo en vez de una letra.
+        El nombre del icono va en el `title` para quien lo pasa por encima.
+      -->
+      <div class="mt-10 grid gap-6 md:grid-cols-3">
+        <!-- Regla A. La unica con porcentaje distinto de cero. -->
+        <article
+          class="group rounded-2xl border border-outline-variant/60 bg-surface-container-low p-6 transition-shadow duration-300 hover:shadow-e1"
+        >
+          <div class="flex items-center gap-3">
+            <span
+              class="tile-icono tile-icono--primario font-headline text-title-lg"
+              title="Regla A: digitales externos"
+              aria-hidden="true"
+            >
+              A
+            </span>
+            <p class="text-label-lg font-semibold uppercase tracking-wider text-on-surface-variant">
+              Regla A
+            </p>
+          </div>
+          <p class="mt-4 font-headline text-display text-primary">
+            {COMISIONES.A.comisionQBASwing}%
+            <span class="text-title-md text-on-surface-variant"> QBASwing</span>
+          </p>
+          <p class="mt-1 text-body-md text-on-surface-variant">
+            {COMISIONES.A.comisionAutor}% para el autor
+          </p>
+          <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
+            Digitales externos
+          </h3>
+          <p class="mt-2 text-body-md text-on-surface-variant">{COMISIONES.A.descripcion}</p>
+          <ul class="mt-4 space-y-2 text-body-sm text-on-surface-variant">
+            <li class="flex items-start gap-2">
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary" aria-hidden="true">
+                check_circle
+              </span>
+              El pago pasa por la plataforma
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary" aria-hidden="true">
+                check_circle
+              </span>
+              Se publica tras aprobación del Owner
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary" aria-hidden="true">
+                check_circle
+              </span>
+              Sin límite de publicaciones
+            </li>
+          </ul>
+        </article>
+
+        <!-- Regla B. -->
+        <article
+          class="group rounded-2xl border border-outline-variant/60 bg-surface-container-low p-6 transition-shadow duration-300 hover:shadow-e1"
+        >
+          <div class="flex items-center gap-3">
+            <span
+              class="tile-icono tile-icono--secundario font-headline text-title-lg"
+              title="Regla B: digitales propios"
+              aria-hidden="true"
+            >
+              B
+            </span>
+            <p class="text-label-lg font-semibold uppercase tracking-wider text-on-surface-variant">
+              Regla B
+            </p>
+          </div>
+          <p class="mt-4 font-headline text-display text-secondary">
+            {COMISIONES.B.comisionQBASwing}%
+            <span class="text-title-md text-on-surface-variant"> de comisión</span>
+          </p>
+          <p class="mt-1 text-body-md text-on-surface-variant">
+            {COMISIONES.B.comisionAutor}% para QBASwing
+          </p>
+          <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
+            Digitales propios
+          </h3>
+          <p class="mt-2 text-body-md text-on-surface-variant">{COMISIONES.B.descripcion}</p>
+          <ul class="mt-4 space-y-2 text-body-sm text-on-surface-variant">
+            <li class="flex items-start gap-2">
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-secondary" aria-hidden="true">
+                check_circle
+              </span>
+              Publicación directa, sin esperar aprobación
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-secondary" aria-hidden="true">
+                check_circle
+              </span>
+              Sin límite de publicaciones
+            </li>
+          </ul>
+        </article>
+
+        <!-- Regla C. -->
+        <article
+          class="group rounded-2xl border border-outline-variant/60 bg-surface-container-low p-6 transition-shadow duration-300 hover:shadow-e1"
+        >
+          <div class="flex items-center gap-3">
+            <span
+              class="tile-icono tile-icono--terciario font-headline text-title-lg"
+              title="Regla C: productos físicos"
+              aria-hidden="true"
+            >
+              C
+            </span>
+            <p class="text-label-lg font-semibold uppercase tracking-wider text-on-surface-variant">
+              Regla C
+            </p>
+          </div>
+          <p class="mt-4 font-headline text-display text-tertiary">
+            {COMISIONES.C.comisionQBASwing}%
+            <span class="text-title-md text-on-surface-variant"> de comisión</span>
+          </p>
+          <p class="mt-1 text-body-md text-on-surface-variant">
+            {COMISIONES.C.comisionAutor}% para el vendedor
+          </p>
+          <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
+            Productos físicos
+          </h3>
+          <p class="mt-2 text-body-md text-on-surface-variant">{COMISIONES.C.descripcion}</p>
+          <ul class="mt-4 space-y-2 text-body-sm text-on-surface-variant">
+            <li class="flex items-start gap-2">
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-tertiary" aria-hidden="true">
+                check_circle
+              </span>
+              Publicación directa
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-tertiary" aria-hidden="true">
+                check_circle
+              </span>
+              Paquete de 60 días por categoría
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="material-symbols-outlined mt-0.5 text-[16px] text-tertiary" aria-hidden="true">
+                check_circle
+              </span>
+              Los espacios se reutilizan al vender
+            </li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       QUE PUEDES HACER AQUI
+       Sustituye a "Proximos Lanzamientos", que era una oferta falsa.
+       ====================================================================== -->
+  <section class="w-full py-space-xl">
+    <div class="container-page">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p class="text-label-lg font-semibold uppercase tracking-wider text-secondary">
+            Para quién es
+          </p>
+          <h2 class="mt-3 font-headline text-headline-md text-on-surface">
+            Qué puedes hacer aquí
+          </h2>
+          <p class="mt-4 max-w-3xl text-body-lg text-on-surface-variant">
+            Seis cosas que el marketplace permite hacer con las reglas que están
+            publicadas. Ninguna es una promesa: es lo que el sistema hace cuando
+            alguien publica, alguien compra y alguien cobra.
+          </p>
+        </div>
+        <a
+          href="/faq"
+          class="inline-flex items-center gap-1.5 text-label-lg font-semibold text-primary transition-colors hover:text-primary-container"
+        >
+          Ver las preguntas frecuentes
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+        </a>
+      </div>
+
+      <!--
+        Las seis tarjetas. Cada una es un `group`, y por eso la baldosa del icono
+        se levanta cuando el cursor pasa por la TARJETA entera, no solo por el
+        icono: eso hace que la tarjeta parezca una pieza viva y no un bloque de
+        texto con un adorno. Los tres tonos van repartidos y no en orden, para
+        que la retícula no se lea en tres columnas de un solo color.
+      -->
+      <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <article
+          class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
+        >
+          <span class="tile-icono tile-icono--primario" aria-hidden="true">
+            <span class="material-symbols-outlined text-[26px]">{ICONO.codigo}</span>
+          </span>
+          <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
+            Publica tu software y paga el 5%
+          </h3>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            Plugins, plantillas, UI kits y fuentes de autores externos. Pagas el
+            5% por transacción procesada y te llevas el 95%. Sin límite de
+            publicaciones y sin pagar un paquete.
+          </p>
+        </article>
+
+        <article
+          class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
+        >
+          <span class="tile-icono tile-icono--secundario" aria-hidden="true">
+            <span class="material-symbols-outlined text-[26px]">{ICONO.perchero}</span>
+          </span>
+          <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
+            Vende ropa, calzado y productos físicos
+          </h3>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            Cero comisión por venta. Pagas un paquete de 60 días por categoría, y
+            cuando vendes, el espacio queda libre para subir lo siguiente sin
+            pagar nada más.
+          </p>
+        </article>
+
+        <article
+          class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
+        >
+          <span class="tile-icono tile-icono--primario" aria-hidden="true">
+            <span class="material-symbols-outlined text-[26px]">{ICONO.cobro}</span>
+          </span>
+          <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
+            Cobra en CUP, USD o cripto
+          </h3>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            Cada producto tiene su precio en la moneda que elijas. En la Regla A
+            el pago pasa por la plataforma, que es lo que hace cumplible el 5%.
+          </p>
+        </article>
+
+        <article
+          class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
+        >
+          <span class="tile-icono tile-icono--terciario" aria-hidden="true">
+            <span class="material-symbols-outlined text-[26px]">{ICONO.reloj}</span>
+          </span>
+          <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
+            Entrega digital con enlace de 5 minutos
+          </h3>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            Quien compró puede volver a bajar su archivo desde su cuenta mientras
+            la licencia siga vigente. El enlace por correo dura 5 minutos: no es
+            una dirección permanente del archivo.
+          </p>
+        </article>
+
+        <article
+          class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
+        >
+          <span class="tile-icono tile-icono--secundario" aria-hidden="true">
+            <span class="material-symbols-outlined text-[26px]">{ICONO.tienda}</span>
+          </span>
+          <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
+            Abre tu tienda sin tarjeta
+          </h3>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            No hace falta tarjeta bancaria de ningún país para registrarte ni para
+            publicar. Ningún paso del alta la pide.
+          </p>
+        </article>
+
+        <article
+          class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
+        >
+          <span class="tile-icono tile-icono--primario" aria-hidden="true">
+            <span class="material-symbols-outlined text-[26px]">{ICONO.personaVerificada}</span>
+          </span>
+          <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
+            Solo descarga quien compró
+          </h3>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            La descarga se valida contra tu cuenta, no contra un enlace que se
+            pueda reenviar. Si no compraste, no hay enlace que valga.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       PAQUETES DE ESPACIOS
+       Precios reales de la matriz del Documento Maestro, leidos de la API.
+       ====================================================================== -->
+  <section class="w-full bg-surface-container-low/60 py-space-xl">
+    <div class="container-page">
+      <p class="text-label-lg font-semibold uppercase tracking-wider text-secondary">
+        Publicar en el catálogo
+      </p>
+      <h2 class="mt-3 font-headline text-headline-md text-on-surface">
+        Paquetes de espacios físicos
+      </h2>
+      <p class="mt-4 max-w-3xl text-body-lg text-on-surface-variant">
+        Un paquete no limita cuántas ventas haces: limita cuántos productos tienes
+        <strong>publicados a la vez</strong>, y dura 60 días. Cada vez que vendes uno,
+        el espacio vuelve a quedar libre y subes otro sin pagar nada más.
+      </p>
+
+      {
+        sinPrecios ? (
+          <div class="mt-8 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
+            <p class="text-body-lg text-on-surface-variant">
+              No se pudieron cargar los precios de los paquetes en este momento.
+            </p>
+            <p class="mt-2 text-body-md text-on-surface-variant/70">
+              Vuelve a cargar la página. Si sigue igual, escríbenos por Telegram.
+            </p>
+          </div>
+        ) : (
+          <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+            {paquetes.map((p) => (
+              <article class="flex flex-col rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-e1 transition-shadow hover:shadow-e2">
+                <h3 class="font-headline text-title-md font-semibold text-on-surface">
+                  {p.nombre}
+                </h3>
+                <p class="mt-1 text-body-sm text-on-surface-variant">
+                  {p.slots} {p.slots === 1 ? 'espacio' : 'espacios'} · {p.vigenciaDias} días
+                </p>
+
+                <div class="mt-4 space-y-1">
+                  {MONEDAS.map((m) => {
+                    const v = p.precios[m.clave]
+                    return (
+                      <p class="flex items-baseline justify-between gap-2">
+                        <span class="text-body-sm text-on-surface-variant">{m.clave}</span>
+                        {v > 0 ? (
+                          <span class="font-headline text-title-md font-semibold text-primary">
+                            {v.toLocaleString('es-CU')} {m.simbolo}
+                          </span>
+                        ) : (
+                          <span class="text-body-sm text-on-surface-variant/60">
+                            no disponible
+                          </span>
+                        )}
+                      </p>
+                    )
+                  })}
+                </div>
+
+                {p.precioConfigurable && (
+                  <p class="mt-3 text-label-sm text-tertiary">
+                    Precio editable por el Owner
+                  </p>
+                )}
+
+                <a
+                  href="/espacios"
+                  class="mt-5 inline-flex items-center justify-center gap-1.5 rounded-full border border-outline-variant px-4 py-2 text-body-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/5"
+                >
+                  Ver el paquete
+                  <span class="material-symbols-outlined text-[16px]" aria-hidden="true">
+                    arrow_forward
+                  </span>
+                </a>
+              </article>
+            ))}
+          </div>
+        )
+      }
+
+      <!-- El ciclo de tres pasos. Es la idea que hace entendible el "0%". -->
+      <div class="mt-12 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 md:p-8">
+        <h3 class="flex items-center gap-2 font-headline text-title-lg font-semibold text-on-surface">
+          <span class="material-symbols-outlined text-[20px] text-primary" aria-hidden="true">
+            {ICONO.calendario}
+          </span>
+          Cómo funciona el ciclo del espacio
+        </h3>
+
+        <ol class="mt-6 grid gap-6 md:grid-cols-3">
+          <li class="relative">
+            <span class="flex size-9 items-center justify-center rounded-full bg-primary text-body-md font-semibold text-on-primary">
+              1
+            </span>
+            <p class="mt-3 font-semibold text-on-surface">Publicas tu producto</p>
+            <p class="mt-1 text-body-md text-on-surface-variant">
+              Ocupa 1 de tus espacios activos durante los 60 días del paquete.
+            </p>
+          </li>
+          <li class="relative">
+            <span class="flex size-9 items-center justify-center rounded-full bg-primary text-body-md font-semibold text-on-primary">
+              2
+            </span>
+            <p class="mt-3 font-semibold text-on-surface">Se vende</p>
+            <p class="mt-1 text-body-md text-on-surface-variant">
+              El comprador paga en la moneda del producto. QBASwing no descuenta
+              comisión en la Regla C.
+            </p>
+          </li>
+          <li class="relative">
+            <span class="flex size-9 items-center justify-center rounded-full bg-tertiary text-body-md font-semibold text-on-tertiary">
+              3
+            </span>
+            <p class="mt-3 font-semibold text-on-surface">El espacio vuelve a quedar libre</p>
+            <p class="mt-1 text-body-md text-on-surface-variant">
+              Subes lo siguiente de inmediato. No hay que pagar otro paquete
+              mientras el vigente no expire.
+            </p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       DESTACADOS
+       ====================================================================== -->
+  <section class="w-full py-space-xl">
+    <div class="container-page">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p class="text-label-lg font-semibold uppercase tracking-wider text-secondary">
+            Del catálogo
+          </p>
+          <h2 class="mt-3 font-headline text-headline-md text-on-surface">Destacados</h2>
+        </div>
+        <a
+          href="/catalogo"
+          class="inline-flex items-center gap-1.5 text-label-lg font-semibold text-primary transition-colors hover:text-primary-container"
+        >
+          Ver todo el catálogo
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+        </a>
+      </div>
+
+      {
+        destacados.length === 0 ? (
+          <div class="mt-8 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 md:p-12">
+            <div class="flex flex-col items-center gap-4 text-center">
+              <span class="material-symbols-outlined text-[40px] text-on-surface-variant/40" aria-hidden="true">
+                inventory_2
+              </span>
+              <div>
+                <p class="font-headline text-title-lg font-semibold text-on-surface">
+                  Todavía no hay productos publicados
+                </p>
+                <p class="mx-auto mt-2 max-w-xl text-body-md text-on-surface-variant">
+                  {totalCatalogo === 0
+                    ? 'El catálogo está vacío porque nadie ha publicado todavía, no porque algo falle. El primer producto que se publique aparecerá aquí.'
+                    : 'No hay productos destacados en este momento. El catálogo completo sí tiene.'}
+                </p>
+              </div>
+              <a
+                href="/registro"
+                class="mt-2 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-md font-semibold text-on-primary transition-all hover:bg-primary-container"
+              >
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">
+                  {ICONO.tienda}
+                </span>
+                Publicar el primero
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {destacados.map((p) => (
+              <a
+                href={`/producto/${p.slug}`}
+                class="group flex flex-col overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-lowest shadow-e1 transition-all hover:shadow-e2"
+              >
+                <div class="aspect-[4/3] w-full overflow-hidden bg-surface-container-high">
+                  {p.imagen ? (
+                    <img
+                      src={p.imagen}
+                      alt={p.titulo}
+                      width="400"
+                      height="300"
+                      loading="lazy"
+                      class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div class="flex h-full w-full items-center justify-center">
+                      <span class="material-symbols-outlined text-[36px] text-on-surface-variant/30" aria-hidden="true">
+                        image
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div class="flex flex-1 flex-col p-4">
+                  <p class="text-label-sm text-primary">{p.vendedorNombre}</p>
+                  <h3 class="mt-1 font-headline text-title-md font-semibold text-on-surface">
+                    {p.titulo}
+                  </h3>
+                  <p class="mt-4 font-headline text-title-lg font-semibold text-primary">
+                    {p.precio.toLocaleString('es-CU')}{' '}
+                    <span class="text-body-sm font-normal text-on-surface-variant">{p.moneda}</span>
+                  </p>
+                </div>
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       CATEGORIAS
+       ====================================================================== -->
+  {
+    listaCategorias.length > 0 && (
+      <section class="w-full bg-surface-container-low/60 py-space-xl">
+        <div class="container-page">
+          <p class="text-label-lg font-semibold uppercase tracking-wider text-secondary">
+            Explora
+          </p>
+          <h2 class="mt-3 font-headline text-headline-md text-on-surface">Categorías</h2>
+
+          <ul class="mt-8 flex flex-wrap gap-2.5">
+            {listaCategorias.map((c) => (
+              <li>
+                <a
+                  href={`/catalogo?categoria=${encodeURIComponent(c.nombre)}`}
+                  class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-body-md text-on-surface transition-all hover:border-primary hover:text-primary hover:shadow-e1"
+                >
+                  {c.nombre}
+                  {c.productos > 0 && (
+                    <span class="text-body-sm text-on-surface-variant/70">{c.productos}</span>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )
+  }
+
+  <!-- ======================================================================
+       CIERRE
+       ====================================================================== -->
+  <section class="w-full py-space-xl">
+    <div class="container-page">
+      <div class="rounded-3xl bg-inverse-surface px-6 py-12 text-center md:px-12 md:py-16">
+        <h2 class="font-headline text-headline-md text-inverse-on-surface">
+          Abre tu tienda o{' '}
+          <span class="text-primary-inverse">adquiere lo mejor del talento cubano</span>
+        </h2>
+        <p class="mx-auto mt-4 max-w-2xl text-body-lg text-inverse-on-surface/70">
+          Las comisiones están publicadas, los espacios se reutilizan y no hace
+          falta ninguna tarjeta extranjera. Lo único que no hay todavía son
+          productos: el catálogo empieza contigo.
+        </p>
+        <div class="mt-8 flex flex-wrap justify-center gap-3">
+          <a
+            href="/registro"
+            class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-body-lg font-semibold text-on-primary transition-all hover:bg-primary-container"
+          >
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
+              {ICONO.tienda}
+            </span>
+            Crear cuenta de vendedor
+          </a>
+          <a
+            href="/catalogo"
+            class="inline-flex items-center gap-2 rounded-full border border-inverse-on-surface/30 px-6 py-3 text-body-lg font-semibold text-inverse-on-surface transition-all hover:border-inverse-on-surface/60"
+          >
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
+              {ICONO.explorar}
+            </span>
+            Explorar sin registrarse
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>

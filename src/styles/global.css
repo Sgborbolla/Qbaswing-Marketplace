@@ -69,6 +69,51 @@
   --color-outline-variant: #c2c6d6;
   --color-surface-tint: #0458c9;
 
+  /* --- Bandera de Cuba ---------------------------------------------------- */
+  /* Los cuatro tonos de la bandera, mas el dorado de su estrella.
+   *
+   * El proyecto es cubano, asi que la bandera es una paleta legitimamente propia
+   * y no un capricho. Los valores se sacan de la vexilologia, no de una foto: el
+   * azul de las bandas (#002A8F), el blanco, el rojo central (#CF0A2C) y el
+   * dorado de la estrella (#FCD116).
+   *
+   * DONDE SE USA CADA UNO
+   *   --color-bandera-azul    junto al dorado, en los acentos del pie
+   *   --color-bandera-rojo    idem, como contrapunto
+   *   --color-bandera-dorado  el texto de los creditos del pie
+   *   --color-bandera-blanco  el fondo, cuando haga falta
+   *
+   * POR QUE EL DORADO ES UN TOKEN Y NO UN VALOR SUELTO
+   * Aparece en cuatro lineas del pie. Escrito a mano serian cuatro chances de
+   * escribirlo distinto, y tres de ellas serian Hex diferentes que en pantalla
+   * se ven iguales y no se puede saber cual se ha equivocado.
+   *
+   * POR QUE NO SE USA EN EL CUERPO DEL TEXTO
+   * El dorado es un color de baja luminosidad sobre fondo oscuro: se lee bien
+   * como acento, mal como parrafo. Por eso se limita a la barra de creditos, que
+   * va sobre `--color-inverse-surface`, y no toca el texto de lectura. */
+  --color-bandera-azul: #002a8f;
+  --color-bandera-rojo: #cf0a2c;
+  --color-bandera-dorado: #fcd116;
+  --color-bandera-blanco: #ffffff;
+  /* El dorado se usa a dos intensidades: entero para el nombre del proyecto y
+     algo apagado para las etiquetas, para que la jerarquia se lea sin bajar el
+     contraste del nombre. */
+  --color-bandera-dorado-suave: #d9b43a;
+
+  /* El azul de la bandera ACLARADO, y esto no es estetica: es legibilidad.
+   *
+   * El pie va sobre `--color-inverse-surface`, que es `#213145`, un azul marino.
+   * El azul de la bandera es `#002a8f`, mas oscuro todavia. Puestos uno sobre el
+   * otro dan un contraste por debajo de 1.5:1, que es indistinguible. El azul de
+   * la bandera no se ve sobre el fondo del pie porque el fondo del pie ya ES un
+   * azul.
+   *
+   * aclarado (`#8fb4ff`) conserva el tono y vuelve a leerse. El degradado de
+   * texto que usa la clase `.texto-bandera` arranca aqui y no en
+   * `--color-bandera-azul`, y esa es la unica razon de que exista este token. */
+  --color-bandera-azul-claro: #8fb4ff;
+
   /* --- Estado ------------------------------------------------------------- */
   --color-error: #ba1a1a;
   --color-on-error: #ffffff;
@@ -198,6 +243,147 @@
    Componentes
    ============================================================================ */
 @layer components {
+  /* ==========================================================================
+     Baldosa de icono
+     ==========================================================================
+     Un icono suelto sobre el fondo se pierde. Estas clases lo ponen sobre una
+     baldosa cuadrada con el fondo tintado del color que le toca, y le dan el
+     relleno y el peso de trazo que el resto de la pagina no usa.
+
+     POR QUE `FILL 1`
+     La fuente se carga con `FILL 0`, que es el contorno. El contorno se usa en
+     los iconos de la cabecera y del pie, donde son pequenos y tienen que pesar
+     poco. En una baldosa de 52px el contorno queda fino y desvaido, y con
+     `FILL 1` el mismo glifo se ve solido. Cambiar el relleno aqui y no en la
+     base es lo que permite las dos cosas a la vez.
+
+     POR QUE UNA CLASE Y NO UTILIDADES DE TAILWIND EN CADA USO
+     Cada baldosa necesita fondo tintado, borde, relleno, transicion y el estado
+     hover del grupo. Eso son siete declaraciones. Puestas en cada tarjeta serian
+     siete veces 6 tarjetas, y la proxima tarjeta nueva con un color distinto
+     obliga a inventar el septimo uso. Con tres clases de tono, el color se
+     elige escribiendo dos palabras.
+
+     `group-hover` en `.tile-icono` y no en la baldosa: la baldosa se agranda
+     cuando el CURSOR esta encima de la tarjeta entera, no solo de la baldosa.
+     Con el grupo, poner el cursor en el texto tambien la agranda, que es lo que
+     hace que la tarjeta parezca viva en vez de tener un adorno en un rincon.
+     ========================================================================== */
+  .tile-icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: 3.25rem;
+    block-size: 3.25rem;
+    border-radius: 1rem;
+    font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 32;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.05);
+    transition:
+      transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 0.35s ease;
+  }
+
+  .tile-icono > .material-symbols-outlined {
+    font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 32;
+  }
+
+  /* El hover. Solo cuando la tarjeta es un `group`: sin eso, el efecto se
+     dispararia al pasar por la baldosa y no por la tarjeta. */
+  .group:hover .tile-icono {
+    transform: translateY(-3px) scale(1.06) rotate(-3deg);
+    box-shadow:
+      inset 0 0 0 1px rgb(0 0 0 / 0.05),
+      0 8px 20px -8px rgb(0 0 0 / 0.25);
+  }
+
+  /* Tres tonos, y solo tres.
+     El sitio tiene tres colores de marca y los tres estan usados ya en las
+     Reglas de Oro. Anadir un cuarto tono obligaria a decidir cual de los tres
+     se deja de usar, y ese reparto no es un detalle de estilo. */
+  .tile-icono--primario {
+    background-color: color-mix(in oklab, var(--color-primary) 12%, transparent);
+    color: var(--color-primary);
+  }
+  .tile-icono--secundario {
+    background-color: color-mix(in oklab, var(--color-secondary) 12%, transparent);
+    color: var(--color-secondary);
+  }
+  .tile-icono--terciario {
+    background-color: color-mix(in oklab, var(--color-tertiary) 12%, transparent);
+    color: var(--color-tertiary);
+  }
+
+  /* La variante dorada, para la barra de creditos del pie, que va sobre azul
+     marino y no sobre superficie clara. El dorado no usa `color-mix` con negro
+     porque sobre `#213145` hay que aclarar el fondo, no oscurecerlo. */
+  .tile-icono--dorado {
+    background-color: color-mix(in oklab, var(--color-bandera-dorado) 16%, transparent);
+    color: var(--color-bandera-dorado);
+  }
+
+  /* ==========================================================================
+     Texto con los colores de la bandera
+     ==========================================================================
+     La peticion fue "dorado, y a la vez con los colores de la bandera". Un texto
+     no puede tener dos colores, asi que esto resuelve las dos cosas sin elegir
+     una: el nombre del proyecto lleva los TRES tonos en degradado y las demas
+     lineas en dorado.
+
+     POR QUE UN DEGRADADO Y NO TRES SPANS
+     Repartir los colores por palabra ("QBASwing" en azul, "Marketplace" en oro)
+     parte la palabra en dos mitades que se leen como dos cosas, y ademas obliga
+     a decidir donde cae el corte. El degradado mantiene el nombre entero y deja
+     que los tres colores se mezclen.
+
+     POR QUE EL DEGRADADO ARRANCA EN EL AZUL ACLARADO
+     Ver `--color-bandera-azul-claro`: el azul de la bandera sobre el azul marino
+     del pie no se ve. Ahi no hay eleccion, hay que aclarar.
+
+     POR QUE `color: transparent` Y UN COLOR DE RESPALDO
+     `background-clip: text` no existe en todos los navegadores. Sin el respaldo
+     de arriba, en uno que no lo soporte el nombre del proyecto desapareceria
+     entero: texto transparente sin fondo recortado no dibuja nada. Con el
+     dorado declarado primero y el `transparent` metido dentro de `@supports`, lo
+     que no soporta el degradado muestra dorado, que es el otro color pedido y no
+     un hueco.
+     ========================================================================== */
+  .texto-bandera {
+    color: var(--color-bandera-dorado);
+  }
+  @supports (background-clip: text) or (-webkit-background-clip: text) {
+    .texto-bandera {
+      background-image: linear-gradient(
+        100deg,
+        var(--color-bandera-azul-claro) 0%,
+        var(--color-bandera-blanco) 26%,
+        var(--color-bandera-dorado) 52%,
+        var(--color-bandera-dorado-suave) 72%,
+        var(--color-bandera-rojo) 100%
+      );
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  }
+
+  /* La estrella de la bandera, al lado del nombre. Es el quinto elemento del
+     pabellon y el unico que no es una franja, asi que es el que hace que las
+     cuatro tiras de color se lean como una bandera y no como un degradado. */
+  .estrella-bandera {
+    color: var(--color-bandera-dorado);
+    text-shadow: 0 0 14px color-mix(in oklab, var(--color-bandera-dorado) 45%, transparent);
+  }
+
+  /* Tamano pequeno, para iconos de lista y de metadatos. */
+  .tile-icono--sm {
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+    border-radius: 0.625rem;
+  }
+  .tile-icono--sm > .material-symbols-outlined {
+    font-size: 1.125rem;
+  }
+
   /* Contenedor de pagina: 1440px max, margenes de DESIGN.md. */
   .container-page {
     width: 100%;
