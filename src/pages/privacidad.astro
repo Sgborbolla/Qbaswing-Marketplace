@@ -1,0 +1,92 @@
+---
+/**
+ * Política de privacidad.
+ *
+ * No promete lo que no hace: no rastrea a terceros con fines publicitarios,
+ * no comparte datos sensibles, y lo que guarda es lo minimo para que la
+ * compra y la descarga funcionen.
+ */
+import Base from '../layouts/Base.astro'
+---
+
+<Base title="Política de privacidad">
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-4xl">
+      <h1 class="font-headline text-headline-lg text-on-surface">
+        Política de privacidad
+      </h1>
+      <p class="mt-2 text-body-sm text-on-surface-variant">
+        Última actualización: {new Date().toLocaleDateString('es-CU')}
+      </p>
+
+      <div class="mt-8 space-y-8 text-body-md text-on-surface-variant">
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            1. Datos que recopilamos
+          </h2>
+          <p class="mt-2">
+            Solo recopilamos lo necesario para el funcionamiento: datos de
+            cuenta (nombre y correo electrónico), información necesaria para
+            procesar compras y los registros mínimos para prevenir abusos.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            2. Uso de los datos
+          </h2>
+          <p class="mt-2">
+            Usamos tus datos únicamente para prestar el servicio: autenticar,
+            entregar lo que compraste, enviar notificaciones relacionadas con tu
+            compra o con tu cuenta, y cumplir con lo que exigen las pasarelas
+            de pago.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            3. Cookies
+          </h2>
+          <p class="mt-2">
+            Usamos cookies estrictamente necesarias. La cookie de identidad del
+            Owner está firmada con HMAC y no se guarda información sensible en
+            el navegador.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            4. Compartición de datos
+          </h2>
+          <p class="mt-2">
+            No vendemos ni alquilamos tus datos. Solo los compartimos con las
+            pasarelas de pago cuando es necesario para completar una
+            transacción, y siempre con el mínimo necesario.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            5. Seguridad
+          </h2>
+          <p class="mt-2">
+            Los enlaces de descarga son opacos, caducan a los 5 minutos y se
+            validan contra tu cuenta. No exponemos rutas públicas para archivos
+            comprados.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            6. Tus derechos
+          </h2>
+          <p class="mt-2">
+            Puedes solicitar acceso, corrección o eliminación de tus datos
+            relacionados con tu cuenta, siempre que no interfieran con registros
+            necesarios para transacciones ya completadas.
+          </p>
+        </section>
+      </div>
+    </div>
+  </section>
+</Base>

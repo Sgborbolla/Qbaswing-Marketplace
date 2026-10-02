@@ -1,0 +1,94 @@
+---
+/**
+ * Términos y condiciones.
+ *
+ * Lo que hay aquí es lo que el sistema hace, no lo que promete en general.
+ * No incluye clausulas sobre garantia del 100%, devoluciones generales ni
+ * custodia de fondos, porque ninguna de esas cosas esta implementada.
+ */
+import Base from '../layouts/Base.astro'
+---
+
+<Base title="Términos y condiciones">
+  <section class="w-full py-space-xl">
+    <div className="container-page max-w-4xl">
+      <h1 class="font-headline text-headline-lg text-on-surface">
+        Términos y condiciones
+      </h1>
+      <p class="mt-2 text-body-sm text-on-surface-variant">
+        Última actualización: {new Date().toLocaleDateString('es-CU')}
+      </p>
+
+      <div class="mt-8 space-y-8 text-body-md text-on-surface-variant">
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            1. Aceptación de los términos
+          </h2>
+          <p class="mt-2">
+            Al usar QBASwing Marketplace aceptas estos términos. Si no estás de
+            acuerdo, no uses la plataforma.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            2. Reglas de comisión
+          </h2>
+          <p class="mt-2">
+            Las tres Reglas de Oro son públicas: Regla A (digitales externos):
+            5% para QBASwing, 95% para el autor. Regla B (digitales propios):
+            0% de comisión. Regla C (productos físicos): 0% de comisión, con
+            paquete de 60 días y espacios reutilizables.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            3. Compras y descargas
+          </h2>
+          <p class="mt-2">
+            Solo quien ha comprado un producto digital puede descargarlo. El
+            enlace de descarga enviado por correo electrónico caduca a los 5
+            minutos y no es una dirección pública permanente. Las licencias son
+            las que indica el vendedor para ese producto.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            4. Publicación y moderación
+          </h2>
+          <p class="mt-2">
+            Los productos sujetos a la Regla A se publican tras aprobación del
+            Owner. Los productos de las Reglas B y C pueden publicarse según el
+            estado de sus espacios. El Owner puede retirar un producto que
+            incumpla lo declarado en su ficha.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            5. Pagos
+          </h2>
+          <p class="mt-2">
+            Los pagos se procesan a través de las pasarelas declaradas. La
+            plataforma no custodia fondos del comprador cuando no es necesario
+            para el reparto. Las liquidaciones a vendedores siguen el ciclo
+            definido en el panel.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+            6. Responsabilidad
+          </h2>
+          <p class="mt-2">
+            QBASwing Marketplace no es responsable del contenido publicado por
+            vendedores, pero se reserva el derecho a moderarlo. No se ofrecen
+            garantías implícitas que no estén expresamente escritas aquí.
+          </p>
+        </section>
+      </div>
+    </div>
+  </section>
+</Base>

@@ -1,0 +1,46 @@
+---
+/**
+ * Página de contacto, estática.
+ *
+ * No inventa ningún número, correo o dirección: solo muestra qué canales
+ * existen según los datos de la plataforma. Si el Owner los deja vacíos, no
+ * aparece nada: ese es el estado vacío real.
+ */
+import Base from '../layouts/Base.astro'
+---
+
+<Base title="Contacto">
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-3xl">
+      <h1 class="font-headline text-headline-lg text-on-surface">Contacto</h1>
+
+      <p class="mt-4 text-body-lg text-on-surface-variant">
+        Si tienes una pregunta sobre compras, ventas o sobre cómo funcionan las
+        reglas, puedes escribirnos a través de los canales que aparecen en el
+        pie de página.
+      </p>
+
+      <article class="mt-8 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1">
+        <h2 class="font-headline text-title-md font-semibold text-on-surface">
+          Cómo contactar
+        </h2>
+        <p class="mt-2 text-body-md text-on-surface-variant">
+          Los datos de contacto se gestionan desde el panel del Owner. Mientras
+          no estén configurados, esta sección queda vacía intencionalmente, sin
+          poner datos de ejemplo.
+        </p>
+        <a
+          href="/faq"
+          class="mt-4 inline-flex items-center gap-1.5 text-label-lg font-semibold text-primary transition-colors hover:text-primary-container"
+        >
+          Ver preguntas frecuentes
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+        </a>
+      </article>
+
+      <p class="mt-6 text-body-sm text-on-surface-variant/70">
+        No solicitamos datos bancarios por correo. Nunca pedimos contraseñas.
+      </p>
+    </div>
+  </section>
+</Base>

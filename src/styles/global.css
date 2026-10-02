@@ -353,16 +353,25 @@
   @supports (background-clip: text) or (-webkit-background-clip: text) {
     .texto-bandera {
       background-image: linear-gradient(
-        100deg,
+        90deg,
         var(--color-bandera-azul-claro) 0%,
-        var(--color-bandera-blanco) 26%,
-        var(--color-bandera-dorado) 52%,
-        var(--color-bandera-dorado-suave) 72%,
+        var(--color-bandera-blanco) 33%,
         var(--color-bandera-rojo) 100%
       );
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
+    }
+
+    .texto-bandera.texto-bandera-todo {
+      background-image: linear-gradient(
+        90deg,
+        var(--color-bandera-azul-claro) 0%,
+        var(--color-bandera-blanco) 25%,
+        var(--color-bandera-dorado) 55%,
+        var(--color-bandera-dorado-suave) 75%,
+        var(--color-bandera-rojo) 100%
+      );
     }
   }
 
