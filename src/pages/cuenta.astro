@@ -1,0 +1,40 @@
+---
+/**
+ * La cuenta propia.
+ *
+ * ============================================================================
+ *  CUYOS DATOS SON
+ * ============================================================================
+ * Los de quien esta dentro, y solo de el. La pagina no recibe un `id` por la URL
+ * ni busca a nadie: pide `GET /api/cuenta`, que lee el id de la sesion. Por eso
+ * `/cuenta` no tiene variantes ni parametros. Para ver la cuenta de otro esta
+ * `/owner/usuarios/[id]`, que es del Owner y comprueba el privilegio antes de
+ * responder.
+ *
+ * ============================================================================
+ *  POR QUE NO HAY DATOS EN EL HTML
+ * ============================================================================
+ * El sitio es estatico: Cloudflare Pages sirve el archivo a quien lo pida, sin
+ * mirar cookies. Si tu nombre o tu correo estuvieran en el HTML, bastaria con
+ * `curl https://el-sitio/cuenta` para leerlos, y con editar el archivo para
+ * poner los de otro. Por eso aqui solo hay un esqueleto, y los datos los pide el
+ * navegador a la API, que es lo unico que puede validar la cookie.
+ */
+import Base from '../layouts/Base.astro'
+import PanelCuenta from '../components/PanelCuenta.astro'
+---
+
+<Base title="Mi cuenta" descripcion="Tu cuenta en QBASwing Marketplace.">
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-3xl">
+      <h1 class="font-headline text-headline-lg text-on-surface">Mi cuenta</h1>
+      <p class="mt-2 text-body-md text-on-surface-variant">
+        Lo que tienes aqui, tal cual esta registrado.
+      </p>
+
+      <div class="mt-8">
+        <PanelCuenta variante="cuenta" />
+      </div>
+    </div>
+  </section>
+</Base>

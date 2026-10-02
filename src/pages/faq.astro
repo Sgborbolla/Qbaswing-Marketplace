@@ -1,0 +1,64 @@
+---
+/**
+ * Preguntas frecuentes.
+ *
+ * Lee de la API de plataforma. Si no hay datos, muestra estado vacío real.
+ */
+import Base from '../layouts/Base.astro'
+
+const { listarFAQ } = await import('../lib/api-plataforma')
+
+let faqs: Awaited<ReturnType<typeof listarFAQ>> = []
+let error = false
+
+try {
+  faqs = await listarFAQ()
+} catch (e) {
+  error = true
+}
+
+faqs = faqs.filter((f) => f.activa && f.respuesta.trim()).sort((a, b) => a.orden - b.orden)
+---
+
+<Base title="Preguntas frecuentes">
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-4xl">
+      <h1 class="font-headline text-headline-lg text-on-surface">Preguntas frecuentes</h1>
+      <p class="mt-2 text-body-md text-on-surface-variant">
+        Respuestas claras, sin promesas inventadas.
+      </p>
+
+      {error && (
+        <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">
+          <p class="text-body-md text-on-surface-variant">
+            No se pudieron cargar las preguntas frecuentes.
+          </p>
+        </div>
+      )}
+
+      {!error && faqs.length === 0 && (
+        <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">
+          <p class="text-body-md text-on-surface-variant">
+            Aún no hay preguntas frecuentes publicadas.
+          </p>
+        </div>
+      )}
+
+      {faqs.length > 0 && (
+        <div class="mt-8 space-y-3">
+          {faqs.map((f) => (
+            <details class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-e1">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-body-lg font-semibold text-on-surface">
+                <span>{f.pregunta}</span>
+                <span class="material-symbols-outlined shrink-0 text-[20px] transition-transform group-open:rotate-180" aria-hidden="true">
+                  expand_more
+                </span>
+              </summary>
+              <p class="mt-3 whitespace-pre-line text-body-md text-on-surface-variant">{f.respuesta}</p>
+            </details>
+          ))}
+        </div>
+      )}
+    </div>
+  </section>
+</Base>

@@ -1,0 +1,42 @@
+---
+/**
+ * Panel del Owner y de quien tenga el privilegio de administrar.
+ *
+ * ============================================================================
+ *  QUIEN ENTRA AQUI
+ * ============================================================================
+ * El rol lo deduce el servidor de `owner_registro_preautorizado` y de
+ * `privilegio_usuario`. La pagina NO comprueba nada de eso: si el Worker
+ * responde, es que puede; si responde 403, se dice 403. Poner la comprobacion
+ * aqui seria theater: el HTML se sirve igual a todos, y una comprobacion en
+ * JavaScript se puede borrar desde el navegador.
+ *
+ * Que un patrocinador tenga el mismo panel que el Owner es lo pedido: Freeman es
+ * vendedor Y administra, asi que entra aqui. Lo que distingue a los dos no es la
+ * puerta, es el alcance de lo que pueden hacer despues.
+ *
+ * ============================================================================
+ *  LO QUE TODAVIA NO HAY
+ * ============================================================================
+ * Las secciones de gestion (usuarios, pagos, edicion del contenido) no existen
+ * todavia. No se pone un menu con enlaces muertos ni un "proximamente" que
+ * promete algo sin fecha: se anaden cuando la ruta exista.
+ */
+import Base from '../layouts/Base.astro'
+import PanelCuenta from '../components/PanelCuenta.astro'
+---
+
+<Base title="Administracion" descripcion="Administracion de QBASwing Marketplace.">
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-3xl">
+      <h1 class="font-headline text-headline-lg text-on-surface">Administracion</h1>
+      <p class="mt-2 text-body-md text-on-surface-variant">
+        Tu cuenta y lo que tienes permiso sobre el sitio.
+      </p>
+
+      <div class="mt-8">
+        <PanelCuenta variante="owner" />
+      </div>
+    </div>
+  </section>
+</Base>

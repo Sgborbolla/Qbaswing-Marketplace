@@ -12,11 +12,12 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
+    "check:worker": "tsc -p src/worker/tsconfig.json",
     "astro": "astro",
     "validar": "node scripts/validar-schema.mjs",
     "validar:datos": "node scripts/validar-datos.mjs",
     "validar:alfabetos": "node scripts/validar-alfabetos.mjs",
-    "validar:todo": "npm run validar && npm run validar:datos && npm run validar:alfabetos && npm run check"
+    "validar:todo": "npm run validar && npm run validar:datos && npm run validar:alfabetos && npm run check && npm run check:worker"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

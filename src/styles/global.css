@@ -350,7 +350,25 @@
   .texto-bandera {
     color: var(--color-bandera-dorado);
   }
+  .texto-bandera-claro {
+    color: var(--color-bandera-azul);
+  }
   @supports (background-clip: text) or (-webkit-background-clip: text) {
+    /* Las DOS variantes comparten el recorte de texto, asi que va en una regla
+       commun. Ponerlo solo en `.texto-bandera` es el error que hacia que
+       `.texto-bandera-claro` saliera con el degradado de fondo entero y el
+       texto opaco encima: el navegador pintaba el azul del `color` de respaldo
+       y el nombre se leia de un solo color, creyendo que el degradado estaba
+       puesto porque `backgroundImage` si lo estaba.
+       `color: transparent` es lo que hace que se vea el fondo recortado, y por
+       eso tiene que ir en las dos. */
+    .texto-bandera,
+    .texto-bandera-claro {
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
     .texto-bandera {
       background-image: linear-gradient(
         90deg,
@@ -358,9 +376,6 @@
         var(--color-bandera-blanco) 33%,
         var(--color-bandera-rojo) 100%
       );
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
     }
 
     .texto-bandera.texto-bandera-todo {
@@ -370,6 +385,27 @@
         var(--color-bandera-blanco) 25%,
         var(--color-bandera-dorado) 55%,
         var(--color-bandera-dorado-suave) 75%,
+        var(--color-bandera-rojo) 100%
+      );
+    }
+
+    /* Variante para FONDO CLARO: la cabecera.
+     *
+     * `.texto-bandera` lleva el blanco de la bandera en el medio, y el blanco
+     * sobre `bg-surface` (que es claro) no se ve: la mitad del nombre
+     * desapareceria. Aqui el blanco se sustituye por el azul aclarado, de modo
+     * que los tres tonos se leen enteros sobre superficie clara.
+     *
+     * El azul tambien cambia de bando que en el pie, pero al reves: alli se
+     * aclara porque el fondo es azul marino; aqui se oscurece a
+     * `--color-bandera-azul` porque el fondo es blanco y el azul claro
+     * `#8fb4ff` sobre blanco tampoco alcanza para leerse. Es el mismo problema
+     * en espejo, y por eso son dos clases y no una con parametros. */
+    .texto-bandera-claro {
+      background-image: linear-gradient(
+        90deg,
+        var(--color-bandera-azul) 0%,
+        var(--color-bandera-azul-claro) 42%,
         var(--color-bandera-rojo) 100%
       );
     }

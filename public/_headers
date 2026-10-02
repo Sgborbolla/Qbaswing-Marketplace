@@ -1,0 +1,78 @@
+# Cabeceras de Cloudflare Pages.
+#
+# ============================================================================
+#  QUE ES ESTE ARCHIVO Y POR QUE NO ES UN SCRIPT
+# ============================================================================
+# Pages lee este archivo tal cual y lo aplica a las respuestas. No es codigo: no
+# se ejecuta, no se puede depurar y no se puede equivocar de una forma
+# interesante. Por eso lo que se puede dejar aqui se deja aqui, y lo que necesita
+# logica va en el Worker.
+#
+# ============================================================================
+#  POR QUE EXISTE ESTE ARCHIVO
+# ============================================================================
+# El Owner pidio que el boton de atras del navegador no devuelva la sesion. Eso
+# se trabaja en cuatro sitios a la vez (ver `src/layouts/Base.astro`):
+#
+#   1. La fila de `sesiones` se revoca en el servidor. Sin esto, "salir" seria
+#      borrar una cadena del navegador.
+#   2. `Clear-Site-Data: "cache"` al cerrar sesion.
+#   3. La cookie se borra con los mismos atributos con los que se puso.
+#   4. `pageshow` con `event.persisted` fuerza recargar al volver del historial.
+#
+# Este archivo es la QUINTA linea, y la unica que evita que el HTML de una
+# pagina de panel quede guardado en disco en primer lugar. `no-store` le dice al
+# navegador, a los intermediarios y al propio disco que no lo guarden.
+#
+# Sin esto, `astro build` no deja rastros: las paginas de panel se sirven con
+# `Cache-Control` por defecto, el navegador las guarda, y al volver atras pinta
+# el shell con los datos de quien estaba dentro hace un momento. La API seguiria
+# respondiendo 401, asi que no se verian datos nuevos, pero se veria la pagina de
+# otra persona en la pantalla.
+#
+# ============================================================================
+#  POR QUE `no-store` Y NO `private, no-store`
+# ============================================================================
+# `private` impide que una cache compartida guarde la respuesta. Aqui no hay cache
+# compartida en juego: lo que interesa es el disco del visitante y el historial
+# del navegador, y para eso `no-store` alcanza. Ponerlo todo no costaria nada,
+# pero cada opcion que se pone aqui es una opcion que hay que entender.
+#
+# ============================================================================
+#  LO QUE NO SE PONE Y POR QUE
+# ============================================================================
+# No se pone `Cache-Control` global para todo el sitio. El catalogo, las
+# paginas de producto y los espacios son publicos y su contenido cambia pocas
+# veces: cachearlos es lo que hace que el sitio cargue rapido. Solo se guarda
+# aqui lo que pertenece a una persona.
+
+/* ==========================================================================
+ * Paginas que dependen de quien esta dentro
+ *
+ * El patron `/panel*` incluye `/panel`, `/panel/cuenta`, `/panel/productos` y
+ * todo lo que empiece por `/panel`. El asterisco al final es lo que hace que
+ * `/paneles` NO entre: `*` en este formato no es "cualquier cosa", es "el
+ * prefijo y lo que venga". Por eso los grupos van entre parentesis y separadas
+ * por comas.
+ * ======================================================================== */
+(/panel*, /owner*, /descargas*, /carrito, /pagar, /cuenta)
+  Cache-Control: no-store, no-cache, must-revalidate
+  Pragma: no-cache
+  /* El boton de atras no debe poder resucitar nada de esto. */
+  Clear-Site-Data: "cache"
+
+/* ==========================================================================
+ * Contenido estatico con huella en el nombre
+ *
+ * Vite pone el hash del contenido en el archivo (`logo.abc123.png`). Cambia el
+ * hash cuando cambia el contenido, asi que se puede guardar para siempre y
+ * seguir siendo correcto. `immutable` se lo dice al navegador y al CDN.
+ *
+ * El `font-display` va aparte porque es una peticion distinta: la fuente se pide
+ * por su URL y no por la de la hoja de estilos.
+ * ======================================================================== */
+(_astro/*)
+  Cache-Control: public, max-age=31536000, immutable
+
+/logo-qbaswing.png
+  Cache-Control: public, max-age=604800

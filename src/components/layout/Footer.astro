@@ -136,10 +136,9 @@ const COLUMNAS = [
   {
     titulo: 'Marketplace',
     enlaces: [
-      { texto: 'Catalogo', href: '/catalogo' },
-      { texto: 'Destacados', href: '/catalogo?orden=destacados' },
+      { texto: 'Productos', href: '/productos' },
+      { texto: 'Destacados', href: '/productos?orden=destacados' },
       { texto: 'Espacios y paquetes', href: '/espacios' },
-      { texto: 'Vendedores', href: '/catalogo?vista=vendedores' },
     ],
   },
   {
@@ -466,10 +465,10 @@ const anio = new Date().getFullYear()
       -->
       <div>
         <p class="flex items-center gap-2 font-headline text-title-md font-semibold">
-          <span class="estrella-bandera" aria-hidden="true">
-            <span class="material-symbols-outlined text-[20px]">star</span>
+          <span aria-hidden="true">
+            <span class="material-symbols-outlined text-[20px]" style="color: #CF0A2C;">star</span>
           </span>
-          <span class="texto-bandera texto-bandera-todo">QBASwing Marketplace</span>
+          <span class="texto-bandera">QBASwing Marketplace</span>
         </p>
 
         <div class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-body-sm text-bandera-dorado/70">
@@ -483,7 +482,7 @@ const anio = new Date().getFullYear()
             <span class="material-symbols-outlined text-label-sm text-bandera-dorado-suave" aria-hidden="true">
               palette
             </span>
-            Diseñado por <span class="font-semibold text-bandera-dorado">Freeman Impresiones &amp; QBASwing Designer</span>
+            Diseñado por <span class="font-semibold text-bandera-dorado">QBASwing Designer y Freeman Impresiones</span>
             <span class="text-bandera-dorado/50">&copy; {anio}</span>
           </p>
         </div>

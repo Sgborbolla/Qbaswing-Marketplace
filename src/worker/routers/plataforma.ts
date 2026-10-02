@@ -26,7 +26,7 @@
  * para siempre. Es preferible un icono deshabilitado.
  */
 
-import { json } from '../index'
+import { json } from '../http'
 import { RUTAS, ErrorApi } from '../constantes'
 import type { Env } from '../entorno'
 

@@ -106,18 +106,19 @@ kv_namespaces = [
 # ("Unexpected fields found in top-level field"). Se intento y el error lo dice.
 #
 # Consecuencia: el directorio tiene que llamarse `migrations/`. Por eso el
-# esquema vive en `db/0001_esquema_inicial.sql` y NO en `db/schema.sql`, y por
-# eso ese archivo se llama asi aunque parezca un nombre de migracion: es
-# exactamente eso, y al mismo tiempo es la documentacion del esquema.
+# esquema se llama `0001_esquema_inicial.sql` y no `schema.sql`: el nombre dice
+# lo que es, y al ir en la carpeta de migraciones Wrangler lo aplica en orden.
 #
-# Hay un solo archivo de esquema, no una copia en cada carpeta. Dos archivos
-# identicos divergen sin aviso: uno se editaba y el otro se quedaba atras, y el
-# fallo aparecia en produccion y no en el editor. `scripts/validar-schema.mjs`
-# lee ESTE archivo y lo aplica dos veces para comprobar que es reejecutable.
+# Hay UN archivo por version, y cada uno se aplica una sola vez. No se copia el
+# esquema a otra carpeta: dos archivos identicos divergen sin aviso, uno se
+# editaba y el otro se quedaba atras, y el fallo aparecia en produccion y no en el
+# editor. Para ver el estado actual se lee el ultimo archivo aplicado.
 #
 # NUNCA aplicar el esquema con `wrangler d1 execute --command ".read ..."` en
 # produccion: no deja registro de que se aplico, asi que no hay forma de saber
-# si la proxima corrida debe hacerlo o no.
+# si la proxima corrida debe hacerlo o no. Y con `--remote` explicito, que es lo
+# que importa: sin el, Wrangler aplica en la base LOCAL y uno cree que esta en
+# produccion.
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
@@ -125,9 +126,20 @@ kv_namespaces = [
 # -----------------------------------------------------------------------------
 # Se pueden ver en el panel y en el bundle. Solo lo que no es credencial.
 [vars]
-# Origen permitido del Worker. Sin esto, cualquiera podria llamar la API desde
-# su pagina. En produccion va el dominio real de Pages.
-ALLOWED_ORIGIN = "https://qbaswing-marketplace.pages.dev"
+# Origenes permitidos del Worker, separados por coma. Sin esto, cualquiera podria
+# llamar la API desde su pagina.
+#
+# `localhost` esta aqui porque el registro y el acceso usan `fetch` DESDE el
+# navegador: la pagina es HTML estatico y no hay servidor que envie el
+# formulario. El navegador ve `http://localhost:4321` como un origen DISTINTO de
+# `https://qbaswing-marketplace.pages.dev`, asi que sin esta entrada entrar
+# funciona en produccion y no en local. El puerto va escrito porque el origen
+# incluye el puerto.
+#
+# `127.0.0.1` tambien, porque algunos navegadores resuelven localhost a esa
+# direccion y entonces el origen cambia de nombre. Se permiten los dos en vez de
+# dejar uno y que dependa de como lo trate cada uno.
+ALLOWED_ORIGIN = "https://qbaswing-marketplace.pages.dev,http://localhost:4321,http://localhost:4322,http://127.0.0.1:4321"
 # Vida del enlace de descarga, en segundos. Corta a proposito: el enlace no es
 # una URL permanente del archivo, es un permiso temporal.
 EXPIRACION_ENLACE_SEG = "300"

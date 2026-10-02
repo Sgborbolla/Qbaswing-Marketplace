@@ -43,7 +43,7 @@
  * Con dos rutas, cada una tiene su calculo y probarlo es independiente.
  */
 
-import { json } from '../index'
+import { json } from '../http'
 import { RUTAS } from '../constantes'
 import type { Env } from '../entorno'
 

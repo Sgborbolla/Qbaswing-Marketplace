@@ -18,6 +18,7 @@
  */
 import Logo from '../Logo.astro'
 import SelectorIdioma from '../SelectorIdioma.astro'
+import BotonCerrarSesion from '../BotonCerrarSesion.astro'
 
 /** Enlaces de navegacion principal. Rutas de referencia: se crean con las 16
  *  paginas del plan. Hoy apuntan a rutas que todavia no existen, y por eso el
@@ -50,8 +51,14 @@ const ICONO = {
       aria-label="QBASwing Marketplace, ir al inicio"
     >
       <Logo altura={40} />
-      <span class="font-headline text-title-md font-semibold tracking-tight text-primary">
-        QBASwing
+      {/* El nombre va con los tres tonos de la bandera, igual que en el pie pero
+          con la variante de fondo claro. `whitespace-nowrap` porque el nombre no
+          se parte: "QBASwing" en una linea y "Marketplace" en otra se leen como
+          dos palabras sueltas. En movil baja el tamano en vez de partirse. */}
+      <span
+        class="texto-bandera-claro whitespace-nowrap font-headline font-semibold tracking-tight text-title-sm sm:text-title-md"
+      >
+        QBASwing Marketplace
       </span>
     </a>
 
@@ -110,15 +117,46 @@ const ICONO = {
     <div class="flex items-center gap-0.5">
       <SelectorIdioma />
 
+      {/*
+        Estado de sesion.
+
+        Las DOS opciones estan en el HTML y solo una se muestra. La razon es que el
+        sitio es estatico: no hay forma de saber si hay cookie al generar el
+        HTML, porque Pages lo sirve sin mirar la peticion. Ademas, decidirlo al
+        vuelo con `hidden` en un atributo NO seria seguro: quien quisiera
+        ocultarlo es solo question de borrar un atributo en el
+        navegador. Por eso lo unico que se oculta es la ENTRADA, y lo que decide
+        si se puede ver el panel es siempre el Worker.
+
+        Si el visitante no esta dentro, el icono de cuenta lleva a
+        `/iniciar-sesion` y no a `/cuenta`: mandar a alguien que no tiene sesion
+        a una pagina que le va a decir "entra" es un rodeo inutil.
+      */}
+      <a
+        href="/iniciar-sesion"
+        data-sesion="fuera"
+        class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+        aria-label="Entrar en mi cuenta"
+      >
+        <span class="material-symbols-outlined text-headline-sm" aria-hidden="true">
+          {ICONO.cuenta}
+        </span>
+      </a>
+
       <a
         href="/cuenta"
-        class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+        data-sesion="dentro"
+        class="hidden rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
         aria-label="Mi cuenta"
       >
         <span class="material-symbols-outlined text-headline-sm" aria-hidden="true">
           {ICONO.cuenta}
         </span>
       </a>
+
+      <span data-sesion="dentro" class="hidden">
+        <BotonCerrarSesion />
+      </span>
 
       <a
         href="/carrito"
@@ -132,3 +170,41 @@ const ICONO = {
     </div>
   </div>
 </header>
+
+<script>
+  /*
+    Pinta el estado de sesion en la cabecera.
+
+    NO es una comprobacion de seguridad. Este script solo decide si se ve el
+    enlace "Entrar" o el boton "Salir", y decide preguntando al Worker, que es el
+    unico que puede saberlo. Si alguien lo borra del navegador, lo unico que
+    consigue es que no vea un boton: las paginas de panel seguirian sin datos,
+    porque la API responde 401 sin cookie.
+
+    Que no se decida en el servidor es consecuencia de que el sitio sea estatico:
+    Cloudflare Pages sirve el mismo HTML a todo el mundo, dentro y fuera.
+  */
+  import { sesionActual } from '../../lib/identidad-cliente'
+
+  function mostrar(dentro: boolean) {
+    for (const nodo of document.querySelectorAll<HTMLElement>('[data-sesion]')) {
+      const esDentro = nodo.dataset.sesion === 'dentro'
+      nodo.classList.toggle('hidden', dentro ? !esDentro : esDentro)
+    }
+  }
+
+  // Al cargar se pregunta. Sin esto, un visitante que no esta dentro veria un
+  // boton "Salir" que no puede hacer nada, o un enlace a su cuenta que acaba
+  // en un "entra primero".
+  const resultado = await sesionActual()
+  mostrar(resultado.ok && resultado.datos.usuario !== null)
+
+  // Si el usuario entra o sale en otra pestana, la cabecera se entera. `storage`
+  // es el evento que el navegador lanza entre pestanas del mismo origen; dentro
+  // de la misma pestana el script ya se ha enterado por su cuenta.
+  window.addEventListener('storage', (evento) => {
+    if (evento.key === 'qb:sesion-cambio') {
+      void sesionActual().then((r) => mostrar(r.ok && r.datos.usuario !== null))
+    }
+  })
+</script>

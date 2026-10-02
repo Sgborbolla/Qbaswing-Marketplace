@@ -19,6 +19,11 @@ secrets.toml
 .env.local
 .env.*.local
 
+# El archivo de secretos de `wrangler dev`. Mismo motivo que `.env`: va con
+# valores reales y no se versiona. `.dev.vars` lo lee Wrangler SOLO al correr en
+# local, y no se sube a produccion ni al repositorio.
+.dev.vars
+
 #wrangler
 .wrangler/
 
@@ -27,6 +32,11 @@ secrets.toml
 Thumbs.db
 *.log
 npm-debug.log*
+
+# Mensajes de commit de trabajo. `git commit -F` necesita un archivo, y en
+# PowerShell los heredocs no funcionan: se escribe a un archivo y se borra. Sin
+# esto acabaria en el repositorio.
+.commit-msg.txt
 
 # Editores
 .vscode/*

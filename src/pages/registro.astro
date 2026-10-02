@@ -1,0 +1,234 @@
+---
+/**
+ * Crear una cuenta.
+ *
+ * ============================================================================
+ *  POR QUE ESTA PAGINA ES UN FORMULARIO CON JAVASCRIPT Y NO UN `POST` NORMAL
+ * ============================================================================
+ * El sitio es HTML estatico: no hay servidor que reciba el formulario. La
+ * alternativa seria un `<form action="/api/registro">`, pero el Worker responde
+ * JSON, no una pagina, y al registrarte caeria el visitante en una pantalla en
+ * blanco con `{"ok":true}` escrito encima.
+ *
+ * Por eso va con JavaScript, y por eso el formulario NO tiene `action`: sin
+ * `action` y con el JavaScript desactivado, el navegador no manda nada a ninguna
+ * parte. Es preferible a un `action` queISTERia mandar los datos a la pagina
+ * actual y dejarlos en la barra de direcciones.
+ *
+ * Lo que se hace entonces es avisar, con mejora progresiva de verdad: si no hay
+ * JavaScript, el boton dice que hace falta. No se finge que funciona.
+ */
+import Base from '../layouts/Base.astro'
+import { backendConfigurado } from '../lib/identidad-cliente'
+---
+
+<Base title="Crear cuenta" descripcion="Crea tu cuenta en QBASwing Marketplace.">
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-md">
+      <h1 class="font-headline text-headline-lg text-on-surface">Crear cuenta</h1>
+      <p class="mt-2 text-body-md text-on-surface-variant">
+        Tu correo y tu contrasena. Nada mas.
+      </p>
+
+      {!backendConfigurado && (
+        <div
+          class="mt-6 rounded-2xl border border-error/40 bg-error-container/40 p-5 text-body-md text-on-error-container"
+          role="alert"
+        >
+          <p>
+            Este sitio todavia no tiene servidor configurado, asi que no se puede
+            crear una cuenta. Intentalo mas tarde.
+          </p>
+        </div>
+      )}
+
+      <form id="formulario" class="mt-8 space-y-5" novalidate>
+        <div>
+          <label for="nombre" class="block text-label-md font-medium text-on-surface">
+            Nombre
+          </label>
+          <input
+            type="text"
+            id="nombre"
+            name="nombre"
+            autocomplete="name"
+            required
+            maxlength="80"
+            class="mt-1.5 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3 text-body-md text-on-surface focus:border-primary"
+          />
+        </div>
+
+        <div>
+          <label for="email" class="block text-label-md font-medium text-on-surface">
+            Correo
+          </label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            autocomplete="email"
+            required
+            maxlength="254"
+            class="mt-1.5 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3 text-body-md text-on-surface focus:border-primary"
+          />
+        </div>
+
+        <div>
+          <label for="contrasena" class="block text-label-md font-medium text-on-surface">
+            Contrasena
+          </label>
+          <input
+            type="password"
+            id="contrasena"
+            name="contrasena"
+            autocomplete="new-password"
+            required
+            minlength="8"
+            class="mt-1.5 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3 text-body-md text-on-surface focus:border-primary"
+          />
+          {/*
+            El boton de mostrar la contrasena es un `<button type="button">` y NO
+            un checkbox que cambian el `type` con JavaScript. Con `type="button"`
+            el formulario no se envia al pulsarlo, que es el fallo clasico de
+            poner un boton dentro de un formulario sin decirle que tipo tiene.
+          */}
+          <button
+            type="button"
+            id="ver-contrasena"
+            aria-pressed="false"
+            class="mt-2 inline-flex items-center gap-1.5 text-label-md text-on-surface-variant transition hover:text-primary"
+          >
+            <span class="material-symbols-outlined text-label-md" aria-hidden="true">
+              visibility
+            </span>
+            <span id="ver-contrasena-texto">Mostrar contrasena</span>
+          </button>
+          <p class="mt-2 text-label-sm text-on-surface-variant">
+            Al menos 8 caracteres. No puede ser solo espacios ni contener tu correo.
+          </p>
+        </div>
+
+        {/*
+          El aviso de error y el de exito viven en el DOM desde el principio y
+          arrancan ocultos, en vez de aparecer y desaparecer. Un nodo que se crea
+          al vuelo necesita un `ref` para poder actualizarlo, y el caso mas
+          comun — un error de red — llega antes de que exista el nodo.
+
+          `hidden` y no `opacity: 0`: con `opacity: 0` el texto sigue anunciandose
+          a un lector de pantalla, que leeria "Error:" de un error que no ha
+          pasado.
+        */}
+        <p
+          id="aviso"
+          role="status"
+          aria-live="polite"
+          hidden
+          class="rounded-2xl border border-error/40 bg-error-container/40 px-4 py-3 text-body-md text-on-error-container"
+        >
+        </p>
+
+        <button
+          type="submit"
+          id="enviar"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-body-md font-semibold text-on-primary transition hover:bg-primary-container disabled:opacity-50"
+        >
+          <span id="enviar-texto">Crear cuenta</span>
+        </button>
+      </form>
+
+      <p class="mt-6 text-center text-body-md text-on-surface-variant">
+        Ya tienes cuenta?
+        <a href="/iniciar-sesion" class="font-semibold text-primary hover:underline">Entra aqui</a>
+      </p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { registrar } from '../lib/identidad-cliente'
+
+  const formulario = document.getElementById('formulario') as HTMLFormElement
+  const aviso = document.getElementById('aviso')
+  const boton = document.getElementById('enviar') as HTMLButtonElement
+  const textoBoton = document.getElementById('enviar-texto')
+  const verContrasena = document.getElementById('ver-contrasena') as HTMLButtonElement
+  const textoVer = document.getElementById('ver-contrasena-texto')
+
+  /** Muestra el aviso, o lo esconde con `oculto = true`. */
+  function avisar(texto: string, ocultar = false) {
+    if (!aviso) return
+    if (ocultar) {
+      aviso.hidden = true
+      aviso.textContent = ''
+      return
+    }
+    aviso.hidden = false
+    aviso.textContent = texto
+    aviso.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+
+  // Mostrar contrasena. Se cambia el `type` del input y el texto del boton, y se
+  // actualiza `aria-pressed` para que un lector de pantalla sepa si esta
+  // mostrando lo tecleado.
+  verContrasena?.addEventListener('click', () => {
+    const campo = document.getElementById('contrasena') as HTMLInputElement
+    const mostrando = campo.type === 'password'
+    campo.type = mostrando ? 'text' : 'password'
+    verContrasena.setAttribute('aria-pressed', String(mostrando))
+    if (textoVer) textoVer.textContent = mostrando ? 'Ocultar contrasena' : 'Mostrar contrasena'
+  })
+
+  formulario?.addEventListener('submit', async (evento) => {
+    // Se corta el envio normal: sin esto el navegador recarga la pagina con los
+    // datos en la barra de direcciones, que es justo lo que no se quiere con una
+    // contrasena.
+    evento.preventDefault()
+    avisar('', true)
+
+    const nombre = (document.getElementById('nombre') as HTMLInputElement).value.trim()
+    const email = (document.getElementById('email') as HTMLInputElement).value.trim()
+    const contrasena = (document.getElementById('contrasena') as HTMLInputElement).value
+
+    // Se delega la validacion real en el Worker y no se escribe una copia aqui:
+    // dos reglas de contrasena en dos sitios divergen, y el navegador acaba
+    // aceptando algo que el servidor rechaza.
+    if (!nombre || !email || !contrasena) {
+      avisar('Rellena los tres campos.')
+      return
+    }
+
+    boton.disabled = true
+    if (textoBoton) textoBoton.textContent = 'Creando cuenta...'
+
+    const resultado = await registrar({ email, nombre, contrasena })
+
+    boton.disabled = false
+    if (textoBoton) textoBoton.textContent = 'Crear cuenta'
+
+    if (!resultado.ok) {
+      avisar(resultado.mensaje)
+      return
+    }
+
+    // A donde va segun quien se acaba de registrar. La logica de a donde puede ir
+    // cada rol vive en el sitio, no en el Worker: el Worker responde quien es,
+    // y quien decide la pantalla siguiente es la pagina.
+    const usuario = resultado.datos.usuario
+    if (usuario.puedeAdministrar) {
+      window.location.assign('/owner')
+    } else if (usuario.esVendedor) {
+      window.location.assign('/panel')
+    } else {
+      window.location.assign('/cuenta')
+    }
+  })
+</script>
+
+<noscript>
+  <div class="container-page max-w-md py-8">
+    <p class="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 text-body-md text-on-surface-variant">
+      Para crear una cuenta hace falta JavaScript: el sitio es estatico y no tiene
+      servidor donde mandar el formulario. Activalo y vuelve a cargar esta pagina.
+    </p>
+  </div>
+</noscript>

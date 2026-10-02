@@ -40,7 +40,7 @@
  * esta cobrando por algo que no existe.
  */
 
-import { enteroDeQuery, json } from '../index'
+import { enteroDeQuery, json } from '../http'
 import { ErrorApi } from '../constantes'
 import type { Env } from '../entorno'
 

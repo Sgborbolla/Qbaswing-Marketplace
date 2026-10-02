@@ -1,0 +1,174 @@
+---
+/**
+ * Entrar en la cuenta.
+ *
+ * Las mismas reglas que `registro.astro`: sitio estatico, sin servidor que reciba
+ * el formulario, asi que se envia con `fetch` desde el navegador. Lo que se
+ * guarda en la sesion lo decide el Worker, nunca esta pagina.
+ */
+import Base from '../layouts/Base.astro'
+import { backendConfigurado } from '../lib/identidad-cliente'
+---
+
+<Base title="Entrar" descripcion="Entra en tu cuenta de QBASwing Marketplace.">
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-md">
+      <h1 class="font-headline text-headline-lg text-on-surface">Entrar</h1>
+      <p class="mt-2 text-body-md text-on-surface-variant">
+        Con el correo con el que te registraste.
+      </p>
+
+      {!backendConfigurado && (
+        <div
+          class="mt-6 rounded-2xl border border-error/40 bg-error-container/40 p-5 text-body-md text-on-error-container"
+          role="alert"
+        >
+          <p>
+            Este sitio todavia no tiene servidor configurado, asi que no se puede
+            entrar. Intentalo mas tarde.
+          </p>
+        </div>
+      )}
+
+      <form id="formulario" class="mt-8 space-y-5" novalidate>
+        <div>
+          <label for="email" class="block text-label-md font-medium text-on-surface">
+            Correo
+          </label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            autocomplete="email"
+            required
+            maxlength="254"
+            class="mt-1.5 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3 text-body-md text-on-surface focus:border-primary"
+          />
+        </div>
+
+        <div>
+          <label for="contrasena" class="block text-label-md font-medium text-on-surface">
+            Contrasena
+          </label>
+          <input
+            type="password"
+            id="contrasena"
+            name="contrasena"
+            autocomplete="current-password"
+            required
+            class="mt-1.5 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3 text-body-md text-on-surface focus:border-primary"
+          />
+          <button
+            type="button"
+            id="ver-contrasena"
+            aria-pressed="false"
+            class="mt-2 inline-flex items-center gap-1.5 text-label-md text-on-surface-variant transition hover:text-primary"
+          >
+            <span class="material-symbols-outlined text-label-md" aria-hidden="true">
+              visibility
+            </span>
+            <span id="ver-contrasena-texto">Mostrar contrasena</span>
+          </button>
+        </div>
+
+        <p
+          id="aviso"
+          role="status"
+          aria-live="polite"
+          hidden
+          class="rounded-2xl border border-error/40 bg-error-container/40 px-4 py-3 text-body-md text-on-error-container"
+        >
+        </p>
+
+        <button
+          type="submit"
+          id="enviar"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-body-md font-semibold text-on-primary transition hover:bg-primary-container disabled:opacity-50"
+        >
+          <span id="enviar-texto">Entrar</span>
+        </button>
+      </form>
+
+      <p class="mt-6 text-center text-body-md text-on-surface-variant">
+        No tienes cuenta?
+        <a href="/registro" class="font-semibold text-primary hover:underline">Crear una aqui</a>
+      </p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { iniciarSesion } from '../lib/identidad-cliente'
+
+  const formulario = document.getElementById('formulario') as HTMLFormElement
+  const aviso = document.getElementById('aviso')
+  const boton = document.getElementById('enviar') as HTMLButtonElement
+  const textoBoton = document.getElementById('enviar-texto')
+  const verContrasena = document.getElementById('ver-contrasena') as HTMLButtonElement
+  const textoVer = document.getElementById('ver-contrasena-texto')
+
+  function avisar(texto: string, ocultar = false) {
+    if (!aviso) return
+    if (ocultar) {
+      aviso.hidden = true
+      aviso.textContent = ''
+      return
+    }
+    aviso.hidden = false
+    aviso.textContent = texto
+    aviso.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+
+  verContrasena?.addEventListener('click', () => {
+    const campo = document.getElementById('contrasena') as HTMLInputElement
+    const mostrando = campo.type === 'password'
+    campo.type = mostrando ? 'text' : 'password'
+    verContrasena.setAttribute('aria-pressed', String(mostrando))
+    if (textoVer) textoVer.textContent = mostrando ? 'Ocultar contrasena' : 'Mostrar contrasena'
+  })
+
+  formulario?.addEventListener('submit', async (evento) => {
+    evento.preventDefault()
+    avisar('', true)
+
+    const email = (document.getElementById('email') as HTMLInputElement).value.trim()
+    const contrasena = (document.getElementById('contrasena') as HTMLInputElement).value
+
+    if (!email || !contrasena) {
+      avisar('Escribe tu correo y tu contrasena.')
+      return
+    }
+
+    boton.disabled = true
+    if (textoBoton) textoBoton.textContent = 'Entrando...'
+
+    const resultado = await iniciarSesion({ email, contrasena })
+
+    boton.disabled = false
+    if (textoBoton) textoBoton.textContent = 'Entrar'
+
+    if (!resultado.ok) {
+      avisar(resultado.mensaje)
+      return
+    }
+
+    // A donde va cada rol, igual que en el registro.
+    const usuario = resultado.datos.usuario
+    if (usuario.puedeAdministrar) {
+      window.location.replace('/owner')
+    } else if (usuario.esVendedor) {
+      window.location.replace('/panel')
+    } else {
+      window.location.replace('/cuenta')
+    }
+  })
+</script>
+
+<noscript>
+  <div class="container-page max-w-md py-8">
+    <p class="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 text-body-md text-on-surface-variant">
+      Para entrar hace falta JavaScript: el sitio es estatico y no tiene servidor
+      donde mandar el formulario. Activalo y vuelve a cargar esta pagina.
+    </p>
+  </div>
+</noscript>

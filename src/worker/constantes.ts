@@ -75,6 +75,7 @@ export const RUTAS = {
   // Autenticacion
   registro: '/api/registro',
   sesion: '/api/sesion',
+  cuenta: '/api/cuenta',
 } as const
 
 /* ===========================================================================
@@ -130,6 +131,14 @@ export class ErrorApi extends Error {
   readonly codigo: string
   readonly status: number
 
+  /**
+   * Metodos que la ruta si acepta, para el 405.
+   *
+   * Va en el error y no en el mensaje porque es un dato estructurado: lo que
+   * hace falta es ponerlo en la cabecera `Allow`, no imprimirlo.
+   */
+  metodosPermitidos?: string[]
+
   constructor(codigo: string, mensaje: string, status: number) {
     super(mensaje)
     this.name = 'ErrorApi'
@@ -139,6 +148,23 @@ export class ErrorApi extends Error {
 
   static noEncontrado(que: string): ErrorApi {
     return new ErrorApi('no_encontrado', `${que} no existe.`, 404)
+  }
+
+  /**
+   * 405, con la cabecera `Allow`.
+   *
+   * Un 404 en un metodo equivocado hace creer que la ruta no existe, y no es
+   * cierto: `/api/sesion` existe y solo admite POST, GET y DELETE. Quien
+   * siga esa ruta necesita ver la diferencia.
+   *
+   * El 405 lleva `Allow` porque es lo que pide el protocolo para esa respuesta;
+   * un 405 sin esa cabecera esta incompleto y hay navegadores que avisan por
+   * consola.
+   */
+  static metodoNoPermitido(mensaje: string, permitidos: string[] = []): ErrorApi {
+    const error = new ErrorApi('metodo_no_permitido', mensaje, 405)
+    if (permitidos.length > 0) error.metodosPermitidos = permitidos
+    return error
   }
 
   static sinPermiso(mensaje = 'No tenes permiso para esto.'): ErrorApi {

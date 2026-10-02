@@ -27,7 +27,7 @@
  * atacar la instalacion.
  */
 
-import { json } from '../index'
+import { json } from '../http'
 import { numero, type Env } from '../entorno'
 
 /**

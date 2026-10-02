@@ -1,0 +1,84 @@
+---
+/**
+ * Espacios y paquetes (página de lectura).
+ *
+ * Muestra los 10 paquetes que devuelve la API. No hay datos ficticios.
+ */
+import Base from '../layouts/Base.astro'
+
+const { listarPaquetes } = await import('../lib/api')
+const { precioONoDisponible } = await import('../lib/formato')
+
+let paquetes: Awaited<ReturnType<typeof listarPaquetes>> = []
+let error = false
+
+try {
+  paquetes = await listarPaquetes()
+} catch (e) {
+  error = true
+}
+---
+
+<Base title="Espacios y paquetes">
+  <section class="w-full py-space-xl">
+    <div class="container-page">
+      <h1 class="font-headline text-headline-lg text-on-surface">Espacios y paquetes</h1>
+      <p class="mt-4 max-w-3xl text-body-lg text-on-surface-variant">
+        Un paquete no limita cuántas ventas haces: limita cuántos productos tienes
+        publicados a la vez, dura 60 días y los espacios se reutilizan al vender.
+      </p>
+
+      {error && (
+        <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">
+          <p class="text-body-md text-on-surface-variant">
+            No se pudieron cargar los paquetes en este momento.
+          </p>
+        </div>
+      )}
+
+      {!error && paquetes.length === 0 && (
+        <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">
+          <p class="text-body-md text-on-surface-variant">
+            Aún no hay paquetes configurados.
+          </p>
+        </div>
+      )}
+
+      {paquetes.length > 0 && (
+        <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+          {paquetes.map((p) => (
+            <article class="flex flex-col rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-e1">
+              <h2 class="font-headline text-title-md font-semibold text-on-surface">{p.nombre}</h2>
+              <p class="mt-1 text-body-sm text-on-surface-variant">
+                {p.slots} {p.slots === 1 ? 'espacio' : 'espacios'} · {p.vigenciaDias} días
+              </p>
+              <div class="mt-4 space-y-1">
+                {(['CUP', 'USD', 'EUR'] as const).map((m) => {
+                  const info = precioONoDisponible(p.precios[m], m)
+                  return (
+                    <p class="flex items-baseline justify-between gap-2">
+                      <span class="text-body-sm text-on-surface-variant">{m}</span>
+                      {info.hay ? (
+                        <span class="font-headline text-title-md font-semibold text-primary">{info.texto}</span>
+                      ) : (
+                        <span class="text-body-sm text-on-surface-variant/60">{info.texto}</span>
+                      )}
+                    </p>
+                  )
+                })}
+              </div>
+              {p.precioConfigurable && (
+                <p class="mt-3 text-label-sm text-tertiary">Precio editable por el Owner</p>
+              )}
+              <ul class="mt-4 space-y-1 text-body-sm text-on-surface-variant">
+                {p.caracteristicas.map((c) => (
+                  <li>• {c}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  </section>
+</Base>

@@ -1,0 +1,125 @@
+---
+/**
+ * Producto individual.
+ *
+ * Página dinámica: `/producto/[slug].astro`. Lee desde la API por slug.
+ * Estados vacíos reales si no existe o falla la carga.
+ */
+import Base from '../../layouts/Base.astro'
+import { formatearFecha, formatearPrecio } from '../../lib/formato'
+
+const { obtenerProducto } = await import('../../lib/api')
+
+export async function getStaticPaths() {
+  // No pre-generamos slugs: el catálogo es dinámico y cambia con el Owner.
+  // Con fallback SSR no aplicable en Pages estático, pero dejamos paths vacío
+  // y Astro generará por demanda si fuera SSR; aquí es estático y con contenido
+  // cambiante: mejor devolver [] y confiar en que en build no falla.
+  return []
+}
+
+const { slug } = Astro.params
+let producto: Awaited<ReturnType<typeof obtenerProducto>> | null = null
+let error = false
+let mensaje = ''
+
+try {
+  if (slug) {
+    producto = await obtenerProducto(slug)
+  } else {
+    error = true
+    mensaje = 'Falta el identificador del producto.'
+  }
+} catch (e: any) {
+  error = true
+  mensaje = e?.message || 'No se pudo cargar el producto.'
+}
+
+const titulo = producto ? producto.titulo : error ? 'Error al cargar el producto' : 'Producto no encontrado'
+---
+
+<Base title={titulo}>
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-5xl">
+      {error && (
+        <div class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
+          <h1 class="font-headline text-headline-sm text-on-surface">No se pudo mostrar este producto</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">{mensaje}</p>
+          <a href="/productos" class="mt-4 inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-primary transition hover:border-primary">
+            Volver al catálogo
+          </a>
+        </div>
+      )}
+
+      {!error && !producto && (
+        <div class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
+          <h1 class="font-headline text-headline-sm text-on-surface">Producto no encontrado</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            El producto que buscaste no existe o no está publicado.
+          </p>
+          <a href="/productos" class="mt-4 inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-primary transition hover:border-primary">
+            Volver al catálogo
+          </a>
+        </div>
+      )}
+
+      {producto && (
+        <div class="grid gap-8 lg:grid-cols-2">
+          <div class="overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-lowest shadow-e1">
+            <div class="aspect-[4/3] w-full bg-surface-container-high">
+              {producto.imagen ? (
+                <img src={producto.imagen} alt={producto.titulo} class="h-full w-full object-cover" />
+              ) : (
+                <div class="flex h-full w-full items-center justify-center">
+                  <span class="material-symbols-outlined text-[48px] text-on-surface-variant/30" aria-hidden="true">image</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p class="text-label-md text-primary">{producto.vendedorNombre}</p>
+            <h1 class="mt-2 font-headline text-headline-md text-on-surface">{producto.titulo}</h1>
+            <p class="mt-4 font-headline text-display text-primary">
+              {formatearPrecio(producto.precio, producto.moneda)}
+            </p>
+            {producto.precioAnterior && (
+              <p class="text-body-sm text-on-surface-variant/60 line-through">
+                {formatearPrecio(producto.precioAnterior, producto.moneda)}
+              </p>
+            )}
+
+            <p class="mt-6 text-body-lg text-on-surface-variant whitespace-pre-line">{producto.descripcion}</p>
+
+            <div class="mt-6 flex flex-wrap gap-2 text-label-sm text-on-surface-variant">
+              <span class="rounded-full bg-surface-container-high px-3 py-1">{producto.tipo}</span>
+              <span class="rounded-full bg-surface-container-high px-3 py-1">{producto.categoria}</span>
+              <span class="rounded-full bg-surface-container-high px-3 py-1">Regla {producto.regla}</span>
+              {producto.destacado && <span class="rounded-full bg-primary/10 px-3 py-1 text-primary">Destacado</span>}
+            </div>
+
+            <div class="mt-8 flex flex-wrap gap-3">
+              <a href="/carrito" class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-body-lg font-semibold text-on-primary transition hover:bg-primary-container">
+                Añadir al carrito
+              </a>
+              <a href={`/vendedor/${producto.vendedorSlug}`} class="inline-flex items-center gap-2 rounded-full border border-outline-variant px-6 py-3 text-body-lg font-semibold text-on-surface transition hover:border-primary">
+                Ver vendedor
+              </a>
+            </div>
+
+            <dl class="mt-8 grid gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-4 text-body-sm text-on-surface-variant sm:grid-cols-2">
+              <div>
+                <dt class="font-semibold text-on-surface">Publicado</dt>
+                <dd>{formatearFecha(producto.fechaPublicacion)}</dd>
+              </div>
+              <div>
+                <dt class="font-semibold text-on-surface">Actualizado</dt>
+                <dd>{formatearFecha(producto.fechaActualizacion)}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      )}
+    </div>
+  </section>
+</Base>

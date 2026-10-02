@@ -1,0 +1,36 @@
+---
+/**
+ * Panel del vendedor.
+ *
+ * ============================================================================
+ *  QUE VE Y QUE NO VE
+ * ============================================================================
+ * El vendedor ve SU cuenta y SU tienda. No ve a los demas vendedores, ni los
+ * pagos de la plataforma, ni los usuarios. Esa separacion no se decide aqui
+ * sino en el Worker, que es el unico sitio con datos: lo que esta pagina hace es
+ * mostrar lo que la API le devuelve, y si la API dice 403, decir 403.
+ *
+ * Que sea el panel del vendedor y no "el panel de cualquiera" es una decision
+ * de contenido, no de seguridad. Un comprador que entre por el teclado en `/panel`
+ * vera su propia cuenta, que es informacion suya. Lo que no podra hacer es ver
+ * la de otro, y eso no depende de esta pagina: depende de que `/api/cuenta` no
+ * acepte un `id` por la URL.
+ */
+import Base from '../../layouts/Base.astro'
+import PanelCuenta from '../../components/PanelCuenta.astro'
+---
+
+<Base title="Mi panel" descripcion="Tu panel de vendedor en QBASwing Marketplace.">
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-3xl">
+      <h1 class="font-headline text-headline-lg text-on-surface">Mi panel</h1>
+      <p class="mt-2 text-body-md text-on-surface-variant">
+        Tu tienda, tu porcentaje y tus sesiones.
+      </p>
+
+      <div class="mt-8">
+        <PanelCuenta variante="panel" />
+      </div>
+    </div>
+  </section>
+</Base>

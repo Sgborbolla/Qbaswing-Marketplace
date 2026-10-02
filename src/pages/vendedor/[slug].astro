@@ -1,0 +1,109 @@
+---
+/**
+ * Vendedor individual.
+ */
+import Base from '../../layouts/Base.astro'
+import { formatearPrecio, recortar } from '../../lib/formato'
+
+const { obtenerVendedor } = await import('../../lib/api')
+
+export async function getStaticPaths() {
+  return []
+}
+
+const { slug } = Astro.params
+let vendedor: Awaited<ReturnType<typeof obtenerVendedor>> | null = null
+let error = false
+let mensaje = ''
+
+try {
+  if (slug) {
+    vendedor = await obtenerVendedor(slug)
+  } else {
+    error = true
+    mensaje = 'Falta el identificador del vendedor.'
+  }
+} catch (e: any) {
+  error = true
+  mensaje = e?.message || 'No se pudo cargar el vendedor.'
+}
+
+const titulo = vendedor ? vendedor.nombreComercial || vendedor.nombre : 'Vendedor'
+---
+
+<Base title={titulo}>
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-5xl">
+      {error && (
+        <div class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
+          <h1 class="font-headline text-headline-sm text-on-surface">No se pudo mostrar este vendedor</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">{mensaje}</p>
+          <a href="/productos" class="mt-4 inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-primary transition hover:border-primary">
+            Volver al catálogo
+          </a>
+        </div>
+      )}
+
+      {!error && !vendedor && (
+        <div class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
+          <h1 class="font-headline text-headline-sm text-on-surface">Vendedor no encontrado</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">Este vendedor no existe o no tiene productos visibles.</p>
+          <a href="/productos" class="mt-4 inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-primary transition hover:border-primary">
+            Volver al catálogo
+          </a>
+        </div>
+      )}
+
+      {vendedor && (
+        <>
+          <header class="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-8 shadow-e1">
+            <div class="flex flex-wrap items-center justify-between gap-6">
+              <div>
+                <h1 class="font-headline text-headline-md text-on-surface">
+                  {vendedor.nombreComercial || vendedor.nombre}
+                </h1>
+                <p class="mt-2 max-w-2xl text-body-md text-on-surface-variant whitespace-pre-line">
+                  {vendedor.descripcion || 'Este vendedor aún no tiene descripción.'}
+                </p>
+                <div class="mt-4 flex flex-wrap gap-3 text-label-sm text-on-surface-variant">
+                  <span class="rounded-full bg-surface-container-high px-3 py-1">
+                    {vendedor.productosPublicados} producto{vendedor.productosPublicados === 1 ? '' : 's'}
+                  </span>
+                  {vendedor.ubicacion && <span class="rounded-full bg-surface-container-high px-3 py-1">{vendedor.ubicacion}</span>}
+                  {vendedor.verificado && <span class="rounded-full bg-primary/10 px-3 py-1 text-primary">Verificado</span>}
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <section class="mt-8">
+            <h2 class="font-headline text-title-lg font-semibold text-on-surface">Productos</h2>
+            {vendedor.productos.length === 0 ? (
+              <p class="mt-2 text-body-md text-on-surface-variant">Este vendedor todavía no tiene productos visibles.</p>
+            ) : (
+              <div class="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                {vendedor.productos.map((p) => (
+                  <a href={`/producto/${p.slug}`} class="group flex flex-col overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-lowest shadow-e1 transition hover:shadow-e2">
+                    <div class="aspect-[4/3] w-full bg-surface-container-high">
+                      {p.imagen ? (
+                        <img src={p.imagen} alt={p.titulo} class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                      ) : (
+                        <div class="flex h-full w-full items-center justify-center">
+                          <span class="material-symbols-outlined text-[36px] text-on-surface-variant/30">image</span>
+                        </div>
+                      )}
+                    </div>
+                    <div class="flex flex-1 flex-col p-4">
+                      <h3 class="font-headline text-title-md font-semibold text-on-surface">{recortar(p.titulo, 10)}</h3>
+                      <p class="mt-4 font-headline text-title-lg font-semibold text-primary">{formatearPrecio(p.precio, p.moneda)}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  </section>
+</Base>

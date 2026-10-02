@@ -1,0 +1,268 @@
+---
+/**
+ * Catálogo de productos.
+ *
+ * Lee de la API en tiempo de render. Si no hay backend configurado o no hay
+ * resultados, muestra estados vacíos reales, nunca datos de ejemplo.
+ */
+import Base from '../layouts/Base.astro'
+import { formatearPrecio, recortar } from '../lib/formato'
+import type { FiltrosCatalogo, ProductoResumen } from '../lib/api'
+
+const { listarProductos, listarCategorias } = await import('../lib/api')
+
+const params = Astro.url.searchParams
+const filtros: FiltrosCatalogo = {
+  busqueda: params.get('q') || undefined,
+  categoria: params.get('categoria') || undefined,
+  tipo: (params.get('tipo') as any) || undefined,
+  orden: (params.get('orden') as any) || 'destacados',
+  pagina: Number(params.get('pagina')) || 1,
+  porPagina: 24,
+}
+
+let productos: ProductoResumen[] = []
+let total = 0
+let paginas = 0
+let error = false
+let categorias: Array<{ nombre: string; productos: number }> = []
+
+try {
+  const [res, cats] = await Promise.all([
+    listarProductos(filtros),
+    listarCategorias().catch(() => []),
+  ])
+  productos = res.items
+  total = res.total
+  paginas = res.paginas
+  categorias = cats.map((c) => ({ nombre: c.nombre, productos: c.productos }))
+} catch (e) {
+  error = true
+}
+
+const tieneFiltros = Boolean(
+  filtros.busqueda || filtros.categoria || filtros.tipo || filtros.orden !== 'destacados' || filtros.pagina !== 1,
+)
+
+/**
+ * Los enlaces de paginacion, con los filtros actuales puestos.
+ *
+ * Un enlace de pagina sin los filtros pierde la busqueda: se pulsa "2" y se
+ * vuelve al catalogo completo sin el termino. Por eso cada URL se arma con
+ * `URLSearchParams` sobre la consulta que YA esta en la barra de direcciones, en
+ * vez de a mano con un `?pagina=2` que perderia el resto.
+ *
+ * `URLSearchParams` es lo que lee el navegador, no una libreria: lo que se ve en
+ * la barra de direcciones es exactamente lo que se pasa a la API.
+ */
+const urlDePagina = (n: number): string => {
+  const q = new URLSearchParams(params)
+  if (n <= 1) q.delete('pagina')
+  else q.set('pagina', String(n))
+  const s = q.toString()
+  return s ? `/productos?${s}` : '/productos'
+}
+---
+
+<Base title="Catálogo">
+  <section class="w-full py-space-xl">
+    <div class="container-page">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 class="font-headline text-headline-lg text-on-surface">Catálogo</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            {total === 0
+              ? 'Aún no hay productos publicados.'
+              : `${total} producto${total === 1 ? '' : 's'} en total.`}
+          </p>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <form method="GET" class="mt-6 grid gap-3 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-4 shadow-e1 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="lg:col-span-2">
+          <label class="text-label-sm text-on-surface-variant" for="q">Buscar</label>
+          <input
+            id="q"
+            name="q"
+            value={filtros.busqueda || ''}
+            placeholder="Buscar por título o descripción..."
+            class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-body-md text-on-surface outline-none ring-primary transition focus:border-primary focus:ring-2"
+          />
+        </div>
+
+        <div>
+          <label class="text-label-sm text-on-surface-variant" for="categoria">Categoría</label>
+          <select
+            id="categoria"
+            name="categoria"
+            class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-body-md text-on-surface outline-none focus:border-primary focus:ring-2"
+          >
+            <option value="">Todas</option>
+            {categorias.map((c) => (
+              <option value={c.nombre} selected={c.nombre === filtros.categoria}>{c.nombre}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label class="text-label-sm text-on-surface-variant" for="tipo">Tipo</label>
+          <select id="tipo" name="tipo" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-body-md text-on-surface outline-none focus:border-primary focus:ring-2">
+            <option value="">Todos</option>
+            <option value="digital" selected={filtros.tipo === 'digital'}>Digital</option>
+            <option value="fisico" selected={filtros.tipo === 'fisico'}>Físico</option>
+            <option value="servicio" selected={filtros.tipo === 'servicio'}>Servicio</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-label-sm text-on-surface-variant" for="orden">Ordenar</label>
+          <select id="orden" name="orden" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-body-md text-on-surface outline-none focus:border-primary focus:ring-2">
+            <option value="destacados" selected={filtros.orden === 'destacados'}>Destacados</option>
+            <option value="nuevo" selected={filtros.orden === 'nuevo'}>Más recientes</option>
+            <option value="precio_asc" selected={filtros.orden === 'precio_asc'}>Precio: menor a mayor</option>
+            <option value="precio_desc" selected={filtros.orden === 'precio_desc'}>Precio: mayor a menor</option>
+          </select>
+        </div>
+
+        <div class="flex items-end gap-2 sm:col-span-2 lg:col-span-5">
+          <button
+            type="submit"
+            class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-body-md font-semibold text-on-primary transition hover:bg-primary-container"
+          >
+            Filtrar
+          </button>
+          {tieneFiltros && (
+            <a
+              href="/productos"
+              class="inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-on-surface transition hover:border-primary"
+            >
+              Limpiar filtros
+            </a>
+          )}
+        </div>
+      </form>
+
+      {error && (
+        <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">
+          <p class="text-body-md text-on-surface-variant">
+            No se pudo cargar el catálogo en este momento. Inténtalo de nuevo más tarde.
+          </p>
+        </div>
+      )}
+
+      {productos.length === 0 && !error && (
+        <div class="mt-8 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-10 text-center">
+          <p class="font-headline text-title-lg font-semibold text-on-surface">
+            Todavía no hay productos publicados
+          </p>
+          <p class="mx-auto mt-2 max-w-xl text-body-md text-on-surface-variant">
+            El catálogo está vacío. El primer producto que se publique aparecerá aquí.
+          </p>
+          <a
+            href="/registro"
+            class="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-md font-semibold text-on-primary transition hover:bg-primary-container"
+          >
+            Publicar el primero
+          </a>
+        </div>
+      )}
+
+      {productos.length > 0 && (
+        <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {productos.map((p) => (
+            <a
+              href={`/producto/${p.slug}`}
+              class="group flex flex-col overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-lowest shadow-e1 transition hover:shadow-e2"
+            >
+              <div class="aspect-[4/3] w-full overflow-hidden bg-surface-container-high">
+                {p.imagen ? (
+                  <img
+                    src={p.imagen}
+                    alt={p.titulo}
+                    width="400"
+                    height="300"
+                    loading="lazy"
+                    class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div class="flex h-full w-full items-center justify-center">
+                    <span class="material-symbols-outlined text-[36px] text-on-surface-variant/30" aria-hidden="true">
+                      image
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div class="flex flex-1 flex-col p-4">
+                <p class="text-label-sm text-primary">{p.vendedorNombre}</p>
+                <h2 class="mt-1 font-headline text-title-md font-semibold text-on-surface">
+                  {recortar(p.titulo, 10)}
+                </h2>
+                <p class="mt-2 text-body-sm text-on-surface-variant">
+                  {recortar(p.descripcion, 20)}
+                </p>
+                <p class="mt-4 font-headline text-title-lg font-semibold text-primary">
+                  {formatearPrecio(p.precio, p.moneda)}
+                </p>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/*
+        Paginacion.
+
+        Se pinta SOLO si hay mas de una pagina. Con `paginas === 1` los botones
+        "anterior" y "siguiente" apuntarian a la misma pagina que ya se esta
+        viendo, asi que no harian nada y solo apparentarian que el filtro
+        funciono.
+
+        Los enlaces los arma `urlDePagina()`, que arrastra los filtros que ya
+        estan en la barra de direcciones. Un `?pagina=2` a mano perderia la
+        busqueda y el orden.
+      */}
+      {paginas > 1 && (
+        <nav
+          aria-label="Paginas del catalogo"
+          class="mt-10 flex items-center justify-center gap-2 border-t border-outline-variant/50 pt-6"
+        >
+          <a
+            href={urlDePagina(filtros.pagina! - 1)}
+            class:list={[
+              'inline-flex items-center gap-1.5 rounded-full border border-outline-variant px-4 py-2 text-body-md font-semibold transition',
+              filtros.pagina! <= 1
+                ? 'pointer-events-none opacity-40'
+                : 'text-on-surface hover:border-primary hover:text-primary',
+            ]}
+          >
+            <span class="material-symbols-outlined text-label-md" aria-hidden="true">
+              chevron_left
+            </span>
+            Anterior
+          </a>
+
+          <p class="px-4 text-body-md text-on-surface-variant">
+            Pagina <span class="font-semibold text-on-surface">{filtros.pagina}</span> de{' '}
+            <span class="font-semibold text-on-surface">{paginas}</span>
+          </p>
+
+          <a
+            href={urlDePagina(filtros.pagina! + 1)}
+            class:list={[
+              'inline-flex items-center gap-1.5 rounded-full border border-outline-variant px-4 py-2 text-body-md font-semibold transition',
+              filtros.pagina! >= paginas
+                ? 'pointer-events-none opacity-40'
+                : 'text-on-surface hover:border-primary hover:text-primary',
+            ]}
+          >
+            Siguiente
+            <span class="material-symbols-outlined text-label-md" aria-hidden="true">
+              chevron_right
+            </span>
+          </a>
+        </nav>
+      )}
+    </div>
+  </section>
+</Base>

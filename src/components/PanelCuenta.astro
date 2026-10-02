@@ -1,0 +1,424 @@
+---
+/**
+ * Panel de la cuenta propia, con tres variantes de contenido.
+ *
+ * ============================================================================
+ *  POR QUE UN SOLO COMPONENTE PARA LAS TRES PAGINAS
+ * ============================================================================
+ * `/cuenta`, `/panel` y `/owner` se diferencian en QUE SECCIONES enseñan, no en
+ * COMO LAS PIDEN. Si cada pagina trajera su propio `fetch`, su esqueleto de
+ * carga y su mensaje de error, habria tres copias que divergir: en cuanto se
+ * tocara uno, los otros dos quedarian mostrando el mensaje viejo.
+ *
+ * Aqui solo cambia `variante`, que decide que secciones se pintan. La carga, el
+ * esqueleto y los tres finales (dentro, sin sesion, error) son los mismos.
+ *
+ * ============================================================================
+ *  POR QUE ESTOS DATOS NO ESTAN EN EL HTML
+ * ============================================================================
+ * El sitio es estatico: Pages sirve el archivo a cualquiera que lo pida, sin
+ * mirar cookies. Si el numero de compras, el nombre de la tienda o la exencion
+ * estuvieran escritos en el HTML, bastaria con `curl` la pagina para verlos, y
+ * con editar el HTML para inventar los que faltan. Por eso el shell llega vacio
+ * y los datos los pide el navegador a `/api/cuenta`, que es lo unico que puede
+ * validar la cookie.
+ *
+ * ============================================================================
+ *  LOS TRES FINALES
+ * ============================================================================
+ *   - `dentro`     se pintan los datos.
+ *   - `no_dentro`  la cookie no vale. Se ofrece entrar. NO se dice "sesion
+ *                  expirada" ni se manda a la portada: 401 con `no_dentro` es
+ *                  una situacion normal, no un error.
+ *   - `fallo`      el servidor no respondio o respondio raro. Se dice eso, sin
+ *                  inventar numeros en cero, porque un "0 compras" cuando en
+ *                  realidad no se pudo preguntar es una mentira.
+ */
+/** Que secciones se pintan. Cada una ve los mismos datos. */
+type Variante = 'cuenta' | 'panel' | 'owner'
+
+const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
+---
+
+<!--
+  El esqueleto existe en el HTML desde el principio y se quita con JavaScript.
+  La alternativa —meterlo al vuelo— deja la pagina en blanco durante la peticion,
+  que se lee como pagina rota y no como pagina cargando.
+-->
+<div
+  data-panel-cuenta
+  data-variante={variante}
+  class="space-y-6"
+  aria-busy="true"
+>
+  <p
+    data-cargando
+    class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-body-md text-on-surface-variant"
+  >
+    Consultando tu cuenta...
+  </p>
+</div>
+
+<script>
+  import { miCuenta, type DatosCuentaCliente, type UsuarioCliente } from '../lib/identidad-cliente'
+
+  type Variante = 'cuenta' | 'panel' | 'owner'
+
+  /**
+   * Secciones de cada variante, en el orden en que se pintan.
+   *
+   * Van aqui y no dentro de `zonaDeDatos` porque son datos, no logica: saber que
+   * la cuenta no muestra la tienda pero el panel si, es una decision de
+   * contenido, no de programacion.
+   */
+  const SECCIONES: Record<Variante, string[]> = {
+    cuenta: ['identidad', 'exencion', 'sesiones'],
+    panel: ['identidad', 'tienda', 'exencion', 'sesiones'],
+    owner: ['identidad', 'exencion', 'tienda', 'sesiones', 'privilegios'],
+  }
+
+  /**
+   * Construye un elemento con clase y texto.
+   *
+   * Se hace a mano en vez de con `innerHTML`: escribir HTML en una cadena es
+   * como se cuelan los scripts ajenos cuando un texto trae un signo menor. Con
+   * nodos, un texto es texto.
+   */
+  function el<K extends keyof HTMLElementTagNameMap>(
+    etiqueta: K,
+    clase: string,
+    texto?: string,
+  ): HTMLElementTagNameMap[K] {
+    const nodo = document.createElement(etiqueta)
+    nodo.className = clase
+    if (texto !== undefined) nodo.textContent = texto
+    return nodo
+  }
+
+  /** Una etiqueta pequena: "Nombre", "Correo". */
+  function rotulo(texto: string): HTMLElement {
+    return el(
+      'dt',
+      'text-label-sm font-medium uppercase tracking-wide text-on-surface-variant',
+      texto,
+    )
+  }
+
+  /** Valor de un dato. */
+  function valor(texto: string): HTMLElement {
+    return el('dd', 'mt-0.5 text-body-md text-on-surface', texto)
+  }
+
+  /** Una tarjeta con titulo. */
+  function tarjeta(titulo: string, icono: string): HTMLElement {
+    const caja = el('section', 'rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5')
+    const cabecera = el('div', 'flex items-center gap-2')
+    const simbolo = el('span', 'material-symbols-outlined text-label-lg text-primary')
+    simbolo.setAttribute('aria-hidden', 'true')
+    simbolo.textContent = icono
+    cabecera.append(simbolo, el('h2', 'font-headline text-title-md font-semibold text-on-surface', titulo))
+    caja.append(cabecera)
+    return caja
+  }
+
+  /** Par clave/valor. */
+  function fila(etiqueta: string, texto: string): HTMLElement {
+    const envoltorio = el('div', '')
+    envoltorio.append(rotulo(etiqueta), valor(texto))
+    return envoltorio
+  }
+
+  /** Una etiqueta de estado: verde si esta, gris si no. */
+  function insignia(texto: string, buena: boolean): HTMLElement {
+    const nodo = el(
+      'span',
+      `inline-flex items-center rounded-full px-2.5 py-1 text-label-sm font-medium ${
+        buena
+          ? 'bg-primary-container/40 text-on-primary-container'
+          : 'bg-surface-container-high text-on-surface-variant'
+      }`,
+      texto,
+    )
+    return nodo
+  }
+
+  /** Estado vacio honesto: dice que no hay, y por que. */
+  function vacio(texto: string): HTMLElement {
+    return el(
+      'p',
+      'rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-5 text-body-md text-on-surface-variant',
+      texto,
+    )
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Secciones                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  function seccionIdentidad(usuario: UsuarioCliente): HTMLElement {
+    const caja = tarjeta('Tu cuenta', 'badge')
+    const lista = el('dl', 'mt-4 grid gap-4 sm:grid-cols-2')
+    lista.append(
+      fila('Nombre', usuario.nombre),
+      fila('Correo', usuario.email),
+      fila('Rol', etiquetaDeRol(usuario.rol)),
+    )
+
+    const etiquetas = el('div', 'mt-4 flex flex-wrap gap-2')
+    etiquetas.append(
+      insignia(usuario.verificado ? 'Verificado' : 'Sin verificar', usuario.verificado),
+    )
+    if (usuario.esVendedor) etiquetas.append(insignia('Vendedor', true))
+    if (usuario.puedeAdministrar) etiquetas.append(insignia('Administra el sitio', true))
+
+    caja.append(lista, etiquetas)
+    return caja
+  }
+
+  function etiquetaDeRol(rol: UsuarioCliente['rol']): string {
+    switch (rol) {
+      case 'owner':
+        return 'Propietario'
+      case 'administrador':
+        return 'Administrador'
+      case 'vendedor':
+        return 'Vendedor'
+      case 'comprador':
+        return 'Comprador'
+    }
+  }
+
+  function seccionExencion(exencion: DatosCuentaCliente['exencion']): HTMLElement {
+    const caja = tarjeta('Porcentaje y paquetes', 'percent')
+
+    if (!exencion) {
+      caja.append(
+        vacio(
+          'Esta cuenta paga comision en sus ventas y usa los paquetes de espacios que contrate. No tiene exencion registrada.',
+        ),
+      )
+      return caja
+    }
+
+    const lista = el('dl', 'mt-4 grid gap-4 sm:grid-cols-2')
+    lista.append(
+      fila('Comision', exencion.exentoComision ? 'Libre de porcentaje' : 'Paga comision'),
+      fila('Paquetes de espacios', exencion.slotsIlimitados ? 'Sin limite de paquetes' : 'Con limite de paquetes'),
+    )
+    if (exencion.motivo) lista.append(fila('Motivo', exencion.motivo))
+
+    caja.append(lista)
+    return caja
+  }
+
+  function seccionTienda(tienda: DatosCuentaCliente['tienda']): HTMLElement {
+    const caja = tarjeta('Tu tienda', 'storefront')
+
+    if (!tienda) {
+      caja.append(
+        vacio('Esta cuenta todavia no tiene tienda. Se crea al pedir ser vendedor.'),
+      )
+      return caja
+    }
+
+    const lista = el('dl', 'mt-4 grid gap-4 sm:grid-cols-2')
+    lista.append(
+      fila('Nombre comercial', tienda.nombre || 'Sin nombre'),
+      fila('Verificada', tienda.verificada ? 'Si' : 'Todavia no'),
+    )
+
+    const parrafo = el('p', 'mt-4')
+    const enlace = el('a', 'font-semibold text-primary hover:underline', 'Ver mi tienda')
+    enlace.href = `/vendedor/${encodeURIComponent(tienda.slug)}`
+    parrafo.append(el('span', '', ''))
+    parrafo.append(enlace)
+
+    caja.append(lista, parrafo)
+    return caja
+  }
+
+  function seccionSesiones(datos: DatosCuentaCliente): HTMLElement {
+    const caja = tarjeta('Actividad', 'history')
+
+    const lista = el('dl', 'mt-4 grid gap-4 sm:grid-cols-2')
+    lista.append(
+      fila('Sesiones abiertas', String(datos.sesionesAbiertas)),
+      fila('Compras', datos.compras === 0 ? 'Ninguna todavia' : String(datos.compras)),
+    )
+
+    const ayuda = el(
+      'p',
+      'mt-4 text-body-md text-on-surface-variant',
+      'Cada dispositivo donde entras es una sesion. Salir de este dispositivo no cierra las de los otros.',
+    )
+
+    /*
+      El boton de salir NO se construye aqui a mano. Se pone el atributo
+      `data-cerrar-sesion` y lo escucha el componente BotonCerrarSesion, que ya
+      sabe abrir el dialogo, revocar la sesion y limpiar las cookies. Duplicar
+      esa logica aqui seria una segunda copia que se queda vieja.
+    */
+    const acciones = el('div', 'mt-5')
+    const boton = el(
+      'button',
+      'inline-flex items-center gap-1.5 rounded-full border border-outline-variant px-4 py-2 text-label-md font-semibold text-on-surface transition hover:border-primary',
+    )
+    boton.type = 'button'
+    boton.dataset.cerrarSesion = ''
+    const simbolo = el('span', 'material-symbols-outlined text-label-md')
+    simbolo.setAttribute('aria-hidden', 'true')
+    simbolo.textContent = 'logout'
+    boton.append(simbolo, el('span', '', 'Salir de este dispositivo'))
+    acciones.append(boton)
+
+    caja.append(lista, ayuda, acciones)
+    return caja
+  }
+
+  function seccionPrivilegios(usuario: UsuarioCliente): HTMLElement {
+    const caja = tarjeta('Privilegios', 'shield_person')
+
+    const lista = el('ul', 'mt-4 space-y-2 text-body-md text-on-surface-variant')
+    const Privilegios: Array<[string, boolean]> = [
+      ['Editar todo el sitio (redes, contacto, preguntas frecuentes)', usuario.puedeAdministrar],
+      ['Administrar cuentas de usuarios', usuario.puedeAdministrar],
+      ['Gestionar pagos y comisiones', usuario.puedeAdministrar],
+    ]
+    for (const [texto, concedido] of Privilegios) {
+      const nodo = el('li', 'flex items-start gap-2')
+      const marca = el('span', 'material-symbols-outlined text-label-md')
+      marca.setAttribute('aria-hidden', 'true')
+      marca.textContent = concedido ? 'check_circle' : 'cancel'
+      marca.classList.add(concedido ? 'text-primary' : 'text-on-surface-variant/60')
+      nodo.append(marca, el('span', '', conPermiso(texto, concedido)))
+      lista.append(nodo)
+    }
+
+    caja.append(lista)
+    return caja
+  }
+
+  /** Anade "no concedido" cuando la cuenta no tiene ese privilegio. */
+  function conPermiso(texto: string, concedido: boolean): string {
+    return concedido ? texto : `${texto} - no concedido a esta cuenta`
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Pints                                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  function zonaDeDatos(datos: DatosCuentaCliente, variante: Variante): HTMLElement {
+    const zona = el('div', 'space-y-6')
+
+    for (const seccion of SECCIONES[variante]) {
+      switch (seccion) {
+        case 'identidad':
+          zona.append(seccionIdentidad(datos.usuario))
+          break
+        case 'exencion':
+          zona.append(seccionExencion(datos.exencion))
+          break
+        case 'tienda':
+          zona.append(seccionTienda(datos.tienda))
+          break
+        case 'sesiones':
+          zona.append(seccionSesiones(datos))
+          break
+        case 'privilegios':
+          zona.append(seccionPrivilegios(datos.usuario))
+          break
+      }
+    }
+
+    return zona
+  }
+
+  function mensajeSinSesion(): HTMLElement {
+    const caja = el(
+      'div',
+      'rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center',
+    )
+    caja.append(
+      el('p', 'font-headline text-title-md font-semibold text-on-surface', 'No estas dentro'),
+      el(
+        'p',
+        'mt-2 text-body-md text-on-surface-variant',
+        'Esta pagina es de tu cuenta. Entra y se te dira exactamente que tienes.',
+      ),
+    )
+    const acciones = el('div', 'mt-6 flex flex-wrap justify-center gap-3')
+    const entrar = el(
+      'a',
+      'inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
+      'Entrar',
+    )
+    entrar.href = '/iniciar-sesion'
+    const crear = el(
+      'a',
+      'inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2.5 text-body-md font-semibold text-on-surface transition hover:border-primary',
+      'Crear cuenta',
+    )
+    crear.href = '/registro'
+    acciones.append(entrar, crear)
+    caja.append(acciones)
+    return caja
+  }
+
+  function mensajeFallo(): HTMLElement {
+    const caja = el(
+      'div',
+      'rounded-2xl border border-error/40 bg-error-container/40 p-6 text-center',
+    )
+    caja.append(
+      el(
+        'p',
+        'text-body-md text-on-error-container',
+        'No se pudo consultar tu cuenta. Puede ser que no haya conexion con el servidor. Vuelve a cargar la pagina en un momento.',
+      ),
+    )
+    const recargar = el(
+      'button',
+      'mt-5 inline-flex items-center gap-2 rounded-full border border-on-error-container/40 px-5 py-2.5 text-body-md font-semibold text-on-error-container transition hover:bg-on-error-container/10',
+      'Reintentar',
+    )
+    recargar.type = 'button'
+    recargar.dataset.reintentar = ''
+    caja.append(recargar)
+    return caja
+  }
+
+  /** Vuelca los datos y engancha el boton de salir. */
+  function pintar(datos: DatosCuentaCliente, variante: Variante) {
+    const contenedor = document.querySelector('[data-panel-cuenta]')
+    if (!contenedor) return
+
+    contenedor.replaceChildren(zonaDeDatos(datos, variante))
+    contenedor.setAttribute('aria-busy', 'false')
+  }
+
+  async function cargar(contenedor: HTMLElement, variante: Variante) {
+    contenedor.setAttribute('aria-busy', 'true')
+
+    const resultado = await miCuenta()
+
+    if (resultado.ok) {
+      pintar(resultado.datos, variante)
+      return
+    }
+
+    // 401 con `no_dentro` NO es un fallo: es alguien mirando sin haber entrado.
+    // Se distingue por el codigo, no por mirar el numero, porque el navegador
+    // no expone el status ahi y el codigo si viene en el cuerpo.
+    contenedor.setAttribute('aria-busy', 'false')
+    contenedor.replaceChildren(
+      resultado.codigo === 'no_dentro' ? mensajeSinSesion() : mensajeFallo(),
+    )
+    contenedor
+      .querySelector('[data-reintentar]')
+      ?.addEventListener('click', () => void cargar(contenedor, variante))
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-panel-cuenta]').forEach((contenedor) => {
+    void cargar(contenedor, (contenedor.dataset.variante ?? 'cuenta') as Variante)
+  })
+</script>

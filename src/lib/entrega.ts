@@ -166,7 +166,7 @@ export function evaluarCompra(fila: {
   }
 
   // El pago tiene que estar verificado. 'pendiente' significa que la pasarela
-  // todavia noconfirmedo, y 'rechazado' que no va a pasar.
+  // todavia no lo ha confirmado, y 'rechazado' que no va a pasar.
   if (fila.estado_pago !== 'verificado') {
     return { ok: false, motivo: 'compra-pendiente', vitalicia: false }
   }

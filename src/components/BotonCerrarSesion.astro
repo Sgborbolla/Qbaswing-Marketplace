@@ -1,0 +1,161 @@
+---
+/**
+ * Boton pequeno de cerrar sesion, con confirmacion.
+ *
+ * ============================================================================
+ *  POR QUE HAY UN `<dialog>` Y NO UN `confirm()`
+ * ============================================================================
+ * El Owner pidio que salir se pueda confirmar. `window.confirm()` se podria
+ * usar, pero tiene tres problemas en este caso:
+ *
+ *   1. Es un bloque modal del NAVEGADOR, no de la pagina. No se puede estilar,
+ *      asi que rompe el diseno, y su texto no se traduce con el sitio.
+ *   2. Bloquea la pagina entera mientras esta abierto. Si la accion tarda, el
+ *      visitante ve el navegador congelado sin saber por que.
+ *   3. En algunos navegadores moviles se puede cerrar con el boton de atras, que
+ *      es justo la confusion que este boton viene a evitar.
+ *
+ * `<dialog>` es del sistema: se abre y se cierra con `Esc`, se anuncia con el
+ * `aria-modal` que lleva puesto, y el foco vuelve al boton al cerrarse.
+ *
+ * ============================================================================
+ *  LAS DOS OPCIONES: SALIR O MANTENER
+ * ============================================================================
+ * "Mantener sesion" no es un adorno. Si el boton fuera solo "Salir", la gente
+ * dudaria antes de pulsarlo y many pulsarian sin querer. Con las dos opciones a
+ * la vista, la decision es consciente.
+ *
+ * ============================================================================
+ *  LO QUE PASA AL SALIR
+ * ============================================================================
+ *   1. `DELETE /api/sesion` revoca la sesion EN EL SERVIDOR.
+ *   2. El Worker responde con la cookie borrada y `Clear-Site-Data: "cache"`.
+ *   3. El script borra el estado guardado en el navegador.
+ *   4. Se manda a la portada con `location.replace`, NO con `assign`.
+ *
+ * El paso 4 es el que evita el boton de atras: `replace` cambia la entrada del
+ * historial en vez de anadir una nueva. Al pulsar atras no se vuelve a la pagina
+ * de la que se salio, sino a lo que habia ANTES de ella. Con `assign` se
+ * anade, y el atras devuelve la sesion cerrada.
+ *
+ * Y aunque con `replace` se lograse volver, la sesion ya no existe en el
+ * servidor: la API responderia 401 aunque el navegador mostrara la pagina. Las
+ * dos cosas hacen falta; por eso esta nota.
+ */
+---
+
+<button
+  type="button"
+  class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-md font-medium text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
+  data-cerrar-sesion
+>
+  <span class="material-symbols-outlined text-label-md" aria-hidden="true">logout</span>
+  Salir
+</button>
+
+{/*
+  Un solo `<dialog>` para todos los botones de la pagina. El script lo busca una
+  sola vez. Si cada boton tuviera el suyo, abrir uno cerraria el otro mal y
+  habria que sincronizar el foco entre ellos.
+*/}
+<dialog
+  data-dialogo-salir
+  aria-labelledby="titulo-salir"
+  class="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-3xl border border-outline-variant bg-surface-container-lowest p-0 shadow-e3 backdrop:bg-black/50"
+>
+  <div class="p-6">
+    <h2 id="titulo-salir" class="font-headline text-title-lg font-semibold text-on-surface">
+      Salir de tu cuenta
+    </h2>
+
+    <p class="mt-2 text-body-md text-on-surface-variant">
+      Vas a tener que entrar otra vez con tu correo y tu contrasena. Esta sesion se
+      cierra aqui, no en los otros dispositivos donde tengas la cuenta abierta.
+    </p>
+
+    <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      {/*
+        "Mantener sesion" va PRIMERO y a la izquierda porque es la opcion que no
+        destruye nada. En movil el orden se invierte con `flex-col-reverse`, con
+        lo cual "Mantener sesion" queda ARRIBA: la opcion segura arriba, que es
+        como se ordenan los botones de un dialogo de salida.
+      */}
+      <button
+        type="button"
+        data-keep-sesion
+        class="inline-flex items-center justify-center gap-2 rounded-full border border-outline-variant px-5 py-2.5 text-body-md font-semibold text-on-surface transition hover:border-primary"
+      >
+        <span class="material-symbols-outlined text-label-md" aria-hidden="true">close</span>
+        Mantener sesion
+      </button>
+
+      <button
+        type="button"
+        data-salir-ya
+        class="inline-flex items-center justify-center gap-2 rounded-full bg-error px-5 py-2.5 text-body-md font-semibold text-on-error transition hover:opacity-90 disabled:opacity-50"
+      >
+        <span class="material-symbols-outlined text-label-md" aria-hidden="true">logout</span>
+        <span data-texto-salir>Salir</span>
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  import { cerrarSesion } from '../lib/identidad-cliente'
+
+  const dialogo = document.querySelector('[data-dialogo-salir]') as HTMLDialogElement | null
+  const botonSalirYa = document.querySelector('[data-salir-ya]') as HTMLButtonElement | null
+  const textoSalir = document.querySelector('[data-texto-salir]')
+
+  /** Abre el dialogo. */
+  function abrir() {
+    if (!dialogo || dialogo.open) return
+    dialogo.showModal()
+    // El foco va a "Mantener sesion" porque es la opcion que no hace daño, y con
+    // `autofocus` el boton de salir no es lo primero que se pulsa con Enter.
+    dialogo.querySelector<HTMLElement>('[data-keep-sesion]')?.focus()
+  }
+
+  /*
+    DELEGACION, Y NO UN `querySelectorAll` CON UN `addEventListener` POR BOTON.
+
+    Los paneles de la cuenta pintan sus botones DESPUES, cuando llegan los datos
+    del servidor. Un `querySelectorAll` en este script correria antes de que
+    existieran y no engancharia nada: el boton se veria, se pulsaria, y no
+    pasaria. Delegar en `document` engancha los que ya estan y los que se anadan
+    despues, sin volver a pasar por aqui.
+
+    Es ademas la unica forma de que un boton dentro de este dialogo, que se crea
+    al abrir, pueda llevar el atributo sin trabajo extra.
+  */
+  document.addEventListener('click', (evento) => {
+    const boton = (evento.target as HTMLElement | null)?.closest('[data-cerrar-sesion]')
+    if (boton) abrir()
+  })
+
+  // "Mantener sesion" solo cierra el dialogo. `close()` devuelve el foco al
+  // elemento que lo abrio, que el navegador hace solo porque el boton esta
+  // fuera del dialogo.
+  dialogo?.querySelector('[data-keep-sesion]')?.addEventListener('click', () => {
+    dialogo.close()
+  })
+
+  // Clic en el fondo oscuro tambien significa "mantener". El `<dialog>` solo lo
+  // captura si se comprueba que el clic fue EN el dialogo y no dentro.
+  dialogo?.addEventListener('click', (evento) => {
+    if (evento.target === dialogo) dialogo.close()
+  })
+
+  botonSalirYa?.addEventListener('click', async () => {
+    botonSalirYa.disabled = true
+    if (textoSalir) textoSalir.textContent = 'Saliendo...'
+
+    await cerrarSesion()
+
+    // `replace` y no `assign`: cambia la entrada del historial en vez de anadir
+    // una, asi que el boton de atras no vuelve a esta pagina. Ver la nota del
+    // archivo de arriba.
+    window.location.replace('/')
+  })
+</script>

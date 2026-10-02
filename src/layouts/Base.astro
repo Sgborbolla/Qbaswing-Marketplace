@@ -110,3 +110,67 @@ const urlLogo = new URL('/logo-qbaswing.png', origen)
     {!sinHeader && <Footer />}
   </body>
 </html>
+
+<script>
+  /*
+    ============================================================================
+     * EL BOTON DE ATRAS Y LA SESION
+    ============================================================================
+     * El Owner pidio que salir solo se pueda hacer con el boton de la pagina, y
+     * que ni el boton de atras ni la flechita del movil devuelvan la sesion.
+     *
+     * El boton de atras NO se puede deshabilitar desde una pagina: es un control
+     * del navegador, no del sitio. Una pagina no puede quitarselo al usuario ni
+     * saber cuando lo pulsa. Lo que si se puede es que la pagina restaurada no
+     * sirva de nada, y eso se trabaja en cinco sitios a la vez:
+     *
+     *   1. La fila de `sesiones` se revoca en el Worker al cerrar sesion. Aunque
+     *      el navegador reponga la cookie, la API responde 401.
+     *   2. El Worker responde al cierre con `Clear-Site-Data: "cache"`.
+     *   3. La cookie se borra con los MISMOS atributos con los que se puso.
+     *   4. `public/_headers` pone `no-store` en las paginas de panel, para que
+     *      ni siquiera lleguen a guardarse en disco.
+     *   5. Aqui, `pageshow` con `persisted` fuerza recargar al volver del
+     *      historial.
+     *
+     * Este es el quinto, y el unico que depende del navegador en vez del
+     * servidor. Los otros cuatro son de servidor, y por eso funcionan en
+     * cualquier navegador.
+     *
+     * ============================================================================
+     * QUE HACE `event.persisted`
+     * ============================================================================
+     * El cache de retroceso, o bfcache, es un sitio donde Chrome, Safari y Edge
+     * guardan la pagina ENTERA, con su JavaScript y su estado, para que el boton
+     * de atras aparezca al instante. Al volver, el navegador NO vuelve a pedir la
+     * pagina: la saca de ahi. Por eso el sitio ve un `pageshow` con
+     * `persisted: true` en vez de una carga normal.
+     *
+     * Esa pagina es un retrato del momento en que se salio: tiene el nombre, la
+     * tienda y el panel de quien estaba dentro. Un retrato es informacion de
+     * alguien que ya salio, puesta delante de otra persona que quizas acaba de
+     * coger el movil.
+     *
+     * Un detalle de `reload()` que conviene saber: la recarga NORMAL respeta el
+     * bfcache, asi que recargar una pagina restaurada puede devolver el mismo
+     * retrato otra vez. Por eso la recarga se pide sin argumentos, que es lo que
+     * la saca del historial del navegador y obliga a pedirla al servidor.
+     *
+     * ============================================================================
+     * POR QUE SOLO CUANDO `persisted` ES VERDAD
+     * ============================================================================
+     * Porque `pageshow` tambien salta en cada carga normal. Si se recargara
+     * siempre, entrar en cualquier pagina seria cargar, recargar y cargar otra
+     * vez: el doble de peticiones y un parpadeo. La condicion separa "vuelvo del
+     * historial" de "estoy entrando", que es justo lo que hay que separar.
+     *
+     * La flechita del movil no dispara `pageshow`: devuelve a una pestana
+     * anterior que sigue viva, con su sesion de antes. Ahi no hay bfcache que
+     * limpiar y esta linea no ayuda. Lo que la detiene es el punto 1: la sesion
+     * ya no existe en el servidor, asi que la pestana pinta estado vacio en
+     * cuanto vuelve a preguntar.
+     */
+  window.addEventListener('pageshow', (evento) => {
+    if (evento.persisted) window.location.reload()
+  })
+</script>
