@@ -1,0 +1,56 @@
+-- Migracion 0015: se quita `verificado` de los medios de pago del vendedor.
+--
+-- ===========================================================================
+--  POR QUE SE BORRA UNA COLUMNA
+-- ===========================================================================
+-- Porque la tabla esta vacia. Cero filas, ninguna dependencia, ningun dato que
+-- perder. Es el unico momento en que quitar una columna sale gratis, y la razon
+-- de que se decida ahora y no dentro de un mes es exactamente esa.
+--
+-- ===========================================================================
+--  EL RAZONAMIENTO QUE SE CAE
+-- ===========================================================================
+-- La 0013 justificaba `verificado` con esto: "el vendedor lo activa, pero eso no
+-- lo hace de fiar, asi que el Owner revisa y marca". La intencion era buena, pero
+-- el mecanismo se equivoca de sitio, por dos razones.
+--
+-- La primera es que la plataforma no tiene nada que ver con ese dinero. En un
+-- producto de Regla A el comprador le paga al VENDEDOR por una cuenta del
+-- VENDEDOR, y es el VENDEDOR quien confirma que le llego. Que el Owner mire o no
+-- esa cuenta no cambia si el pago llego, porque el Owner no tiene acceso a ella.
+-- Aprobar un numero no lo convierte en real: solo convierte "no lo ha mirado
+-- nadie" en "alguien lo ha mirado", y ese alguien no podia enterarse de nada.
+--
+-- La segunda es que el Owner dijo que no iba a revisar. Lo que un Owner tiene que
+-- hacer es poner sus propias cuentas y no meterse en las de los demas. Anadir un
+-- paso que el Owner no va a usar es anadir una columna que no se rellena, y una
+-- columna que no se rellena no es un filtro: es ruido con forma de regla.
+--
+-- ===========================================================================
+--  LO QUE SE QUEDA
+-- ===========================================================================
+--
+--   activo   lo enciende y lo apaga el VENDEDOR, que es de quien es el numero.
+--            Si un vendedor deja de aceptar una forma de pago, la quita el mismo.
+--
+-- Lo que NO se queda es ningun control del Owner sobre las filas ajenas. El Owner
+-- edita `medios_pago_plataforma`, que es suya, y no toca `medios_pago_usuario`,
+-- que es de cada vendedor.
+--
+-- Con esto el comprador ve exactamente las formas de pago que da el vendedor de
+-- ese producto, sin etiquetas de "pendiente" ni avisos que no corresponden a nada:
+-- si el vendedor lo tiene puesto, lo tiene puesto.
+--
+-- ===========================================================================
+--  POR QUE NO SE BORRA LA TABLA ENTERA
+-- ===========================================================================
+-- Porque los vendedores si van a poner medios de pago propios. Es lo que dijo el
+-- Owner: cada uno pone los suyos y cobra por los suyos. Lo que no va a hacer es el
+-- Owner revisarlos.
+--
+-- Un indice unico sobre una tabla vacia no estorba a nadie y deja escrita la
+-- regla de "una tarjeta activa por tipo" desde el esquema y no desde el codigo.
+-- Quitarla seria tirar una restriccion que todavia no ha estorbado a nadie para
+-- ahorrar dos lineas.
+
+ALTER TABLE medios_pago_usuario DROP COLUMN verificado;

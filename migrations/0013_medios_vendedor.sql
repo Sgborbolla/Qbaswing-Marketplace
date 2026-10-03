@@ -158,14 +158,47 @@ CREATE TABLE IF NOT EXISTS medios_pago_usuario (
   -- El `numero_cuenta` solo puede tener digitos en 'tarjeta' y 'app'. En
   -- 'efectivo' y 'otro' se permite cualquier texto, porque ahi puede hacer falta
   -- un correo o un alias de app.
+  --
+  -- ---------------------------------------------------------------------------
+  --  POR QUE UN `CASE` DE BUSQUEDA Y NO UNO SIMPLE
+  -- ---------------------------------------------------------------------------
+  -- Esto estaba escrito asi:
+  --
+  --     CASE tipo
+  --       WHEN 'cripto'       THEN ...
+  --       WHEN 'tarjeta' OR 'app' THEN ...
+  --       ELSE 1
+  --     END
+  --
+  -- y no hacia lo que parecia. En un `CASE` simple lo que va detras de `WHEN` se
+  -- compara con `tipo`. `'tarjeta' OR 'app'` se evalua como una expresion
+  -- booleana, y las dos cadenas son verdaderas, asi que el resultado es 1. Es
+  -- decir, la comparacion real era `CASE 'tarjeta' WHEN 1`, que no coincide con
+  -- nada: `'tarjeta'` no es igual a `1`.
+  --
+  -- Comprobado:
+  --
+  --     CASE 'tarjeta' WHEN 'cripto' THEN 'A'
+  --                   WHEN 'tarjeta' OR 'app' THEN 'B'
+  --                   ELSE 'C' END          ->  'C'
+  --
+  -- Las tarjetas y las apps caian al `ELSE 1`, que siempre pasa. Es decir, la
+  -- validacion de esas dos no existia: entro un numero escrito
+  -- `9204-1299-7992-5122` con guiones, que es justo lo que este CHECK prohibe.
+  --
+  -- El `GLOB` de abajo siempre estuvo bien ('con guiones' -> 0, 'solo digitos' ->
+  -- 1). Lo que estaba mal era que nadie llegaba a evaluarlo.
+  --
+  -- Con `CASE` de BUSQUEDA y `IN` no hay nada que resolver: cada rama dice
+  -- exactamente que compara con cual.
   CHECK (
-    CASE tipo
-      WHEN 'cripto'
+    CASE
+      WHEN tipo = 'cripto'
         THEN direccion IS NOT NULL
          AND length(trim(direccion)) >= 8
          AND red IS NOT NULL
          AND length(trim(red)) > 0
-      WHEN 'tarjeta' OR 'app'
+      WHEN tipo IN ('tarjeta', 'app')
         THEN numero_cuenta IS NOT NULL
          AND numero_cuenta <> ''
          AND numero_cuenta NOT GLOB '*[^0-9]*'
