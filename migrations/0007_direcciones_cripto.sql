@@ -3,7 +3,14 @@
 -- Sin esto, el carrito creaba una linea nueva cada vez que se anadia el mismo
 -- producto, y no habia donde guardar una direccion de cobro.
 --
--- Idempotente: se puede volver a aplicar sin romper nada.
+-- NO ES IDEMPOTENTE. El `ALTER TABLE ... ADD COLUMN` de mas abajo falla a la
+-- segunda ejecucion con "duplicate column name: variante_key", y el
+-- `CREATE TABLE` y los `CREATE INDEX` de mas abajo si se pueden repetir.
+--
+-- Se prueba y se corrigio en caliente: la primera vezparecio no imprimir nada,
+-- y al repetirla fallo. Como los indices ya estaban en su sitio, no rompio nada,
+-- pero la conclusion correcta es que aplicarla dos veces NO es seguro y hay que
+-- hacerlo una sola. Por eso esta nota.
 
 -- ===========================================================================
 -- 1. Indice unico real de `carrito_items`
@@ -47,6 +54,10 @@
 -- Por que no un trigger: SQLite no permite asignar a `NEW` dentro de un trigger.
 -- No hay `SET NEW.columna = ...`. Un trigger que intentara mantener las dos
 -- columnas al dia no se podria escribir. Por eso la columna generada.
+--
+-- `pragma_table_info` NO lista esta columna porque es generada. Sale en
+-- `pragma_table_xinfo`, con `hidden = 2`. Si alguna vez parece que la migracion
+-- no llego a aplicarse, ese es el comando para mirarlo, no el otro.
 
 ALTER TABLE carrito_items ADD COLUMN variante_key INTEGER
   GENERATED ALWAYS AS (COALESCE(variante_id, 0)) VIRTUAL;
