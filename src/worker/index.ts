@@ -41,6 +41,7 @@ import { responderCatalogo } from './routers/catalogo'
 import { responderSalud } from './routers/salud'
 import { responderWebhooks } from './routers/webhooks'
 import { responderIdentidad } from './routers/identidad'
+import { responderCarrito } from './routers/carrito'
 
 export default {
   async fetch(peticion: Request, env: Env): Promise<Response> {
@@ -73,7 +74,12 @@ async function enrutar(peticion: Request, env: Env): Promise<Response> {
   const cors = cabecerasCors(peticion, env)
 
   if (peticion.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: cors })
+    // 200 y no 204. La especificacion acepta los dos, pero hay `fetch` de
+    // navegadores que tratan un 204 como respuesta vacia fallida y cortan la
+    // cadena de peticiones. Un 200 con cuerpo vacio no le da a nadie la
+    // oportunidad de interpretar mal, y aqui no se gana nada con ahorrar dos
+    // bytes de respuesta.
+    return new Response(null, { status: 200, headers: cors })
   }
 
   const respuesta = await despachar(ruta, peticion, env)
@@ -104,6 +110,12 @@ async function despachar(
   // Datos editables por el Owner: redes, contacto, FAQ. Publicos en lectura.
   if (ruta === RUTAS.redes || ruta === RUTAS.contacto || ruta === RUTAS.faq) {
     return responderPlataforma(ruta, env, soloLectura)
+  }
+
+  // Carrito. Va antes que el catalogo porque `GET /api/carrito` tiene que saber
+  // quien pregunta antes que nada, y el catalogo es de lectura publica.
+  if (ruta === RUTAS.carrito) {
+    return responderCarrito(ruta, peticion.method, peticion, env)
   }
 
   // Catalogo: productos, categorias, vendedores.
@@ -191,6 +203,24 @@ function cabecerasCors(peticion: Request, env: Env): Record<string, string> {
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   }
+
+  // ESTA CABECERA ES LA QUE HACIA QUE ENTRAR NO FUNCIONARA.
+  //
+  // El sitio pide la sesion con `credentials: 'include'`, porque la cookie es
+  // `HttpOnly` y el JavaScript solo puede MANDARLA, nunca leerla. El navegador
+  // exige `Access-Control-Allow-Credentials: true` para obedecer eso: sin esta
+  // cabecera, no envia la cookie y descarta la respuesta entera.
+  //
+  // Es el fallo mas incomodo que se puede tener aqui, porque no se ve en NINGUN
+  // lado desde el servidor. `curl` funciona, la prueba de produccion pasa, el
+  // Worker devuelve 200 con los datos correctos... y el navegador no muestra
+  // nada. La unica forma de verlo es mandando el preflight de verdad, que es lo
+  // que hace `probar-cors.mjs`.
+  //
+  // Y va SIEMPRE con `Access-Control-Allow-Origin` con el origen LITERAL, nunca
+  // con `*`: la especificacion prohibe el asterisco cuando hay credenciales, y
+  // el navegador rechaza la combinacion aunque las dos cabeceras esten puestas.
+  cabeceras['Access-Control-Allow-Credentials'] = 'true'
 
   if (permitidos.length === 0) {
     // Sin `ALLOWED_ORIGIN` declarado, el Worker no sabe quien es el sitio. Se

@@ -47,3 +47,12 @@ npm-debug.log*
 # Las imagenes de Stitch viven en lh3.googleusercontent.com y sus URLs caducan.
 # Este directorio guarda las imagenes definitivas servidas desde el repo.
 public/_stitch-tmp/
+
+# Material de trabajo que NO es del marketplace: capturas de pantalla de
+# proyectos en desarrollo (por ejemplo el arte de NPAD), facturas, exports.
+#
+# Este NO puede ser `public/`. Lo que hay en `public/` Astro lo copia tal cual
+# a `dist/`, y `wrangler pages deploy` sube `dist/` entero. Gitignore no protege
+# de eso: si una imagen estuviera aqui, se publicaria con el proximo deploy
+# aunque nunca se hubiera escrito en ningun commit.
+privado/

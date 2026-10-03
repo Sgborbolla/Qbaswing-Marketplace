@@ -64,6 +64,7 @@ import {
   registrar,
   usuarioDePeticion,
 } from './registro'
+import { trasladarCarritoAnonimo } from './carrito'
 
 /* ===========================================================================
  * Cabeceras de una sesion que acaba de abrir o cerrar
@@ -186,6 +187,42 @@ async function cuerpoJson(peticion: Request): Promise<Record<string, unknown>> {
  * NO va en el cuerpo de la respuesta: si fuera JSON, un reenvio accidental a
  * un servicio de registro de errores lo dejaria escrito en un tercero.
  */
+/**
+ * Pasa el carrito anonimo a la cuenta recien abierta, sin romper el acceso.
+ *
+ * ============================================================================
+ *  POR QUE UN FALLO AQUI NO TIRA LA SESION
+ * ============================================================================
+ * Si el volcado fallara y con el la respuesta, quien intenta entrar veria un
+ * error de servidor y no podria comprar. Un carrito vacio es un problema; no
+ * poder entrar es un problema MAYOR, porque no deja seguir. Por eso el error se
+ * guarda en el registro de Cloudflare y se sigue adelante.
+ *
+ * El `catch` con vacio a proposito: no se devuelve nada porque el navegador no
+ * necesita saberlo. El comprador ve su carrito y, si el volcado fallo, lo que
+ * ve esta vacio. Es mal momento, pero recuperable. Lo que no es recuperable es
+ * un fallo de entrada.
+ *
+ * ============================================================================
+ *  POR QUE NO SE AVISA AL COMPRADOR
+ * ============================================================================
+ * Se podria mandar un aviso de "no pudimos pasar tu carrito", pero ese aviso
+ * seria cierto en el mejor de los casos. Aqui todavia no hay pagos, asi que un
+ * carrito perdido no cuesta dinero: solo hace que la persona vuelva a anadir lo
+ * que ya habia anadido. Cuando haya pagos de verdad, el aviso tiene que existir,
+ * porque ahi si cuesta dinero.
+ */
+async function pasarCarrito(env: Env, peticion: Request, usuarioId: number): Promise<void> {
+  try {
+    const movidas = await trasladarCarritoAnonimo(env.DB, peticion, usuarioId)
+    if (movidas > 0) {
+      console.log(`carrito volcado a la cuenta ${usuarioId}: ${movidas} linea(s)`)
+    }
+  } catch (error) {
+    console.error('no se pudo pasar el carrito anonimo a la cuenta', error)
+  }
+}
+
 async function crearCuenta(peticion: Request, env: Env): Promise<Response> {
   const secreto = exigirSecreto(env)
   const cuerpo = await cuerpoJson(peticion)
@@ -196,6 +233,7 @@ async function crearCuenta(peticion: Request, env: Env): Promise<Response> {
     return json({ ok: false, codigo: resultado.codigo, mensaje: resultado.mensaje }, resultado.status)
   }
 
+  await pasarCarrito(env, peticion, resultado.usuario.id)
 
   return json(
     { ok: true, usuario: usuarioPublico(resultado.usuario) },
@@ -215,6 +253,7 @@ async function entrar(peticion: Request, env: Env): Promise<Response> {
     return json({ ok: false, codigo: resultado.codigo, mensaje: resultado.mensaje }, resultado.status)
   }
 
+  await pasarCarrito(env, peticion, resultado.usuario.id)
 
   return json(
     { ok: true, usuario: usuarioPublico(resultado.usuario) },

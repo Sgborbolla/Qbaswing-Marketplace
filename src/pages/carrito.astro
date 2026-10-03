@@ -1,0 +1,463 @@
+---
+/**
+ * El carrito.
+ *
+ * ============================================================================
+ *  QUE SE VE Y CUANDO
+ * ============================================================================
+ * Ni una sola linea de producto en el HTML. El archivo se sirve vacio, como
+ * todas las paginas del sitio, y el carrito lo pinta el navegador despues de
+ * preguntar a `/api/carrito`.
+ *
+ * No es por estilo: si el carrito estuviera en el HTML, el navegador lo
+ * dibujaria antes de preguntar, y habria un momento en que se ve un carrito con
+ * cosas que el servidor todavia no ha confirmado. Cuando eso falla, se ve un
+ * carrito fantasma con datos viejos de otra persona.
+ *
+ * ============================================================================
+ *  LOS PRECIOS VIENEN DEL SERVIDOR
+ * ============================================================================
+ * Esta pagina nunca calcula un total. Pinta lo que el Worker devuelve. El total
+ * se arma en la base de datos y llega ya hecho, porque un total calculado en el
+ * navegador es un total que se puede cambiar con las herramientas de desarrollo.
+ *
+ * Y hay un total POR MONEDA, no uno solo. Un carrito con 10 USD y 250 CUP
+ * sumados da un numero que no significa nada. Por eso la pagina muestra un
+ * subtotal por moneda.
+ */
+import Base from '../layouts/Base.astro'
+import { backendConfigurado } from '../lib/carrito-cliente'
+---
+
+<Base
+  title="Carrito"
+  descripcion="Lo que has anadido en QBASwing Marketplace."
+>
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-4xl">
+      <div class="flex flex-wrap items-baseline justify-between gap-3">
+        <h1 class="font-headline text-headline-lg text-on-surface">Carrito</h1>
+        <button
+          type="button"
+          data-vaciar
+          class="hidden text-label-md font-medium text-on-surface-variant transition hover:text-error"
+        >
+          Vaciar carrito
+        </button>
+      </div>
+
+      {!backendConfigurado && (
+        <div
+          class="mt-6 rounded-2xl border border-error/40 bg-error-container/40 p-5 text-body-md text-on-error-container"
+          role="alert"
+        >
+          <p>
+            Este sitio todavia no tiene servidor configurado, asi que el carrito no
+            puede funcionar. Intentalo mas tarde.
+          </p>
+        </div>
+      )}
+
+      <p
+        data-cargando
+        class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-body-md text-on-surface-variant"
+      >
+        Cargando tu carrito...
+      </p>
+
+      <div data-zona class="mt-6 space-y-4" aria-busy="true"></div>
+
+      <p
+        data-aviso
+        role="status"
+        aria-live="polite"
+        hidden
+        class="mt-4 rounded-2xl border border-error/40 bg-error-container/40 px-4 py-3 text-body-md text-on-error-container"
+      >
+      </p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import {
+    anadir,
+    dinero,
+    leerCarrito,
+    quitar,
+    type ContenidoCarrito,
+    type LineaCarrito,
+  } from '../lib/carrito-cliente'
+
+  const zona = document.querySelector('[data-zona]') as HTMLElement
+  const cargando = document.querySelector('[data-cargando]') as HTMLElement | null
+  const aviso = document.querySelector('[data-aviso]') as HTMLElement | null
+  const botonVaciar = document.querySelector('[data-vaciar]') as HTMLButtonElement | null
+
+  /** Crea un nodo con clase y texto. Nunca `innerHTML`, para no interpretar
+   *  como HTML un titulo que traiga un signo menor. */
+  function el<K extends keyof HTMLElementTagNameMap>(
+    etiqueta: K,
+    clase: string,
+    texto?: string,
+  ): HTMLElementTagNameMap[K] {
+    const nodo = document.createElement(etiqueta)
+    nodo.className = clase
+    if (texto !== undefined) nodo.textContent = texto
+    return nodo
+  }
+
+  function avisar(texto: string, ocultar = false) {
+    if (!aviso) return
+    if (ocultar) {
+      aviso.hidden = true
+      aviso.textContent = ''
+      return
+    }
+    aviso.hidden = false
+    aviso.textContent = texto
+  }
+
+  /** Icono de Material como texto, para no depender de un `<svg>` a mano. */
+  function simbolo(nombre: string, clase: string): HTMLElement {
+    const nodo = el('span', clase)
+    nodo.setAttribute('aria-hidden', 'true')
+    nodo.textContent = nombre
+    return nodo
+  }
+
+  /** Una tarjeta. */
+  function tarjeta(clase = 'rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5'): HTMLElement {
+    return el('div', clase)
+  }
+
+  function vacio(): HTMLElement {
+    const caja = tarjeta('rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-8 text-center')
+    const simboloGrande = el('span', 'material-symbols-outlined text-headline-lg text-on-surface-variant/50')
+    simboloGrande.setAttribute('aria-hidden', 'true')
+    simboloGrande.textContent = 'shopping_cart'
+
+    const titulo = el('p', 'mt-3 font-headline text-title-md font-semibold text-on-surface', 'Tu carrito esta vacio')
+    const ayuda = el(
+      'p',
+      'mt-2 text-body-md text-on-surface-variant',
+      'Puedes anadir productos sin crear cuenta. Se guardan en este navegador.',
+    )
+
+    const acciones = el('div', 'mt-6 flex flex-wrap justify-center gap-3')
+    const ver = el(
+      'a',
+      'inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
+      'Ver productos',
+    )
+    ver.href = '/productos'
+    acciones.append(ver)
+
+    caja.append(simboloGrande, titulo, ayuda, acciones)
+    return caja
+  }
+
+  /** Aviso de producto retirado o de precio cambiado. Va ANTES de pagar. */
+  function avisosDe(contenido: ContenidoCarrito): HTMLElement | null {
+    const retirados = contenido.lineas.filter((l) => !l.producto.disponible)
+    const cambiados = contenido.lineas.filter((l) => l.producto.precioCambiado)
+
+    if (retirados.length === 0 && cambiados.length === 0) return null
+
+    const caja = el(
+      'div',
+      'rounded-2xl border border-outline/60 bg-surface-container-high p-5',
+    )
+    caja.append(
+      el('p', 'font-headline text-title-md font-semibold text-on-surface', 'Antes de pagar'),
+    )
+
+    if (retirados.length > 0) {
+      caja.append(
+        el(
+          'p',
+          'mt-2 text-body-md text-on-surface-variant',
+          `${retirados.length} producto${retirados.length === 1 ? '' : 's'} ya no${
+            retirados.length === 1 ? '' : 'n'
+          } disponible${retirados.length === 1 ? '' : 's'}. Quitalos para poder pagar.`,
+        ),
+      )
+    }
+
+    if (cambiados.length > 0) {
+      caja.append(
+        el(
+          'p',
+          'mt-2 text-body-md text-on-surface-variant',
+          'El precio cambio desde que lo anadiste. Revisa las lineas marcadas.',
+        ),
+      )
+    }
+
+    return caja
+  }
+
+  function linea(linea: LineaCarrito): HTMLElement {
+    const tarjetaLinea = tarjeta('rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-4')
+    // El id de la linea va en la tarjeta, no en cada boton. Asi los botones de
+    // cantidad saben a que linea pertenecen sin repetirlo tres veces, y anadirlo
+    // a un boton nuevo no obliga a acordarse de anadirlo en los otros dos.
+    tarjetaLinea.dataset.linea = String(linea.id)
+
+    const fila = el('div', 'flex items-start justify-between gap-4')
+
+    const izquierda = el('div', 'min-w-0 flex-1')
+    const enlace = el(
+      'a',
+      'font-headline text-title-md font-semibold text-on-surface hover:text-primary',
+      linea.producto.titulo,
+    )
+    enlace.href = `/producto/${encodeURIComponent(linea.producto.slug)}`
+    izquierda.append(enlace)
+
+    if (linea.producto.variante) {
+      izquierda.append(
+        el('p', 'mt-0.5 text-label-md text-on-surface-variant', `Variante: ${linea.producto.variante}`),
+      )
+    }
+    if (linea.producto.vendedorSlug) {
+      const tienda = el('a', 'text-label-md text-on-surface-variant hover:text-primary')
+      tienda.href = `/vendedor/${encodeURIComponent(linea.producto.vendedorSlug)}`
+      tienda.textContent = `Vendido por ${linea.producto.vendedorSlug}`
+      izquierda.append(tienda)
+    }
+
+    // Los avisos van en la MISMA linea que el producto, no en un bloque aparte
+    // arriba. Un aviso separado obliga a ir y volver entre dos sitios para
+    // saber cual de los productos es el que ha cambiado.
+    if (!linea.producto.disponible) {
+      izquierda.append(
+        el('p', 'mt-2 text-label-md font-semibold text-error', 'Este producto ya no esta disponible.'),
+      )
+    } else if (linea.producto.precioCambiado) {
+      const avisoPrecio = el('p', 'mt-2 text-label-md font-semibold text-outline')
+      avisoPrecio.append(
+        el('span', '', `Antes ${dinero(linea.precioUnitario, linea.moneda)}. Ahora `),
+        el('span', '', dinero(linea.producto.precioActual, linea.moneda)),
+        el('span', '', '. Se cobra el nuevo.'),
+      )
+      izquierda.append(avisoPrecio)
+    }
+
+    const derecha = el('div', 'shrink-0 text-right')
+    derecha.append(
+      el('p', 'text-body-md font-semibold text-on-surface', dinero(linea.subtotal, linea.moneda)),
+    )
+    derecha.append(
+      el('p', 'text-label-sm text-on-surface-variant', `${linea.cantidad} x ${dinero(linea.precioUnitario, linea.moneda)}`),
+    )
+
+    fila.append(izquierda, derecha)
+    tarjetaLinea.append(fila)
+
+    // Contador y quitar. Van al pie de la tarjeta y no al lado del titulo para
+    // que el "quitar" no quede pegado al precio, donde es facil pulsarlo sin
+    // querer.
+    const pie = el('div', 'mt-4 flex items-center justify-between gap-4 border-t border-outline-variant/40 pt-3')
+
+    const grupo = el('div', 'flex items-center gap-1')
+    const menos = el(
+      'button',
+      'flex size-9 items-center justify-center rounded-full border border-outline-variant text-on-surface transition hover:border-primary',
+    )
+    menos.type = 'button'
+    menos.setAttribute('aria-label', `Quitar una unidad de ${linea.producto.titulo}`)
+    menos.append(simbolo('remove', 'material-symbols-outlined text-label-md'))
+    menos.dataset.cantidad = String(linea.cantidad - 1)
+    menos.dataset.producto = String(linea.producto.id)
+
+    const cantidad = el('span', 'min-w-8 text-center text-body-md font-medium text-on-surface', String(linea.cantidad))
+
+    const mas = el(
+      'button',
+      'flex size-9 items-center justify-center rounded-full border border-outline-variant text-on-surface transition hover:border-primary',
+    )
+    mas.type = 'button'
+    mas.setAttribute('aria-label', `Anadir una unidad de ${linea.producto.titulo}`)
+    mas.append(simbolo('add', 'material-symbols-outlined text-label-md'))
+    mas.dataset.cantidad = String(linea.cantidad + 1)
+    mas.dataset.producto = String(linea.producto.id)
+
+    grupo.append(menos, cantidad, mas)
+
+    const quitarBoton = el(
+      'button',
+      'inline-flex items-center gap-1.5 text-label-md font-medium text-on-surface-variant transition hover:text-error',
+    )
+    quitarBoton.type = 'button'
+    quitarBoton.dataset.quitar = String(linea.id)
+    quitarBoton.append(simbolo('delete', 'material-symbols-outlined text-label-md'))
+    quitarBoton.append(el('span', '', 'Quitar'))
+
+    pie.append(grupo, quitarBoton)
+    tarjetaLinea.append(pie)
+    return tarjetaLinea
+  }
+
+  /** El pie con los totales y el boton de pagar. */
+  function resumen(contenido: ContenidoCarrito): HTMLElement {
+    const caja = tarjeta()
+
+    const lista = el('dl', 'space-y-3')
+    for (const total of contenido.totales) {
+      const fila = el('div', 'flex items-baseline justify-between gap-4')
+      const etiqueta = el('dt', 'text-body-md text-on-surface-variant')
+      etiqueta.append(
+        el('span', '', `${total.unidades} producto${total.unidades === 1 ? '' : 's'} en ${total.moneda}`),
+      )
+      const valor = el('dd', 'text-body-md font-semibold text-on-surface', dinero(total.subtotal, total.moneda))
+      fila.append(etiqueta, valor)
+      lista.append(fila)
+    }
+    caja.append(lista)
+
+    /*
+      El aviso de "el precio lo pone la plataforma" va porque TODAVIA no hay
+      pasarela conectada. Decir "se anade un cargo por el pago" cuando no hay
+      forma de pagar seria mentir sobre el total. Cuando se conecten QvaPay y
+      TropiPay, aqui va el importe real de la comision, traido del Worker.
+    */
+    caja.append(
+      el(
+        'p',
+        'mt-3 text-label-md text-on-surface-variant',
+        'La comision de la plataforma todavia no se anade: no hay pasarela de pago conectada.',
+      ),
+    )
+
+    const boton = el(
+      'a',
+      'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
+    )
+    boton.href = '/pagar'
+    boton.append(simbolo('lock', 'material-symbols-outlined text-label-md'))
+    boton.append(el('span', '', 'Ir a pagar'))
+    caja.append(boton)
+
+    return caja
+  }
+
+  function pintar(contenido: ContenidoCarrito) {
+    if (!zona) return
+    zona.replaceChildren()
+    zona.setAttribute('aria-busy', 'false')
+    if (cargando) cargando.hidden = true
+
+    if (contenido.vacio) {
+      zona.append(vacio())
+      if (botonVaciar) botonVaciar.classList.add('hidden')
+      return
+    }
+
+    if (botonVaciar) botonVaciar.classList.remove('hidden')
+
+    const avisos = avisosDe(contenido)
+    if (avisos) zona.append(avisos)
+
+    // La variable se llama `una` y no `linea` porque la funcion que dibuja la
+    // linea se llama `linea`. Con el mismo nombre, `linea(linea)` intentaria
+    // llamar a si misma y el error que sale es "esto no se puede llamar", que
+    // no dice nada sobre el shadowing.
+    for (const una of contenido.lineas) {
+      zona.append(linea(una))
+    }
+
+    zona.append(resumen(contenido))
+  }
+
+  function fallo(mensaje: string) {
+    if (!zona) return
+    zona.setAttribute('aria-busy', 'false')
+    if (cargando) cargando.hidden = true
+
+    const caja = tarjeta('rounded-2xl border border-error/40 bg-error-container/40 p-6 text-center')
+    caja.append(el('p', 'text-body-md text-on-error-container', mensaje))
+
+    const reintentar = el(
+      'button',
+      'mt-5 inline-flex items-center gap-2 rounded-full border border-on-error-container/40 px-5 py-2.5 text-body-md font-semibold text-on-error-container transition hover:bg-on-error-container/10',
+    )
+    reintentar.type = 'button'
+    reintentar.dataset.reintentar = ''
+    reintentar.append(simbolo('refresh', 'material-symbols-outlined text-label-md'))
+    reintentar.append(el('span', '', 'Reintentar'))
+    caja.append(reintentar)
+
+    zona.replaceChildren(caja)
+  }
+
+  async function cargar() {
+    const r = await leerCarrito()
+    if (r.ok) pintar(r.datos.carrito)
+    else fallo(r.mensaje)
+  }
+
+  // Un solo escuchador en la zona, en lugar de uno por linea. Las lineas se
+  // recrean en cada pintado, asi que con escuchadores por elemento habria que
+  // volver a engancharlos y se acumularian los de las lineas viejas.
+  zona?.addEventListener('click', async (evento) => {
+    const objetivo = evento.target as HTMLElement | null
+
+    if (objetivo?.closest('[data-reintentar]')) {
+      void cargar()
+      return
+    }
+
+    const quitarBoton = objetivo?.closest('[data-quitar]') as HTMLElement | null
+    if (quitarBoton?.dataset.quitar) {
+      avisar('', true)
+      const r = await quitar(Number(quitarBoton.dataset.quitar))
+      if (r.ok) pintar(r.datos.carrito)
+      else avisar(r.mensaje)
+      return
+    }
+
+    // Cambiar cantidad. Se BORRA la linea y se vuelve a anadir con la cantidad
+    // nueva, porque el Worker no tiene un PATCH de cantidad: el `POST` ya suma
+    // sobre lo que habia. Es la misma regla que en una tienda de verdad, donde
+    // "cambiar la cantidad" es "poner la cantidad".
+    const cantidad = objetivo?.closest<HTMLElement>('[data-cantidad]')
+    if (cantidad?.dataset.cantidad) {
+      const nueva = Number(cantidad.dataset.cantidad)
+      const idProducto = Number(cantidad.dataset.producto ?? 0)
+      const idLinea = Number(quitarDeEstaLinea(cantidad))
+
+      // Si falta cualquiera de los tres, no se toca nada. Re-anadir sin quitar
+      // antes SUMARIA en vez de poner, que es justo el error que hay que evitar.
+      if (idProducto <= 0 || idLinea <= 0) return
+
+      avisar('', true)
+
+      if (nueva <= 0) {
+        const r = await quitar(idLinea)
+        if (r.ok) pintar(r.datos.carrito)
+        else avisar(r.mensaje)
+        return
+      }
+
+      await quitar(idLinea)
+      const r = await anadir(idProducto, nueva)
+      if (r.ok) pintar(r.datos.carrito)
+      else avisar(r.mensaje)
+    }
+  })
+
+  /** El id de la linea a la que pertenece un boton de cantidad. */
+  function quitarDeEstaLinea(boton: HTMLElement): string {
+    return boton.closest('[data-linea]')?.getAttribute('data-linea') ?? ''
+  }
+
+  botonVaciar?.addEventListener('click', async () => {
+    avisar('', true)
+    const r = await quitar(null)
+    if (r.ok) pintar(r.datos.carrito)
+    else avisar(r.mensaje)
+  })
+
+  void cargar()
+</script>

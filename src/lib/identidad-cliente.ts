@@ -35,6 +35,13 @@
  * acceso a nada. Es el mismo criterio que en un `<form>` normal.
  */
 
+/*
+ * El token del carrito se importa de su propio modulo y no de `carrito-cliente`.
+ * Aqui solo se necesita para MANDARLO al registrarse o al entrar, nunca para
+ * gestionarlo.
+ */
+import { cabeceraCarrito } from './token-carrito'
+
 /** Base del Worker. Vacia cuando no hay backend configurado. */
 export const API_BASE = import.meta.env.PUBLIC_API_BASE ?? ''
 
@@ -133,7 +140,22 @@ async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promise<Respu
   }
 }
 
-/** Crea la cuenta. Responde 201 con la sesion ya abierta. */
+/**
+ * Crea la cuenta. Responde 201 con la sesion ya abierta.
+ *
+ * ============================================================================
+ *  POR QUE MANDA LA CABECERA DEL CARRITO
+ * ============================================================================
+ * El carrito sirve para quien NO esta dentro, y casi todas las visitas empiezan
+ * asi: se anaden productos primero y la cuenta se crea despues, cuando ya se
+ * ha decidido comprar. Al registrarse, el servidor pasa esas lineas a la cuenta
+ * nueva, pero SOLO si le dicen cual era el carrito.
+ *
+ * Sin esta cabecera el servidor hace el volcado correctamente y no pasa nada:
+ * quien se registra se encuentra con el carrito vacio, sin aviso, justo despues
+ * de confirmar la compra. Por eso la cabecera no es un extra: es la diferencia
+ * entre que la persona se vaya con lo que eligio o tenga que empezar de cero.
+ */
 export function registrar(cuerpo: {
   email: string
   nombre: string
@@ -142,10 +164,17 @@ export function registrar(cuerpo: {
   return pedir<{ usuario: UsuarioCliente }>('/api/registro', {
     method: 'POST',
     body: JSON.stringify(cuerpo),
+    headers: cabeceraCarrito(),
   })
 }
 
-/** Entra. Responde 200 con la sesion ya abierta. */
+/**
+ * Entra. Responde 200 con la sesion ya abierta.
+ *
+ * Manda la cabecera del carrito por el mismo motivo que `registrar`. El caso
+ * tipico es el otro: alguien que limpio el navegador, o que entra desde el
+ * movil, y entonces el carrito que habia elegido a mano se le pasa a la cuenta.
+ */
 export function iniciarSesion(cuerpo: {
   email: string
   contrasena: string
@@ -153,6 +182,7 @@ export function iniciarSesion(cuerpo: {
   return pedir<{ usuario: UsuarioCliente }>('/api/sesion', {
     method: 'POST',
     body: JSON.stringify(cuerpo),
+    headers: cabeceraCarrito(),
   })
 }
 
