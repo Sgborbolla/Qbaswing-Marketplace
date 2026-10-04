@@ -5,10 +5,12 @@
  * Página dinámica: `/producto/[slug].astro`. Lee desde la API por slug.
  * Estados vacíos reales si no existe o falla la carga.
  */
+import Icono from '../../components/Icono.astro'
 import Base from '../../layouts/Base.astro'
+import QrCuenta from '../../components/QrCuenta.astro'
 import { formatearFecha, formatearPrecio } from '../../lib/formato'
 
-const { obtenerProducto } = await import('../../lib/api')
+const { obtenerProducto, obtenerMediosPago } = await import('../../lib/api')
 
 export async function getStaticPaths() {
   // No pre-generamos slugs: el catálogo es dinámico y cambia con el Owner.
@@ -36,6 +38,23 @@ try {
 }
 
 const titulo = producto ? producto.titulo : error ? 'Error al cargar el producto' : 'Producto no encontrado'
+
+// Formas de pago de la plataforma. Se piden solo si hay producto: la ficha
+// vacia no necesita saber como se paga.
+//
+// La promesa se resuelve sola con `[]` si la API falla (ver `obtenerMediosPago`),
+// asi que aqui no hay try/catch. Que un medio de pago no cargue no puede dejar la
+// ficha sin pintar: es informacion de COMO pagar, no de QUE se vende.
+const medios = producto ? await obtenerMediosPago() : []
+
+// Un medio sin dato no se muestra. Un QR con el campo vacio es un cuadrado
+// negro que no lleva a ningun sitio, y un distintivo sin numero al lado invita a
+// preguntar por el en el chat en vez de mirar el siguiente medio.
+//
+// El filtro es aqui y no en el router porque la API puede devolver un medio a
+// medio configurar (el Owner lo esta escribiendo) y la pagina no tiene por que
+// arrastrar ese estado a la vista.
+const mediosListos = medios.filter((m) => (m.dato ?? '').trim() !== '')
 ---
 
 <Base title={titulo}>
@@ -71,7 +90,7 @@ const titulo = producto ? producto.titulo : error ? 'Error al cargar el producto
                 <img src={producto.imagen} alt={producto.titulo} class="h-full w-full object-cover" />
               ) : (
                 <div class="flex h-full w-full items-center justify-center">
-                  <span class="material-symbols-outlined text-[48px] text-on-surface-variant/30" aria-hidden="true">image</span>
+                  <Icono nombre="image" class="text-[48px] text-on-surface-variant/30" />
                 </div>
               )}
             </div>
@@ -106,6 +125,54 @@ const titulo = producto ? producto.titulo : error ? 'Error al cargar el producto
                 Ver vendedor
               </a>
             </div>
+
+            {/*
+              Formas de pago.
+
+              Va DEBAJO de los botones y no antes porque el orden de un cliente
+              es: que es, cuanto cuesta, como lo pago. Poner el numero de cuenta
+              antes del precio hace que la pagina parezca un formulario bancario
+              en vez de una ficha de producto.
+
+              Si no hay ningun medio listo, NO se pinta un hueco ni un "consultar".
+              Se omitie el bloque entero: la pagina queda como una ficha normal y
+              el que quiera saber como pagar lo pregunta. Un bloque vacio con
+              titulo dice "aqui habria algo" y no hay nada.
+            */}
+            {mediosListos.length > 0 && (
+              <section class="mt-10">
+                <h2 class="font-headline text-headline-sm text-on-surface">Cómo pagar</h2>
+
+                <div class="mt-4 space-y-3">
+                  {mediosListos.map((medio) => (
+                    <QrCuenta
+                      dato={medio.dato as string}
+                      etiqueta={medio.nombre}
+                      titular={medio.titular}
+                      color={medio.colorMarca}
+                      red={medio.red}
+                    >
+                      {medio.instrucciones && (
+                        <p class="mt-3 text-body-sm text-on-surface-variant">
+                          {medio.instrucciones}
+                        </p>
+                      )}
+                    </QrCuenta>
+                  ))}
+                </div>
+
+                {/*
+                  El aviso de la verificacion manual. Es lo unico que se dice aqui
+                  sobre cuando se entrega, y se dice de forma explicita: sin esto
+                  el comprador entiende que pago es pago entregado, que no es
+                  cierto en ninguno de los cuatro medios de hoy.
+                */}
+                <p class="mt-4 text-body-sm text-on-surface-variant/80">
+                  Los pagos se confirman a mano. Comprueba que has escrito bien el
+                  número o la dirección antes de enviar, y guarda el comprobante.
+                </p>
+              </section>
+            )}
 
             <dl class="mt-8 grid gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-4 text-body-sm text-on-surface-variant sm:grid-cols-2">
               <div>

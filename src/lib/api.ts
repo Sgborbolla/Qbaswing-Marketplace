@@ -375,6 +375,60 @@ export async function obtenerProducto(
   }
 }
 
+/**
+ * Una forma de pago, tal como la devuelve `GET /api/medios-pago`.
+ *
+ * `dato` es lo que hay que codificar en el QR, y no hay que decidir aqui si es
+ * un numero de tarjeta o una direccion: lo decide `tipo`. Unificarlo aqui
+ * evita que el componente tenga que hacer `numero ?? direccion` y se le olvide
+ * un caso, que es como un pago se queda sin mostrar y nadie sabe por que.
+ */
+export interface MedioPago {
+  clave: string
+  nombre: string
+  tipo: 'tarjeta' | 'app' | 'cripto' | 'efectivo' | 'otro'
+  colorMarca: string | null
+  /** 'manual' hoy en todos. No se usa para decidir nada todavia. */
+  verificacion: 'automatica' | 'manual'
+  instrucciones: string
+  dato: string | null
+  titular: string | null
+  /** Solo en cripto. */
+  red: string | null
+}
+
+/**
+ * Formas de pago de la plataforma.
+ *
+ * Vuelven con el numero dentro, a proposito: el comprador tiene que ver a donde
+ * transfiere antes de decidir. Ver la nota de `routers/medios-pago.ts`.
+ *
+ * Devuelve una lista vacia si la API no responde, y no lanza. La ficha de un
+ * producto tiene que poder pintarse sin medios de pago: son informacion de como
+ * pagar, no de que se vende. Un fallo aqui no puede dejar la pagina en blanco.
+ */
+export async function obtenerMediosPago(
+  opciones?: OpcionesRequest,
+): Promise<MedioPago[]> {
+  try {
+    const cuerpo = await pedir('/api/medios-pago', opciones)
+    return listaDe(cuerpo, 'medios', '/api/medios-pago').map((f) => ({
+      clave: String(f.clave),
+      nombre: String(f.nombre),
+      tipo: (String(f.tipo) as MedioPago['tipo']) ?? 'otro',
+      colorMarca: (f.color_marca as string | null) ?? null,
+      verificacion: (String(f.verificacion) as MedioPago['verificacion']) ?? 'manual',
+      instrucciones: String(f.instrucciones ?? ''),
+      dato:
+        (f.tipo === 'cripto' ? (f.direccion_cripto as string | null) : (f.numero_cuenta as string | null)) ?? null,
+      titular: (f.titular as string | null) ?? null,
+      red: (f.red_cripto as string | null) ?? null,
+    }))
+  } catch {
+    return []
+  }
+}
+
 /** Categoria con el conteo real de productos visibles. */
 export interface CategoriaConConteo {
   nombre: string

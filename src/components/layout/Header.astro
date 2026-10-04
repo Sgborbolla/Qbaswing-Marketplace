@@ -16,6 +16,7 @@
  * de `alt` en las 43 imagenes, lo que deja el logo sin descripcion para lectores
  * de pantalla. Aqui el `alt` es obligatorio y no decorativo.
  */
+import Icono from '../../components/Icono.astro'
 import Logo from '../Logo.astro'
 import SelectorIdioma from '../SelectorIdioma.astro'
 import BotonCerrarSesion from '../BotonCerrarSesion.astro'
@@ -93,12 +94,7 @@ const ICONO = {
     >
       <label for="busqueda" class="sr-only">Buscar productos</label>
       <div class="relative">
-        <span
-          class="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-label-md text-on-surface-variant"
-          aria-hidden="true"
-        >
-          {ICONO.buscar}
-        </span>
+        <Icono nombre={ICONO.buscar} class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-label-md text-on-surface-variant" />
         <input
           type="search"
           id="busqueda"
@@ -138,9 +134,7 @@ const ICONO = {
         class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
         aria-label="Entrar en mi cuenta"
       >
-        <span class="material-symbols-outlined text-headline-sm" aria-hidden="true">
-          {ICONO.cuenta}
-        </span>
+        <Icono nombre={ICONO.cuenta} class="text-headline-sm" />
       </a>
 
       <a
@@ -149,9 +143,7 @@ const ICONO = {
         class="hidden rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
         aria-label="Mi cuenta"
       >
-        <span class="material-symbols-outlined text-headline-sm" aria-hidden="true">
-          {ICONO.cuenta}
-        </span>
+        <Icono nombre={ICONO.cuenta} class="text-headline-sm" />
       </a>
 
       <span data-sesion="dentro" class="hidden">
@@ -163,9 +155,7 @@ const ICONO = {
         class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
         aria-label="Carrito de compras"
       >
-        <span class="material-symbols-outlined text-headline-sm" aria-hidden="true">
-          {ICONO.carrito}
-        </span>
+        <Icono nombre={ICONO.carrito} class="text-headline-sm" />
       </a>
     </div>
   </div>

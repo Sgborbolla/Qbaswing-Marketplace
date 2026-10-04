@@ -17,16 +17,25 @@
     "validar": "node scripts/validar-schema.mjs",
     "validar:datos": "node scripts/validar-datos.mjs",
     "validar:alfabetos": "node scripts/validar-alfabetos.mjs",
-    "validar:todo": "npm run validar && npm run validar:datos && npm run validar:alfabetos && npm run check && npm run check:worker"
+    "validar:todo": "npm run validar && npm run validar:datos && npm run validar:alfabetos && npm run check && npm run check:worker",
+    "fuentes": "node scripts/fuentes.mjs",
+    "logo": "node scripts/logo.mjs",
+    "iconos": "node scripts/iconos.mjs",
+    "probar:qr": "node scripts/probar-qr.mjs"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@cloudflare/workers-types": "^5.20261001.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.10.1",
+    "@types/qrcode": "^1.5.6",
     "astro": "^7.3.5",
+    "jsqr": "^1.4.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "wrangler": "^4.45.0"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
   }
 }

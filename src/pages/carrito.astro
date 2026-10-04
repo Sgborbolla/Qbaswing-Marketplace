@@ -88,6 +88,8 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     type ContenidoCarrito,
     type LineaCarrito,
   } from '../lib/carrito-cliente'
+  import { crearIcono } from '../lib/icono-dom'
+  import type { NombreIcono } from '../lib/iconos'
 
   const zona = document.querySelector('[data-zona]') as HTMLElement
   const cargando = document.querySelector('[data-cargando]') as HTMLElement | null
@@ -118,12 +120,19 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     aviso.textContent = texto
   }
 
-  /** Icono de Material como texto, para no depender de un `<svg>` a mano. */
-  function simbolo(nombre: string, clase: string): HTMLElement {
-    const nodo = el('span', clase)
-    nodo.setAttribute('aria-hidden', 'true')
-    nodo.textContent = nombre
-    return nodo
+  /**
+   * Un icono del sitio.
+   *
+   * Antes era `<span class="material-symbols-outlined">` con el NOMBRE como
+   * texto, y se relied de que una fuente descargada de Google sustituyera esa
+   * palabra por un dibujo. Sin esa fuente, el icono no faltaba: se veia escrito
+   * "shopping_cart" en medio de la pagina.
+   *
+   * El nombre va como `NombreIcono`, no como `string`, para que un icono que no
+   * exista sea un error de compilacion y no un rectangulo vacido en pantalla.
+   */
+  function simbolo(nombre: NombreIcono, clase: string): SVGElement {
+    return crearIcono(nombre, clase)
   }
 
   /** Una tarjeta. */
@@ -133,9 +142,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
 
   function vacio(): HTMLElement {
     const caja = tarjeta('rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-8 text-center')
-    const simboloGrande = el('span', 'material-symbols-outlined text-headline-lg text-on-surface-variant/50')
-    simboloGrande.setAttribute('aria-hidden', 'true')
-    simboloGrande.textContent = 'shopping_cart'
+    const simboloGrande = simbolo('shopping_cart', 'text-headline-lg text-on-surface-variant/50')
 
     const titulo = el('p', 'mt-3 font-headline text-title-md font-semibold text-on-surface', 'Tu carrito esta vacio')
     const ayuda = el(
@@ -267,7 +274,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     )
     menos.type = 'button'
     menos.setAttribute('aria-label', `Quitar una unidad de ${linea.producto.titulo}`)
-    menos.append(simbolo('remove', 'material-symbols-outlined text-label-md'))
+    menos.append(simbolo('remove', 'text-label-md'))
     menos.dataset.cantidad = String(linea.cantidad - 1)
     menos.dataset.producto = String(linea.producto.id)
 
@@ -279,7 +286,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     )
     mas.type = 'button'
     mas.setAttribute('aria-label', `Anadir una unidad de ${linea.producto.titulo}`)
-    mas.append(simbolo('add', 'material-symbols-outlined text-label-md'))
+    mas.append(simbolo('add', 'text-label-md'))
     mas.dataset.cantidad = String(linea.cantidad + 1)
     mas.dataset.producto = String(linea.producto.id)
 
@@ -291,7 +298,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     )
     quitarBoton.type = 'button'
     quitarBoton.dataset.quitar = String(linea.id)
-    quitarBoton.append(simbolo('delete', 'material-symbols-outlined text-label-md'))
+    quitarBoton.append(simbolo('delete', 'text-label-md'))
     quitarBoton.append(el('span', '', 'Quitar'))
 
     pie.append(grupo, quitarBoton)
@@ -335,7 +342,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
       'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
     )
     boton.href = '/pagar'
-    boton.append(simbolo('lock', 'material-symbols-outlined text-label-md'))
+    boton.append(simbolo('lock', 'text-label-md'))
     boton.append(el('span', '', 'Ir a pagar'))
     caja.append(boton)
 
@@ -384,7 +391,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     )
     reintentar.type = 'button'
     reintentar.dataset.reintentar = ''
-    reintentar.append(simbolo('refresh', 'material-symbols-outlined text-label-md'))
+    reintentar.append(simbolo('refresh', 'text-label-md'))
     reintentar.append(el('span', '', 'Reintentar'))
     caja.append(reintentar)
 

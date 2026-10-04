@@ -61,6 +61,8 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
 
 <script>
   import { miCuenta, type DatosCuentaCliente, type UsuarioCliente } from '../lib/identidad-cliente'
+  import { crearIcono } from '../lib/icono-dom'
+  import type { NombreIcono } from '../lib/iconos'
 
   type Variante = 'cuenta' | 'panel' | 'owner'
 
@@ -109,13 +111,20 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     return el('dd', 'mt-0.5 text-body-md text-on-surface', texto)
   }
 
-  /** Una tarjeta con titulo. */
-  function tarjeta(titulo: string, icono: string): HTMLElement {
+  /**
+   * Una tarjeta con titulo.
+   *
+   * El icono va como `NombreIcono` y no como `string` a proposito. Antes era un
+   * `<span class="material-symbols-outlined">` con el nombre escrito dentro, y
+   * dependia de que una fuente descargada de Google sustituyera esa palabra por un
+   * dibujo: sin esa fuente el icono no faltaba, se leia "badge" en pantalla.
+   *
+   * Con el tipo, un icono que no exista es un error de compilacion.
+   */
+  function tarjeta(titulo: string, icono: NombreIcono): HTMLElement {
     const caja = el('section', 'rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5')
     const cabecera = el('div', 'flex items-center gap-2')
-    const simbolo = el('span', 'material-symbols-outlined text-label-lg text-primary')
-    simbolo.setAttribute('aria-hidden', 'true')
-    simbolo.textContent = icono
+    const simbolo = crearIcono(icono, 'text-label-lg text-primary')
     cabecera.append(simbolo, el('h2', 'font-headline text-title-md font-semibold text-on-surface', titulo))
     caja.append(cabecera)
     return caja
@@ -265,10 +274,7 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     )
     boton.type = 'button'
     boton.dataset.cerrarSesion = ''
-    const simbolo = el('span', 'material-symbols-outlined text-label-md')
-    simbolo.setAttribute('aria-hidden', 'true')
-    simbolo.textContent = 'logout'
-    boton.append(simbolo, el('span', '', 'Salir de este dispositivo'))
+    boton.append(crearIcono('logout', 'text-label-md'), el('span', '', 'Salir de este dispositivo'))
     acciones.append(boton)
 
     caja.append(lista, ayuda, acciones)
@@ -286,10 +292,13 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     ]
     for (const [texto, concedido] of Privilegios) {
       const nodo = el('li', 'flex items-start gap-2')
-      const marca = el('span', 'material-symbols-outlined text-label-md')
-      marca.setAttribute('aria-hidden', 'true')
-      marca.textContent = concedido ? 'check_circle' : 'cancel'
-      marca.classList.add(concedido ? 'text-primary' : 'text-on-surface-variant/60')
+      // Un solo elemento para los dos casos en vez de dos `<span>` con la clase
+      // puesta a mano. El color lo decide el `class`, que es donde ya lo
+      // decisionaba el resto del componente.
+      const marca = crearIcono(
+        concedido ? 'check_circle' : 'cancel',
+        concedido ? 'text-label-md text-primary' : 'text-label-md text-on-surface-variant/60',
+      )
       nodo.append(marca, el('span', '', conPermiso(texto, concedido)))
       lista.append(nodo)
     }

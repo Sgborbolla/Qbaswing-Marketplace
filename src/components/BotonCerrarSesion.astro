@@ -1,4 +1,5 @@
 ---
+import Icono from '../components/Icono.astro'
 /**
  * Boton pequeno de cerrar sesion, con confirmacion.
  *
@@ -49,7 +50,7 @@
   class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-md font-medium text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
   data-cerrar-sesion
 >
-  <span class="material-symbols-outlined text-label-md" aria-hidden="true">logout</span>
+  <Icono nombre="logout" class="text-label-md" />
   Salir
 </button>
 
@@ -85,7 +86,7 @@
         data-keep-sesion
         class="inline-flex items-center justify-center gap-2 rounded-full border border-outline-variant px-5 py-2.5 text-body-md font-semibold text-on-surface transition hover:border-primary"
       >
-        <span class="material-symbols-outlined text-label-md" aria-hidden="true">close</span>
+        <Icono nombre="close" class="text-label-md" />
         Mantener sesion
       </button>
 
@@ -94,7 +95,7 @@
         data-salir-ya
         class="inline-flex items-center justify-center gap-2 rounded-full bg-error px-5 py-2.5 text-body-md font-semibold text-on-error transition hover:opacity-90 disabled:opacity-50"
       >
-        <span class="material-symbols-outlined text-label-md" aria-hidden="true">logout</span>
+        <Icono nombre="logout" class="text-label-md" />
         <span data-texto-salir>Salir</span>
       </button>
     </div>

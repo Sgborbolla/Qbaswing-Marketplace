@@ -18,6 +18,7 @@
  * Lo que se hace entonces es avisar, con mejora progresiva de verdad: si no hay
  * JavaScript, el boton dice que hace falta. No se finge que funciona.
  */
+import Icono from '../components/Icono.astro'
 import Base from '../layouts/Base.astro'
 import { backendConfigurado } from '../lib/identidad-cliente'
 ---
@@ -98,9 +99,7 @@ import { backendConfigurado } from '../lib/identidad-cliente'
             aria-pressed="false"
             class="mt-2 inline-flex items-center gap-1.5 text-label-md text-on-surface-variant transition hover:text-primary"
           >
-            <span class="material-symbols-outlined text-label-md" aria-hidden="true">
-              visibility
-            </span>
+            <Icono nombre="visibility" class="text-label-md" />
             <span id="ver-contrasena-texto">Mostrar contrasena</span>
           </button>
           <p class="mt-2 text-label-sm text-on-surface-variant">

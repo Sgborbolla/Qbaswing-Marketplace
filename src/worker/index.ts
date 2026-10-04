@@ -37,6 +37,7 @@ import { ErrorApi, RUTAS } from './constantes'
 import { type Env } from './entorno'
 import { decodificar, enteroDeQuery, json } from './http'
 import { responderPlataforma } from './routers/plataforma'
+import { responderMediosPago } from './routers/medios-pago'
 import { responderCatalogo } from './routers/catalogo'
 import { responderSalud } from './routers/salud'
 import { responderWebhooks } from './routers/webhooks'
@@ -110,6 +111,16 @@ async function despachar(
   // Datos editables por el Owner: redes, contacto, FAQ. Publicos en lectura.
   if (ruta === RUTAS.redes || ruta === RUTAS.contacto || ruta === RUTAS.faq) {
     return responderPlataforma(ruta, env, soloLectura)
+  }
+
+  // Formas de pago. Publicas en lectura y con el numero de cuenta dentro.
+  //
+  // No va dentro del grupo de arriba porque `responderPlataforma` SOLO devuelve
+  // datos de pie de pagina, y una forma de pago no lo es: es informacion de
+  // compra. Mezclarlas haria que pensar en esta tabla desde el footer, que es
+  // donde no se decide como cobra nadie.
+  if (ruta === RUTAS.mediosPago) {
+    return responderMediosPago(env)
   }
 
   // Carrito. Va antes que el catalogo porque `GET /api/carrito` tiene que saber

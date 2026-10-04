@@ -1,0 +1,133 @@
+---
+/**
+ * Codigo QR de una cuenta de cobro, con el numero escrito al lado.
+ *
+ * ============================================================================
+ *  POR QUE EL NUMERO ESTA SIEMPRE EN TEXTO Y NO SOLO EL QR
+ * ============================================================================
+ * Porque el QR se puede generar bien y no ser legible: se ve perfecto, es un
+ * cuadrado con tres rincones, y hay camaras y pantallas que no lo leen. El
+ * unico sintoma es que el cliente no puede pagar y no sabe por que.
+ *
+ * El texto al lado es lo que garantiza que se pueda pagar. El QR es la
+ * comodidad, no la via. Por eso el numero va en grande, seleccionable y con los
+ * digitos separados en grupos de cuatro, que es como se lee una tarjeta y como
+ * la gente lo teclea.
+ *
+ * ============================================================================
+ *  POR QUE SE GENERA EN EL NAVEGADOR
+ * ============================================================================
+ * Con la libreria `qrcode`, aqui, y no con un servicio de Internet.
+ *
+ * Un servicio externo significa enviarle el numero de cuenta a un tercero para
+ * que lo convierta en imagen. Ese es justo el dato que no tiene por que viajar.
+ * Y aunque el QR fuera solo de una direccion cripto, que es publica, la costumbre
+ * de mandarlo a un servicio desconocido se acaba pagando el dia que se le pasa
+ * un dato de verdad.
+ *
+ * En el navegador ademas funciona sin conexion: si el comprador esta con datos
+ * moviles agotados, que es el caso normal, el QR que ya esta en pantalla sigue
+ * valiendo.
+ *
+ * ============================================================================
+ *  LA REFERENCIA DEL PEDIDO
+ * ============================================================================
+ * Va dentro del QR si se pasa. Es lo que hace que el comprador no tenga que
+ * escribir nada: escanea, y el numero y la referencia estan en el portapapeles.
+ *
+ * `probar-qr.mjs` comprueba que el numero y la referencia juntos siguen entrando
+ * en una version de QR que se lee con la camara de un telefono. Ese limite
+ * importa: al acercarse al maximo, el modulo se hace mas pequeno y hay telefonos
+ * viejos que dejan de leerlo.
+ */
+
+interface Props {
+  /** Numero de cuenta o direccion. Para cripto, la direccion. */
+  dato: string
+  /** Nombre del banco o de la moneda. Se pinta como etiqueta. */
+  etiqueta: string
+  /** Titular de la cuenta. */
+  titular?: string | null
+  /** Color de la marca. Si falta, se usa uno neutro y NO se inventa. */
+  color?: string | null
+  /** Referencia del pedido. Se codifica junto al dato si viene. */
+  referencia?: string | null
+  /** Texto de red, solo para cripto. */
+  red?: string | null
+}
+
+const { dato, etiqueta, titular, color, referencia, red } = Astro.props
+
+// El numero se muestra en grupos de cuatro. No es decoracion: sixteen digitos
+// pegados en una linea soneillegibles y la gente se equivoca al contarlos, y un
+// digito equivocado no da error, el dinero simplemente no llega.
+const grupos = dato.replace(/\s+/g, '').match(/.{1,4}/g)?.join(' ') ?? dato
+
+// El QR lleva el dato y, si hay, la referencia en una linea aparte. En texto
+// plano un salto de linea separa igual que un espacio y ocupa menos.
+const contenidoQr = referencia ? `${dato}\nRef: ${referencia}` : dato
+
+const idQr = `qr-${crypto.randomUUID()}`
+---
+
+<div
+  class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-4"
+  style={color ? `border-color:${color}44` : undefined}
+>
+  <p class="text-label-sm font-semibold" style={color ? `color:${color}` : undefined}>
+    {etiqueta}
+    {red && <span class="font-normal text-on-surface-variant"> · {red}</span>}
+  </p>
+
+  <div class="mt-3 flex flex-wrap items-start gap-4">
+    <div
+      class="shrink-0 rounded-lg bg-white p-2"
+      data-qr={idQr}
+      data-contenido={contenidoQr}
+      aria-hidden="true"
+    >
+      <noscript>
+        <p class="text-body-sm text-on-error">El codigo QR necesita JavaScript.</p>
+      </noscript>
+    </div>
+
+    <div class="min-w-0 flex-1">
+      {titular && <p class="text-body-sm text-on-surface-variant">{titular}</p>}
+
+      {/*
+        El numero va en `<code>` y NO en un input. En un input se puede editar,
+        y un numero editado a mano es un numero que ya no es el que esta en la
+        base. Ademas el texto de un input no se copia bien al portapapeles en
+        todos los navegadores. Aqui no hay nada que editar y un copiar le lleva
+        el numero entero.
+      */}
+      <p class="mt-1 font-headline text-headline-sm tracking-wider text-on-surface select-all">
+        {grupos}
+      </p>
+
+      <p class="mt-2 text-body-sm text-on-surface-variant">
+        Copia el numero, o escanea el codigo con la camara del telefono.
+      </p>
+
+      <slot />
+    </div>
+  </div>
+</div>
+
+<script>
+  import { pintarQr } from '../lib/qr'
+
+  // Un solo paso por todos los QR de la pagina. No se genera uno por elemento en
+  // la linea de cada uno, porque un bucle por elemento obliga a sincronizar dos
+  // listas y basta con que el orden cambie para que se cruce.
+  document.querySelectorAll<HTMLElement>('[data-qr]').forEach((nodo) => {
+    const contenido = nodo.dataset.contenido ?? ''
+    if (!contenido) return
+
+    pintarQr(nodo, contenido).catch(() => {
+      // Si la libreria no carga, el numero de al lado sigue-serving: es el
+      // texto, no el QR, lo que garantiza que se pueda pagar. Solo se avisa.
+      nodo.classList.add('hidden')
+    })
+  })
+</script>

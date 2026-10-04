@@ -6,6 +6,7 @@
  * existen según los datos de la plataforma. Si el Owner los deja vacíos, no
  * aparece nada: ese es el estado vacío real.
  */
+import Icono from '../components/Icono.astro'
 import Base from '../layouts/Base.astro'
 ---
 
@@ -34,7 +35,7 @@ import Base from '../layouts/Base.astro'
           class="mt-4 inline-flex items-center gap-1.5 text-label-lg font-semibold text-primary transition-colors hover:text-primary-container"
         >
           Ver preguntas frecuentes
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+          <Icono nombre="arrow_forward" class="text-[18px]" />
         </a>
       </article>
 

@@ -29,6 +29,7 @@
  * ejemplo, porque un porcentaje inventado en una pagina de ventas es peor que
  * un hueco: la gente se fia del numero.
  */
+import Icono from '../components/Icono.astro'
 import Base from '../layouts/Base.astro'
 import { backendConfigurado, listarPaquetes } from '../lib/api'
 import { formatearPrecio } from '../lib/formato'
@@ -184,9 +185,7 @@ const pasos = [
                   <ul class="mt-3 space-y-1 text-label-md text-on-surface-variant">
                     {paquete.caracteristicas.map((caracteristica) => (
                       <li class="flex items-start gap-1.5">
-                        <span class="material-symbols-outlined text-label-md" aria-hidden="true">
-                          check
-                        </span>
+                        <Icono nombre="check" class="text-label-md" />
                         {caracteristica}
                       </li>
                     ))}
@@ -216,9 +215,7 @@ const pasos = [
           href="/registro"
           class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-body-md font-semibold text-on-primary transition hover:bg-primary-container"
         >
-          <span class="material-symbols-outlined text-label-md" aria-hidden="true">
-            person_add
-          </span>
+          <Icono nombre="person_add" class="text-label-md" />
           Crear mi cuenta
         </a>
         <a

@@ -72,6 +72,11 @@ export const RUTAS = {
   contacto: '/api/plataforma/contacto',
   faq: '/api/plataforma/faq',
 
+  // Formas de pago. El nombre no lleva '/plataforma' porque esta ruta la lee el
+  // producto, no el pie de pagina: es informacion de COMPRA, y por eso devuelve
+  // el numero de cuenta y no solo el nombre y el color.
+  mediosPago: '/api/medios-pago',
+
   // Autenticacion
   registro: '/api/registro',
   sesion: '/api/sesion',

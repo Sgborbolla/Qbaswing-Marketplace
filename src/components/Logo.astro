@@ -15,19 +15,28 @@
  * ============================================================================
  *  SOBRE EL ARCHIVO
  * ============================================================================
- * public/logo-qbaswing.png — 1024x1024 px, RGBA con canal alfa, 1.6 MB.
- * Provisto por el propietario, copiado byte a byte: el hash SHA-256 del
- * original y el de la copia coinciden, no se reproceso.
+ * public/logo-qbaswing.webp — 512x512 px, 56 KB. Lo genera `scripts/logo.mjs` a
+ * partir de `logotipo 2.jpg`, que es la unica copia de la artwork y no se
+ * toca nunca.
  *
- * 1.6 MB para un logo que se muestra a 40 px es desproporcionado. Un PNG de
- * 1024x1024 pesa ~1.3 MB solo por el canal alfa. Cuando exista una version
- * optimizada (WebP o un SVG con trazados) este componente debe aceptar una
- * `fuente` distinta sin tocar los cuatro lugares de uso. Esa es la razon de
- * que la ruta sea un parametro y no una constante incrustada en el marcado.
+ * Antes era `logo-qbaswing.png`, un PNG de 1024x1024 con canal alfa y 1.6 MB,
+ * para un logo que se ve a 32, 40 y 96 px. Son 30 veces mas bytes de los
+ * necesarios, y esos bytes se piden ANTES de que la cabecera se painted: en
+ * una conexion Cubanaseficiente el logo era lo primero que retrasaba la pagina.
  *
- * NO se reescala ni se convierte aca a proposito: cualquier recompresion
- * pierde calidad de forma irreversible, y el original es la fuente de verdad.
- * El dimensionado lo hace el navegador con width/height.
+ * 512 px es el tamano justo: el uso mayor es 96 px, y a densidad 3 eso son 288
+ * px reales. 512 da margen sin que un telefono descargue mas pixeles de los que
+ * puede mostrar.
+ *
+ * Un detalle del original: es un JPG, o sea que NO tiene fondo transparente.
+ * El anterior si lo tenia. Sobre el pie, que es oscuro, este logo se vera como
+ * un cuadrado gris claro. Si molesta, lo que hay que hacer es recortar el fondo
+ * en el original y volver a correr `npm run logo`; no se recorta aqui, porque
+ * `object-contain` recorta al vuelo y deja el borde del rectangulo.
+ *
+ * NO se reescala ni se convierte aca: la recompresion es irreversible y el
+ * original es la fuente de verdad. El dimensionado lo hace el navegador con
+ * width/height.
  */
 interface Props {
   /**
@@ -53,15 +62,20 @@ interface Props {
 
 const {
   altura = 40,
-  fuente = '/logo-qbaswing.png',
+  fuente = '/logo-qbaswing.webp',
   alt = 'QBASwing Marketplace',
   prioritario = false,
 } = Astro.props
 
 // Intrinseco del archivo. Declarar width y height evita el desplazamiento de
-// contenido (CLS): el navegador reserva el espacio antes de descargar el PNG.
-const ANCHO_NATURAL = 1024
-const ALTO_NATURAL = 1024
+// contenido (CLS): el navegador reserva el espacio antes de descargar la imagen.
+//
+// Son 512, los del `.webp` que genera `scripts/logo.mjs`. Van juntos a proposito:
+// si el archivo se cambia de tamano hay que cambiar estos dos numeros, y un 512
+// puesto sobre una imagen de 1024 reserva el doble de alto y empuja el contenido
+// de la pagina hacia abajo mientras carga.
+const ANCHO_NATURAL = 512
+const ALTO_NATURAL = 512
 ---
 
 {/*

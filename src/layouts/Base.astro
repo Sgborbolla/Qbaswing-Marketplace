@@ -29,15 +29,27 @@ const {
   sinHeader = false,
 } = Astro.props
 
-// Nombre de la pagina: "Detalle | QBASwing" salvo en la home.
-const tituloCompleto = title === 'QBASwing Marketplace' ? title : `${title} · QBASwing`
+// Nombre de la pagina: "Detalle | QBASwing Marketplace" salvo en la home.
+//
+// El sufijo lleva el nombre COMPLETO y no solo "QBASwing". En una pestaña del
+// navegador, donde el icono del sitio no se ve porque hay veinte pestañas
+// abiertas, "Detalle · QBASwing" se lee como el nombre de una pagina y no como
+// el de un sitio. El nombre corto se reserva para el logo, que es un dibujo y ya
+// se reconoce.
+const tituloCompleto = title === 'QBASwing Marketplace' ? title : `${title} · QBASwing Marketplace`
 
 // Origen absoluto para canonical y Open Graph. `Astro.site` viene de
 // `site:` en astro.config.mjs; sin el, cae al origen de la peticion, que en
 // desarrollo es localhost y en produccion el dominio real.
 const origen = Astro.site ?? Astro.url.origin
 const urlCanonica = new URL(Astro.url.pathname, origen)
-const urlLogo = new URL('/logo-qbaswing.png', origen)
+
+// La imagen de Open Graph es un JPG aparte, no el `.webp` que se ve en la
+// pagina. No es una preferencia: los previsualizadores de WhatsApp, Facebook y
+// Telegram NO leen WebP, y cuando no pueden Interpretar la imagen no muestran
+// ninguna. Con el `.webp` en este `<meta>`, compartir un enlace en un grupo de
+// WhatsApp se veria sin imagen.
+const urlLogo = new URL('/logo-qbaswing-og.jpg', origen)
 ---
 
 <!doctype html>
@@ -64,34 +76,48 @@ const urlLogo = new URL('/logo-qbaswing.png', origen)
     <!--
       Las imagenes de los mockups de Stitch apuntan a lh3.googleusercontent.com
       con URLs temporales, asi que no se referencian. El logo real si esta, en
-      public/logo-qbaswing.png.
+      `public/logo-qbaswing-og.jpg`, que genera `scripts/logo.mjs`.
     -->
     <meta property="og:image" content={urlLogo} />
     <meta property="og:image:width" content="1024" />
     <meta property="og:image:height" content="1024" />
     <meta property="og:image:alt" content="QBASwing Marketplace" />
     <meta name="twitter:image" content={urlLogo} />
-    <link rel="apple-touch-icon" href="/logo-qbaswing.png" />
 
     <!--
-      El favicon referencia el PNG y no un .svg: el logo provisto es raster
-      (1024x1024 RGBA) y no hay version vectorial. Se declara ademas el tipo
-      MIME real, porque algunos navegadores descartan un favicon al que le
-      declaran extension svg.
+      El icono de iOS va aparte y en PNG por dos razones concretas: iOS NO
+      acepta WebP ni JPG en este campo, y si el archivo no es PNG lo descarta y
+      pone en su lugar una captura de la pagina, que a 180 px es un borron.
+      Son 180 px porque es el tamano que iOS produce en un iPhone moderno.
     -->
-    <link rel="icon" type="image/png" href="/logo-qbaswing.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
     <!--
-      Una sola peticion por familia. Material Symbols se pide con el eje `opsz`
-      porque los mockups usan tamanos de 14 a 32 px, y sin `opsz` el navegador
-      no puede ajustar el grosor del trazo.
+      El favicon es raster y no SVG porque el logo provisto es una fotografia,
+      y una fotografia no se puede describir con trazados. Se declara el tamano
+      porque hay navegadores que eligen archivo por la extension del `href` y no
+      por el `type`, y sin esto piden un png de 1024 para pintar 16 pixeles.
     -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+
+    {/*
+      Las fuentes se sirven desde el propio sitio.
+
+      Antes eran dos `<link>` a `fonts.googleapis.com`. Google Fonts esta
+      bloqueado en Cuba, que es el mercado principal, y de ahi salen tres fallos
+      que no se ven desde una computadora con conexion normal: los iconos de
+      Material Symbols se pintan como palabras sueltas (`language`,
+      `shopping_cart`) porque la fuente de ligaduras no llega, los textos caen
+      en la tipografia del sistema, y la pagina espera a Google antes de
+      dibujar nada.
+
+      La hoja local la genera `scripts/fuentes.mjs` y conserva los
+      `unicode-range` de origen, asi que un texto en espanol descarga solo el
+      subconjunto latino y no los siete. Es un archivo de 34 reglas y 992 KB,
+      pero el navegador pide de 3 a 5 de esos KB porque cada `@font-face` es
+      una descarga distinta.
+    */}
+    <link rel="stylesheet" href="/fuentes/fuentes.css" />
   </head>
   <body class="min-h-dvh flex flex-col bg-background text-on-surface antialiased">
     <a

@@ -5,6 +5,7 @@
  * Lee de la API en tiempo de render. Si no hay backend configurado o no hay
  * resultados, muestra estados vacíos reales, nunca datos de ejemplo.
  */
+import Icono from '../components/Icono.astro'
 import Base from '../layouts/Base.astro'
 import { formatearPrecio, recortar } from '../lib/formato'
 import type { FiltrosCatalogo, ProductoResumen } from '../lib/api'
@@ -187,9 +188,7 @@ const urlDePagina = (n: number): string => {
                   />
                 ) : (
                   <div class="flex h-full w-full items-center justify-center">
-                    <span class="material-symbols-outlined text-[36px] text-on-surface-variant/30" aria-hidden="true">
-                      image
-                    </span>
+                    <Icono nombre="image" class="text-[36px] text-on-surface-variant/30" />
                   </div>
                 )}
               </div>
@@ -236,9 +235,7 @@ const urlDePagina = (n: number): string => {
                 : 'text-on-surface hover:border-primary hover:text-primary',
             ]}
           >
-            <span class="material-symbols-outlined text-label-md" aria-hidden="true">
-              chevron_left
-            </span>
+            <Icono nombre="chevron_left" class="text-label-md" />
             Anterior
           </a>
 
@@ -257,9 +254,7 @@ const urlDePagina = (n: number): string => {
             ]}
           >
             Siguiente
-            <span class="material-symbols-outlined text-label-md" aria-hidden="true">
-              chevron_right
-            </span>
+            <Icono nombre="chevron_right" class="text-label-md" />
           </a>
         </nav>
       )}

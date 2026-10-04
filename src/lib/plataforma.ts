@@ -31,8 +31,18 @@ export interface RedSocialPlataforma {
   id: string
   /** Nombre visible, editable por el Owner. */
   etiqueta: string
-  /** Nombre del icono de Material Symbols. */
-  icono: string
+  /**
+   * Nombre del icono, de los que hay en `src/lib/iconos.ts`.
+   *
+   * Es `NombreIcono` y no `string` a proposito: un nombre que no exista en el
+   * mapa es un error de compilacion. Con `string`, escribir `icono: 'faceboolk'`
+   * compila, en produccion el `<path>` queda sin `d`, y sale un cuadrado vacio en
+   * el pie del sitio, sin error en la consola ni en el build.
+   *
+   * La lista sale de `scripts/iconos.mjs`, que la construye leyendo el codigo y
+   * bajando cada SVG de Google.
+   */
+  icono: NombreIcono
   /** Con que clase se construye la URL. `usuario` = base + usuario. */
   tipo: 'usuario' | 'url'
   /** Base de la URL, cuando `tipo` es 'usuario'. */
@@ -103,6 +113,8 @@ export interface RedSocialPlataforma {
  * vea, y si alguien agrega una red nueva tiene que decidir en el momento si la
  * deja vacia o no.
  */
+import type { NombreIcono } from './iconos'
+
 export const REDES_INICIALES: Omit<RedSocialPlataforma, 'id'>[] = [
   {
     etiqueta: 'Telegram',
@@ -125,7 +137,23 @@ export const REDES_INICIALES: Omit<RedSocialPlataforma, 'id'>[] = [
   },
   {
     etiqueta: 'Facebook',
-    icono: 'facebook',
+    /*
+     * Este NO es `facebook`. Material Symbols no tiene logotipos de marca: Google
+     * los retiro de la fuente por motivos de marca registrada, y el nombre
+     * devuelve un 404. Ponerlo daria un icono que no se descarga y un cuadrado
+     * vacio en el pie.
+     *
+     * Se usa `public`, que es un icono generico de "pagina publica". Es lo mismo
+     * que hacen las otras cinco redes de esta lista: ninguna usa su logotipo. La
+     * de Telegram es `send`, la de WhatsApp es `chat`, la de Instagram es
+     * `photo_camera`. Ninguna se confunde con otra, y el nombre de la red esta
+     * escrito al lado, que es lo que identifica de verdad.
+     *
+     * Si algun dia se quieren los logotipos de verdad, hay que dibujarlos como
+     * SVG y meterlos en `src/lib/iconos.ts` a mano. Es una decision de diseno, no
+     * una direccion que se pueda automatizar.
+     */
+    icono: 'public',
     tipo: 'usuario',
     base: 'https://facebook.com/',
     valor: '',

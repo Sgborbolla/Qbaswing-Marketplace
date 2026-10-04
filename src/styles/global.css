@@ -210,23 +210,16 @@
     text-wrap: balance;
   }
 
-  /* Los simbolos de Material se usan como fuente de iconos. El nombre de la
-     clase viene de Stitch; se normaliza aqui para no repetir el bloque. */
-  .material-symbols-outlined {
-    font-family: 'Material Symbols Outlined';
-    font-weight: normal;
-    font-style: normal;
-    line-height: 1;
-    letter-spacing: normal;
-    text-transform: none;
-    display: inline-block;
-    white-space: nowrap;
-    word-wrap: normal;
-    direction: ltr;
-    -webkit-font-feature-settings: 'liga';
-    -webkit-font-smoothing: antialiased;
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  }
+  /* Los iconos ya no son una fuente.
+     Antes esta regla era:
+       font-family: 'Material Symbols Outlined'; font-variation-settings: 'FILL' 0, ...
+     que era lo que hacia que `<span>language</span>` saliera dibujado y no
+     escrito. La fuente pesaba 3909 KB y Google Fonts esta bloqueado en Cuba, que
+     es el mercado principal: sin ella, el nombre del icono se veia escrito en la
+     pagina. Ahora cada icono es un `<svg>` en linea de `Icono.astro`, que lleva
+     `width="1em"` para que las clases `text-[18px]` sigan mandando el tamano.
+
+     Por eso aqui no hay nada que declarar: los ejes de la fuente ya no existen. */
 
   /* Foco visible y coherente en todo el sitio (sección Form Fields). */
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
@@ -283,9 +276,9 @@
       box-shadow 0.35s ease;
   }
 
-  .tile-icono > .material-symbols-outlined {
-    font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 32;
-  }
+  /* La baldosa ya no necesita la regla de relleno: cada icono lo pide con el
+     atributo `relleno` de `Icono.astro`, que ya trae el trazado correcto. Antes
+     era `font-variation-settings: 'FILL' 1, 'wght' 500, ...` sobre la fuente. */
 
   /* El hover. Solo cuando la tarjeta es un `group`: sin eso, el efecto se
      dispararia al pasar por la baldosa y no por la tarjeta. */
@@ -425,7 +418,9 @@
     block-size: 2.25rem;
     border-radius: 0.625rem;
   }
-  .tile-icono--sm > .material-symbols-outlined {
+  /* El selector es `svg`, no el nombre de la clase de la fuente: el hijo de la
+     baldosa es el `<svg>` que emite `Icono.astro`. */
+  .tile-icono--sm > svg {
     font-size: 1.125rem;
   }
 

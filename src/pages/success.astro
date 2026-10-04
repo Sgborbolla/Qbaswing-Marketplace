@@ -33,6 +33,7 @@
  * bonita con un numero de pedido ficticio y un boton que no hace nada, esta
  * pagina detecta que no hay API y lo dice. Ver `EstadoPago.astro`.
  */
+import Icono from '../components/Icono.astro'
 import Layout from '../layouts/Base.astro'
 import Logo from '../components/Logo.astro'
 import { backendConfigurado } from '../lib/api'
@@ -66,9 +67,7 @@ const ICONO = {
             class="mt-8 rounded-lg border border-outline-variant bg-surface-container p-8"
             role="status"
           >
-            <span class="material-symbols-outlined text-headline-lg text-on-surface-variant" aria-hidden="true">
-              {ICONO.error}
-            </span>
+            <Icono nombre={ICONO.error} class="text-headline-lg text-on-surface-variant" />
             <h1 class="mt-4 font-headline text-headline-sm text-on-surface">
               El pago se recibio, pero no se puede confirmar todavia
             </h1>
@@ -114,9 +113,7 @@ const ICONO = {
               role="status"
               aria-live="polite"
             >
-              <span class="material-symbols-outlined text-label-md" aria-hidden="true">
-                {ICONO.reloj}
-              </span>
+              <Icono nombre={ICONO.reloj} class="text-label-md" />
               <span>Verificando el pago con la pasarela</span>
             </div>
 
@@ -125,9 +122,7 @@ const ICONO = {
                 href="/cuenta"
                 class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
               >
-                <span class="material-symbols-outlined text-label-md" aria-hidden="true">
-                  {ICONO.archivo}
-                </span>
+                <Icono nombre={ICONO.archivo} class="text-label-md" />
                 Ir a mi biblioteca
               </a>
               <a

@@ -93,6 +93,7 @@
  * que esta pasando y que se puede hacer, porque en una landing nueva el
  * "no hay nada" sin explicacion parece una pagina rota.
  */
+import Icono from '../components/Icono.astro'
 import Base from '../layouts/Base.astro'
 import { COMISIONES } from '../lib/tipos'
 
@@ -204,9 +205,7 @@ const ICONO = {
         <span
           class="inline-flex items-center gap-1.5 rounded-full bg-primary-container/10 px-3 py-1 text-label-sm font-semibold text-primary"
         >
-          <span class="material-symbols-outlined text-[15px]" aria-hidden="true">
-            {ICONO.verified}
-          </span>
+          <Icono nombre={ICONO.verified} class="text-[15px]" />
           LANZAMIENTO OFICIAL 2026
         </span>
         <span
@@ -217,7 +216,7 @@ const ICONO = {
         <span
           class="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-1 text-label-sm font-medium text-on-surface-variant"
         >
-          <span class="material-symbols-outlined text-[15px]" aria-hidden="true">{ICONO.bolt}</span>
+          <Icono nombre={ICONO.bolt} class="text-[15px]" />
           {COMISIONES.A.comisionQBASwing}% TASA FIJA EN DIGITALES EXTERNOS
         </span>
       </div>
@@ -239,18 +238,14 @@ const ICONO = {
           href="/productos"
           class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-body-lg font-semibold text-on-primary transition-all hover:bg-primary-container hover:shadow-e2"
         >
-          <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
-            {ICONO.explorar}
-          </span>
+          <Icono nombre={ICONO.explorar} class="text-[20px]" />
           Explorar el catálogo
         </a>
         <a
           href="/registro"
           class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-6 py-3 text-body-lg font-semibold text-primary transition-all hover:border-primary hover:shadow-e1"
         >
-          <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
-            {ICONO.tienda}
-          </span>
+          <Icono nombre={ICONO.tienda} class="text-[20px]" />
           Abrir mi tienda
         </a>
       </div>
@@ -263,21 +258,15 @@ const ICONO = {
       -->
       <ul class="mt-10 flex flex-wrap gap-x-8 gap-y-3">
         <li class="flex items-center gap-2 text-body-md text-on-surface-variant">
-          <span class="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-            done_all
-          </span>
+          <Icono nombre="done_all" class="text-[18px] text-primary" />
           Activación inmediata
         </li>
         <li class="flex items-center gap-2 text-body-md text-on-surface-variant">
-          <span class="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-            {ICONO.sinTarjeta}
-          </span>
+          <Icono nombre={ICONO.sinTarjeta} class="text-[18px] text-primary" />
           Sin tarjetas foráneas
         </li>
         <li class="flex items-center gap-2 text-body-md text-on-surface-variant">
-          <span class="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-            {ICONO.archivo}
-          </span>
+          <Icono nombre={ICONO.archivo} class="text-[18px] text-primary" />
           Descarga solo de lo que compraste
         </li>
       </ul>
@@ -340,21 +329,15 @@ const ICONO = {
           <p class="mt-2 text-body-md text-on-surface-variant">{COMISIONES.A.descripcion}</p>
           <ul class="mt-4 space-y-2 text-body-sm text-on-surface-variant">
             <li class="flex items-start gap-2">
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary" aria-hidden="true">
-                check_circle
-              </span>
+              <Icono nombre="check_circle" class="mt-0.5 text-[16px] text-primary" />
               El pago pasa por la plataforma
             </li>
             <li class="flex items-start gap-2">
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary" aria-hidden="true">
-                check_circle
-              </span>
+              <Icono nombre="check_circle" class="mt-0.5 text-[16px] text-primary" />
               Se publica tras aprobación del Owner
             </li>
             <li class="flex items-start gap-2">
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-primary" aria-hidden="true">
-                check_circle
-              </span>
+              <Icono nombre="check_circle" class="mt-0.5 text-[16px] text-primary" />
               Sin límite de publicaciones
             </li>
           </ul>
@@ -389,15 +372,11 @@ const ICONO = {
           <p class="mt-2 text-body-md text-on-surface-variant">{COMISIONES.B.descripcion}</p>
           <ul class="mt-4 space-y-2 text-body-sm text-on-surface-variant">
             <li class="flex items-start gap-2">
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-secondary" aria-hidden="true">
-                check_circle
-              </span>
+              <Icono nombre="check_circle" class="mt-0.5 text-[16px] text-secondary" />
               Publicación directa, sin esperar aprobación
             </li>
             <li class="flex items-start gap-2">
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-secondary" aria-hidden="true">
-                check_circle
-              </span>
+              <Icono nombre="check_circle" class="mt-0.5 text-[16px] text-secondary" />
               Sin límite de publicaciones
             </li>
           </ul>
@@ -432,21 +411,15 @@ const ICONO = {
           <p class="mt-2 text-body-md text-on-surface-variant">{COMISIONES.C.descripcion}</p>
           <ul class="mt-4 space-y-2 text-body-sm text-on-surface-variant">
             <li class="flex items-start gap-2">
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-tertiary" aria-hidden="true">
-                check_circle
-              </span>
+              <Icono nombre="check_circle" class="mt-0.5 text-[16px] text-tertiary" />
               Publicación directa
             </li>
             <li class="flex items-start gap-2">
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-tertiary" aria-hidden="true">
-                check_circle
-              </span>
+              <Icono nombre="check_circle" class="mt-0.5 text-[16px] text-tertiary" />
               Paquete de 60 días por categoría
             </li>
             <li class="flex items-start gap-2">
-              <span class="material-symbols-outlined mt-0.5 text-[16px] text-tertiary" aria-hidden="true">
-                check_circle
-              </span>
+              <Icono nombre="check_circle" class="mt-0.5 text-[16px] text-tertiary" />
               Los espacios se reutilizan al vender
             </li>
           </ul>
@@ -480,7 +453,7 @@ const ICONO = {
           class="inline-flex items-center gap-1.5 text-label-lg font-semibold text-primary transition-colors hover:text-primary-container"
         >
           Ver las preguntas frecuentes
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+          <Icono nombre="arrow_forward" class="text-[18px]" />
         </a>
       </div>
 
@@ -496,7 +469,7 @@ const ICONO = {
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
           <span class="tile-icono tile-icono--primario" aria-hidden="true">
-            <span class="material-symbols-outlined text-[26px]">{ICONO.codigo}</span>
+            <Icono nombre={ICONO.codigo} relleno class="text-[26px]" />
           </span>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Publica tu software y paga el 5%
@@ -512,7 +485,7 @@ const ICONO = {
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
           <span class="tile-icono tile-icono--secundario" aria-hidden="true">
-            <span class="material-symbols-outlined text-[26px]">{ICONO.perchero}</span>
+            <Icono nombre={ICONO.perchero} relleno class="text-[26px]" />
           </span>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Vende ropa, calzado y productos físicos
@@ -528,7 +501,7 @@ const ICONO = {
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
           <span class="tile-icono tile-icono--primario" aria-hidden="true">
-            <span class="material-symbols-outlined text-[26px]">{ICONO.cobro}</span>
+            <Icono nombre={ICONO.cobro} relleno class="text-[26px]" />
           </span>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Cobra en CUP, USD o cripto
@@ -543,7 +516,7 @@ const ICONO = {
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
           <span class="tile-icono tile-icono--terciario" aria-hidden="true">
-            <span class="material-symbols-outlined text-[26px]">{ICONO.reloj}</span>
+            <Icono nombre={ICONO.reloj} relleno class="text-[26px]" />
           </span>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Entrega digital con enlace de 5 minutos
@@ -559,7 +532,7 @@ const ICONO = {
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
           <span class="tile-icono tile-icono--secundario" aria-hidden="true">
-            <span class="material-symbols-outlined text-[26px]">{ICONO.tienda}</span>
+            <Icono nombre={ICONO.tienda} relleno class="text-[26px]" />
           </span>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Abre tu tienda sin tarjeta
@@ -574,7 +547,7 @@ const ICONO = {
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
           <span class="tile-icono tile-icono--primario" aria-hidden="true">
-            <span class="material-symbols-outlined text-[26px]">{ICONO.personaVerificada}</span>
+            <Icono nombre={ICONO.personaVerificada} relleno class="text-[26px]" />
           </span>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Solo descarga quien compró
@@ -658,9 +631,7 @@ const ICONO = {
                   class="mt-5 inline-flex items-center justify-center gap-1.5 rounded-full border border-outline-variant px-4 py-2 text-body-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/5"
                 >
                   Ver el paquete
-                  <span class="material-symbols-outlined text-[16px]" aria-hidden="true">
-                    arrow_forward
-                  </span>
+                  <Icono nombre="arrow_forward" class="text-[16px]" />
                 </a>
               </article>
             ))}
@@ -671,9 +642,7 @@ const ICONO = {
       <!-- El ciclo de tres pasos. Es la idea que hace entendible el "0%". -->
       <div class="mt-12 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 md:p-8">
         <h3 class="flex items-center gap-2 font-headline text-title-lg font-semibold text-on-surface">
-          <span class="material-symbols-outlined text-[20px] text-primary" aria-hidden="true">
-            {ICONO.calendario}
-          </span>
+          <Icono nombre={ICONO.calendario} class="text-[20px] text-primary" />
           Cómo funciona el ciclo del espacio
         </h3>
 
@@ -729,7 +698,7 @@ const ICONO = {
           class="inline-flex items-center gap-1.5 text-label-lg font-semibold text-primary transition-colors hover:text-primary-container"
         >
           Ver todo el catálogo
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+          <Icono nombre="arrow_forward" class="text-[18px]" />
         </a>
       </div>
 
@@ -737,9 +706,7 @@ const ICONO = {
         destacados.length === 0 ? (
           <div class="mt-8 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 md:p-12">
             <div class="flex flex-col items-center gap-4 text-center">
-              <span class="material-symbols-outlined text-[40px] text-on-surface-variant/40" aria-hidden="true">
-                inventory_2
-              </span>
+              <Icono nombre="inventory_2" class="text-[40px] text-on-surface-variant/40" />
               <div>
                 <p class="font-headline text-title-lg font-semibold text-on-surface">
                   Todavía no hay productos publicados
@@ -754,9 +721,7 @@ const ICONO = {
                 href="/registro"
                 class="mt-2 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-md font-semibold text-on-primary transition-all hover:bg-primary-container"
               >
-                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">
-                  {ICONO.tienda}
-                </span>
+                <Icono nombre={ICONO.tienda} class="text-[18px]" />
                 Publicar el primero
               </a>
             </div>
@@ -780,9 +745,7 @@ const ICONO = {
                     />
                   ) : (
                     <div class="flex h-full w-full items-center justify-center">
-                      <span class="material-symbols-outlined text-[36px] text-on-surface-variant/30" aria-hidden="true">
-                        image
-                      </span>
+                      <Icono nombre="image" class="text-[36px] text-on-surface-variant/30" />
                     </div>
                   )}
                 </div>
@@ -856,18 +819,14 @@ const ICONO = {
             href="/registro"
             class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-body-lg font-semibold text-on-primary transition-all hover:bg-primary-container"
           >
-            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
-              {ICONO.tienda}
-            </span>
+            <Icono nombre={ICONO.tienda} class="text-[20px]" />
             Crear cuenta de vendedor
           </a>
           <a
             href="/productos"
             class="inline-flex items-center gap-2 rounded-full border border-inverse-on-surface/30 px-6 py-3 text-body-lg font-semibold text-inverse-on-surface transition-all hover:border-inverse-on-surface/60"
           >
-            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">
-              {ICONO.explorar}
-            </span>
+            <Icono nombre={ICONO.explorar} class="text-[20px]" />
             Explorar sin registrarse
           </a>
         </div>

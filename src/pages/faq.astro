@@ -4,6 +4,7 @@
  *
  * Lee de la API de plataforma. Si no hay datos, muestra estado vacío real.
  */
+import Icono from '../components/Icono.astro'
 import Base from '../layouts/Base.astro'
 
 const { listarFAQ } = await import('../lib/api-plataforma')
@@ -50,9 +51,7 @@ faqs = faqs.filter((f) => f.activa && f.respuesta.trim()).sort((a, b) => a.orden
             <details class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-e1">
               <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-body-lg font-semibold text-on-surface">
                 <span>{f.pregunta}</span>
-                <span class="material-symbols-outlined shrink-0 text-[20px] transition-transform group-open:rotate-180" aria-hidden="true">
-                  expand_more
-                </span>
+                <Icono nombre="expand_more" class="shrink-0 text-[20px] transition-transform group-open:rotate-180" />
               </summary>
               <p class="mt-3 whitespace-pre-line text-body-md text-on-surface-variant">{f.respuesta}</p>
             </details>

@@ -34,6 +34,7 @@
  * en `/ja/productos`. Eso lo resuelve `cambiarIdioma()` en `i18n/diccionario.ts`,
  * que es donde esta el unico lugar donde se decide eso.
  */
+import Icono from '../components/Icono.astro'
 import { IDIOMAS } from '../i18n/config'
 import { cambiarIdioma, idiomaCompleto } from '../i18n/diccionario'
 import { infoIdioma } from '../i18n/idiomas'
@@ -139,9 +140,7 @@ const entradas = IDIOMAS.map((codigo: string) => ({
     class="flex cursor-pointer list-none items-center gap-1 rounded-lg px-2 py-1.5 text-on-surface-variant/70 transition-colors hover:bg-primary/6 hover:text-primary"
     aria-label={`Idioma actual: ${nombreActual}. Cambiar idioma`}
   >
-    <span class="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
-      language
-    </span>
+    <Icono nombre="language" class="text-[18px] leading-none" />
     <span class="sr-only">Idioma: {nombreActual}</span>
   </summary>
 
@@ -180,21 +179,10 @@ const entradas = IDIOMAS.map((codigo: string) => ({
               <span class="flex-1 truncate">{e.nombre}</span>
 
               {!e.completo && (
-                <span
-                  class="material-symbols-outlined shrink-0 text-[13px] text-on-surface-variant/40"
-                  aria-hidden="true"
-                  title="Traduccion en curso"
-                >
-                  progress_activity
-                </span>
+                <Icono nombre="progress_activity" class="shrink-0 text-[13px] text-on-surface-variant/40" />
               )}
               {e.activo && (
-                <span
-                  class="material-symbols-outlined shrink-0 text-[14px] text-primary"
-                  aria-hidden="true"
-                >
-                  check
-                </span>
+                <Icono nombre="check" class="shrink-0 text-[14px] text-primary" />
               )}
             </a>
           </li>

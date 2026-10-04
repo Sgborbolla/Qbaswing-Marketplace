@@ -1,0 +1,98 @@
+---
+/**
+ * Un icono del sitio, dibujado en SVG.
+ *
+ * ============================================================================
+ *  POR QUE SVG Y NO LA FUENTE DE MATERIAL SYMBOLS
+ * ============================================================================
+ * Antes era una fuente con ligaduras: `<span class="material-symbols-outlined">
+ * shopping_cart</span>`, donde el texto no es "shopping_cart" sino el nombre de
+ * un glifo que la fuente sustituye por un dibujo.
+ *
+ * Esa fuente pesa 3909 KB. Son casi 4 MB que hay que esperar antes de que se
+ * pinte cualquier icono, y el texto de reserva no es invisible: si la fuente no
+ * llega, el navegador pinta la PALABRA. "shopping_cart" en medio de una pagina en
+ * espanol parece una pagina a medio cargar en vez de una pagina sin iconos.
+ *
+ * Los 44 iconos del sitio, como trazados, ocupan 12.8 KB. Van dentro de la pagina
+ * que ya se esta descargando, asi que no hay ninguna peticion nueva.
+ *
+ * ============================================================================
+ *  EL TAMANO SE SIGUE DIJENDO CON LAS MISMAS CLASES DE TAILWIND
+ * ============================================================================
+ * `width="1em"` es lo que hace posible esto. La fuentetenia el tamano dentro;
+ * aqui lo pone el `font-size`, que es lo que ya cambiaban las clases `text-[18px]`
+ * y `text-[26px]` de cada sitio.
+ *
+ * Sin eso, este componente obligaria a cambiar de `text-[18px]` a `w-[18px]` en
+ * los 27 archivos que usan iconos, y un cambio de nombre de clase en 27
+ * archivos es exactamente el tipo de cosa que deja iconos a 24 px escondidos
+ * dentro de un texto de 15 px sin que nadie lo note.
+ *
+ * ============================================================================
+ *  EL viewBox NO ES EL NORMAL
+ * ============================================================================
+ * Es `0 -960 960 960`, no `0 0 24 24`. La fuente de Material Symbols trabaja con
+ * la Y hacia arriba y el SVG con la Y hacia abajo, asi que Google publica el
+ * dibujo con las coordenadas shifting. Copiar ese rectangulo tal cual es lo que
+ * hace que los trazados salganderechos: "corregirlo" a `0 0 24 24` daria los
+ * iconos del reves, y muy parecidos a los correctos, que es la peor forma de
+ * fallar.
+ *
+ * ============================================================================
+ *  SI ALGUN DIA HACE FALTA UN ICONO CON NOMBRE
+ * ============================================================================
+ * Este componente es SIEMPRE decorativo: lleva `aria-hidden` fijo y no acepta
+ * texto alternativo. Todos los usos actuales son junto a una palabra o dentro de
+ * un adorno, y ahi el nombre ya esta en el texto de al lado.
+ *
+ * Para un icono que sea el UNICO contenido de un enlace, esto no vale: el
+ * enlace se leeria como "enlace" sin destino. En ese caso el `Icono` va dentro y
+ * el nombre va en el `aria-label` del enlace, no aqui. Por eso el componente no
+ * tiene `alt`: un icono decorativo con `alt` se lee dos veces.
+ */
+import { ICONOS, ICONOS_RELLENOS, VIEWBOX_ICONO, type NombreIcono } from '../lib/iconos'
+
+interface Props {
+  /**
+   * El nombre del icono, tal como esta en `scripts/iconos.mjs`.
+   *
+   * Es un tipo, no un `string`: pasar un nombre que no existe es un error de
+   * compilacion. Con un `string` faltaria un icono en produccion y saldria un
+   * cuadrado vacio, sin aviso en la consola ni en el build.
+   */
+  nombre: NombreIcono
+  /** Clases de Tailwind. Aqui van las de tamano (`text-[18px]`) y de color. */
+  class?: string
+  /**
+   * Dibuja el icono relleno.
+   *
+   * Antes esto era `font-variation-settings: 'FILL' 1`, un eje de la fuente
+   * variable. Un SVG no tiene ejes, asi que el relleno tiene que venir en el
+   * trazado, y solo esta descargado para los seis iconos de las baldosas de la
+   * portada.
+   *
+   * Pedir relleno de un icono que no lo tiene NO es un error: cae al trazado
+   * normal. Un icono en perfil se ve igual de bien que uno relleno, y negarselo
+   * a proposito no tiene ninguna ventaja.
+   */
+  relleno?: boolean
+}
+
+const { nombre, class: clases = '', relleno = false } = Astro.props
+
+const trazado = relleno ? (ICONOS_RELLENOS[nombre] ?? ICONOS[nombre]) : ICONOS[nombre]
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox={VIEWBOX_ICONO}
+  width="1em"
+  height="1em"
+  fill="currentColor"
+  aria-hidden="true"
+  focusable="false"
+  class={`inline-block shrink-0 ${clases}`}
+>
+  <path d={trazado} />
+</svg>
