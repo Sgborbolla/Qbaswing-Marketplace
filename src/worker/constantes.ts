@@ -81,6 +81,16 @@ export const RUTAS = {
   registro: '/api/registro',
   sesion: '/api/sesion',
   cuenta: '/api/cuenta',
+
+  // Formas de cobro PROPIAS de cada cuenta. Va detras de la sesion y no del
+  // catalogo: quien contesta es el dueño de la cookie, y sin ella no hay nada
+  // que listar.
+  //
+  // No se anade a `mediosPago`, que es la de plataforma y es de lectura
+  // publica. Meter las dos en la misma ruta obligaria a decidir por el metodo
+  // si algo es publico o privado, y esa es exactamente la clase de decision que
+  // no deberia depender de que alguien acierte con el HTTP.
+  mediosPagoPropios: '/api/panel/medios-pago',
 } as const
 
 /* ===========================================================================

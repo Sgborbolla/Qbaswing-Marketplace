@@ -38,6 +38,7 @@ import { type Env } from './entorno'
 import { decodificar, enteroDeQuery, json } from './http'
 import { responderPlataforma } from './routers/plataforma'
 import { responderMediosPago } from './routers/medios-pago'
+import { responderMisMedios } from './routers/mis-medios'
 import { responderCatalogo } from './routers/catalogo'
 import { responderSalud } from './routers/salud'
 import { responderWebhooks } from './routers/webhooks'
@@ -106,6 +107,13 @@ async function despachar(
   // metodos, un POST a `/api/sesion` llegaria al router equivocado.
   if (ruta === RUTAS.registro || ruta === RUTAS.sesion || ruta === RUTAS.cuenta) {
     return responderIdentidad(ruta, peticion.method, peticion, env)
+  }
+
+  // Formas de cobro propias de la cuenta. Despues de la identidad porque lo
+  // primero que hace es leer la cookie, y antes que el catalogo porque es
+  // escritura privada y no un listado publico.
+  if (ruta === RUTAS.mediosPagoPropios) {
+    return responderMisMedios(peticion, env)
   }
 
   // Datos editables por el Owner: redes, contacto, FAQ. Publicos en lectura.

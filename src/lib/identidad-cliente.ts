@@ -72,11 +72,15 @@ export type Respuesta<T> =
 /**
  * Peticion al Worker.
  *
+ * Exportada para que `medios-cliente.ts` la reutilice sin reimplementarla. Es
+ * el mismo motivo que en `api.ts`: dos copias del manejo de errores divergirian,
+ * y existiria una sola cuando la respuesta no sea JSON o la red se caiga.
+ *
  * El tiempo de espera no es decorativo: sin el, si la red se cae a medias, el
  * boton se queda pulsado para siempre y el usuario no sabe si se registro o no.
  * Se informa con un mensaje honesto en vez de dejar el formulario colgando.
  */
-async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promise<Respuesta<T>> {
+export async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promise<Respuesta<T>> {
   if (!backendConfigurado) {
     return {
       ok: false,
