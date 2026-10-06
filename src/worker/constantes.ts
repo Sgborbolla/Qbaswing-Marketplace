@@ -72,6 +72,19 @@ export const RUTAS = {
   contacto: '/api/plataforma/contacto',
   faq: '/api/plataforma/faq',
 
+  // Tarifas de los paquetes de 60 dias. Va en este grupo porque es lo mismo que
+  // las redes: una decision del Owner que vive en la base para no exigir un
+  // redespliegue. El Documento Maestro lo dice ("tarifas base configurables por
+  // el Owner desde el panel de control") y la tabla lo repite en el comentario
+  // de `precio_cup`.
+  //
+  // No es la misma ruta que `paquetes`. Esa es publica y solo lista lo activo;
+  // esta es del panel y devuelve tambien los inactivos, que son los que nadie
+  // compra pero que el Owner sigue teniendo que poder ver. Que los precios ya
+  // sean publicos por `/api/paquetes` no convierte el panel en algo abierto:
+  // quien no es el Owner no tiene por que saber que paquetes hay apagados.
+  paquetesTarifas: '/api/plataforma/paquetes',
+
   // Formas de pago. El nombre no lleva '/plataforma' porque esta ruta la lee el
   // producto, no el pie de pagina: es informacion de COMPRA, y por eso devuelve
   // el numero de cuenta y no solo el nombre y el color.
@@ -91,6 +104,12 @@ export const RUTAS = {
   // si algo es publico o privado, y esa es exactamente la clase de decision que
   // no deberia depender de que alguien acierte con el HTTP.
   mediosPagoPropios: '/api/panel/medios-pago',
+
+  // Precios de los PROPIOS productos. Va junto a los medios de cobro, en el
+  // mismo prefijo `/api/panel`, porque son la misma clase de cosa: datos de la
+  // cuenta que solo ella puede tocar, y que por eso no comparten ruta con el
+  // catalogo. En `catalogo` se decide QUE se ve; aqui, QUE se cobra.
+  productosPropios: '/api/panel/productos',
 } as const
 
 /* ===========================================================================
@@ -99,6 +118,23 @@ export const RUTAS = {
 
 /** Dias de vigencia de un paquete de espacios. */
 export const VIGENCIA_PACQUETE_DIAS = 60
+
+/**
+ * Tope de cualquier precio.
+ *
+ * No es una decision de negocio sino de aritmetica: por encima de
+ * `Number.MAX_SAFE_INTEGER` JavaScript deja de representar enteros exactos, y
+ * de aqui salen las cuentas de comision. Un numero que ya no se puede calcular
+ * con exactitud no deberia poder guardarse, porque despues no hay forma de saber
+ * si lo que se muestra es lo que se cobro.
+ *
+ * SQLite admite enteros mucho mayores, asi que ningun `CHECK` de la base lo
+ * defiende: hay que comprobarlo en cada ruta que acepta un precio. Esta aqui y
+ * no dentro de un router porque hay dos (productos propios y tarifas de
+ * paquetes) y una copia de este numero es un sitio donde pueden dejar de
+ * coincidir.
+ */
+export const TOPE_PRECIO = Number.MAX_SAFE_INTEGER
 
 /** Segundos que un enlace de descarga permanece valido. */
 export const EXPIRACION_ENLACE_SEG = 300

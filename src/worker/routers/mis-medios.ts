@@ -53,7 +53,7 @@
 
 import { ErrorApi, RUTAS } from '../constantes'
 import type { Env } from '../entorno'
-import { json } from '../http'
+import { cuerpoJson, json } from '../http'
 import { usuarioDePeticion } from './registro'
 
 /**
@@ -601,21 +601,8 @@ function errorDeRestriccion(error: unknown): ErrorApi | null {
  * ======================================================================== */
 
 /**
- * Lee el cuerpo como JSON.
- *
- * Un cuerpo que no es JSON no es un error del servidor sino del que llama, y se
- * contesta como invalido. Si se dejara caer, el `catch` general lo traduciria
- * como "no se pudo conectar", que es mentira: si hubo respuesta, hubo conexion.
+ * Cadena de texto recortada. `undefined` usa el valor anterior, `null` lo limpia.
  */
-async function cuerpoJson(peticion: Request): Promise<unknown> {
-  try {
-    return await peticion.json()
-  } catch {
-    throw ErrorApi.invalido('cuerpo', 'El mensaje recibido no es un JSON valido.')
-  }
-}
-
-/** Cadena de texto recortada. `undefined` usa el valor anterior, `null` lo limpia. */
 function texto(actual: unknown, previo?: unknown): string {
   if (actual === undefined) return typeof previo === 'string' ? previo : ''
   if (actual === null) return ''

@@ -39,6 +39,7 @@ import { decodificar, enteroDeQuery, json } from './http'
 import { responderPlataforma } from './routers/plataforma'
 import { responderMediosPago } from './routers/medios-pago'
 import { responderMisMedios } from './routers/mis-medios'
+import { responderPanelProductos } from './routers/panel'
 import { responderCatalogo } from './routers/catalogo'
 import { responderSalud } from './routers/salud'
 import { responderWebhooks } from './routers/webhooks'
@@ -50,10 +51,53 @@ export default {
     try {
       return await enrutar(peticion, env)
     } catch (error) {
-      return responderError(error)
+      // ============================================================================
+      //  AQUI SE PERDIA EL CORS DE TODOS LOS ERRORES
+      // ============================================================================
+      // `enrutar` solo anade las cabeceras de permiso si `despachar` devuelve con
+      // normalidad: el bucle esta despues del `await`. Cualquier `ErrorApi` se
+      // lanza DENTRO de `despachar`, asi que la excepcion sale de `enrutar` sin
+      // haber pasado por ese bucle, y esta rama devolvia la respuesta sin NINGUNA
+      // cabecera `Access-Control-Allow-*`.
+      //
+      // El efecto en el navegador es el peor que puede haber: la respuesta llega,
+      // el servidor la escribio en castellano con el motivo exacto, y el navegador
+      // la bloquea por no poder leerla. La pagina ve un `TypeError: Failed to
+      // fetch` y lo pinta como "no hay conexion con el servidor", que es mentira.
+      // La persona no se entera de que su contrasena esta mal, de que su correo ya
+      // existe, de que su sesion ha caducado ni de que su precio no se guardo.
+      //
+      // Y es el fallo mas incomuno de todos porque DESDE EL SERVIDOR NO EXISTE:
+      // `curl` no impone CORS y devolvia 401 con el mensaje correcto, asi que
+      // cualquier prueba hecha desde la terminal pasaba mientras el sitio no
+      // funcionaba. Solo se veia abriendo el navegador y mirando la respuesta.
+      //
+      // Se recalcula aqui en vez de subirlo al principio de `fetch` para no
+      // arrastrar un calculo en el camino feliz que solo se necesita en este.
+      const cors = cabecerasCors(peticion, env)
+      return conCors(responderError(error), cors)
     }
   },
 } satisfies ExportedHandler<Env>
+
+/**
+ * Pega las cabeceras CORS a una respuesta.
+ *
+ * Existe para que el camino del error y el normal no tengan CADA UNO su propio
+ * bucle: son dos lineas hoy, y el dia que se anada una cabecera nueva alguien
+ * solo tocara una de las dos y volvera el bug de arriba, esta vez sin la linea
+ * que lo explica.
+ *
+ * `headers.set` y no `append` porque `Vary` y las demas pueden venir puestas en
+ * la respuesta original: duplicar `Vary: Origin` haria que el CDN cachease peor
+ * sin ganar nada.
+ */
+function conCors(respuesta: Response, cors: Record<string, string>): Response {
+  for (const [clave, valor] of Object.entries(cors)) {
+    respuesta.headers.set(clave, valor)
+  }
+  return respuesta
+}
 
 /* ===========================================================================
  * Enrutado
@@ -85,10 +129,7 @@ async function enrutar(peticion: Request, env: Env): Promise<Response> {
   }
 
   const respuesta = await despachar(ruta, peticion, env)
-  for (const [clave, valor] of Object.entries(cors)) {
-    respuesta.headers.set(clave, valor)
-  }
-  return respuesta
+  return conCors(respuesta, cors)
 }
 
 async function despachar(
@@ -116,16 +157,31 @@ async function despachar(
     return responderMisMedios(peticion, env)
   }
 
-  // Datos editables por el Owner: redes, contacto, FAQ. Publicos en lectura.
-  if (ruta === RUTAS.redes || ruta === RUTAS.contacto || ruta === RUTAS.faq) {
-    return responderPlataforma(ruta, env, soloLectura)
+  // Precios de los PROPIOS productos. Mismo motivo y misma colocacion que el
+  // grupo de arriba: primero la identidad, porque lo primero que hace es leer
+  // la cookie, y antes que el catalogo porque es escritura privada.
+  if (ruta === RUTAS.productosPropios) {
+    return responderPanelProductos(peticion, env)
+  }
+
+  // Datos editables por el Owner: redes, contacto, FAQ y tarifas de paquetes.
+  // Publicos en lectura las tres primeras; las tarifas piden sesion de Owner
+  // tambien para leer, y esa comprobacion vive dentro de `plataforma.ts`.
+  if (
+    ruta === RUTAS.redes ||
+    ruta === RUTAS.contacto ||
+    ruta === RUTAS.faq ||
+    ruta === RUTAS.paquetesTarifas
+  ) {
+    return responderPlataforma(ruta, peticion, env, soloLectura)
   }
 
   // Formas de pago. Publicas en lectura y con el numero de cuenta dentro.
   //
-  // No va dentro del grupo de arriba porque `responderPlataforma` SOLO devuelve
-  // datos de pie de pagina, y una forma de pago no lo es: es informacion de
-  // compra. Mezclarlas haria que pensar en esta tabla desde el footer, que es
+  // No va dentro del grupo de arriba porque lo que sale de
+  // `responderPlataforma` son datos de pie de pagina o tarifas que solo toca el
+  // Owner, y una forma de pago no es ninguna de las dos: es informacion de
+  // COMPRA. Mezclarlas haria que pensar en esta tabla desde el footer, que es
   // donde no se decide como cobra nadie.
   if (ruta === RUTAS.mediosPago) {
     return responderMediosPago(env)

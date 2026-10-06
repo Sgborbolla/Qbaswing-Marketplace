@@ -33,6 +33,11 @@
  * inocuo, es una entrada mas del mapa de modulos.
  */
 
+// `constantes.ts` no importa de aqui, asi que esto no cierra un anillo. Es el
+// unico import que tiene el archivo: `cuerpoJson` necesita `ErrorApi` para
+// contestar en castellano, y traerlo de `constantes` es de donde sale.
+import { ErrorApi } from './constantes'
+
 /* ===========================================================================
  * Respuesta
  * ======================================================================== */
@@ -89,5 +94,35 @@ export function decodificar(valor: string): string | null {
     return limpio.length > 0 && limpio.length <= 200 ? limpio : null
   } catch {
     return null
+  }
+}
+
+/**
+ * Lee el cuerpo como JSON.
+ *
+ * Un cuerpo que no es JSON no es un error del servidor sino del que llama, y se
+ * contesta como invalido. Si se dejara caer, el `catch` general lo traduciria
+ * como "no se pudo conectar", que es mentira: si hubo respuesta, hubo conexion.
+ *
+ * ============================================================================
+ *  POR QUE VIVE AQUI Y NO EN CADA ROUTER
+ * ============================================================================
+ * Empezo siendo una funcion privada de `mis-medios`. Ahora la necesitan dos
+ * routers, y copiarla habia dado ya el problema que tiene escrito su propia
+ * historia: `Request.json()` consume el flujo y solo admite UNA llamada. Dos
+ * copias de esta funcion son dos sitios donde alguien puede leer el cuerpo dos
+ * veces y que un `PATCH` falle con "no es un JSON valido" sobre un cuerpo que
+ * lo es. Una sola copia, en el sitio donde ya estan `json()` y
+ * `enteroDeQuery`, no admite esa divergencia.
+ *
+ * Devuelve `unknown` a proposito: quien la llama ya tiene que validar lo que
+ * hay dentro, y un `Record<string, unknown>` prematuro daria a entender que el
+ * cuerpo es un objeto cuando puede ser una cadena.
+ */
+export async function cuerpoJson(peticion: Request): Promise<unknown> {
+  try {
+    return await peticion.json()
+  } catch {
+    throw ErrorApi.invalido('cuerpo', 'El mensaje recibido no es un JSON valido.')
   }
 }

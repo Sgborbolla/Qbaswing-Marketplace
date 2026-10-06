@@ -72,6 +72,18 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
   } from '../lib/medios-cliente'
   import { crearIcono } from '../lib/icono-dom'
   import type { NombreIcono } from '../lib/iconos'
+  import {
+    cambiarPrecio,
+    misProductos,
+    type MonedaProducto,
+    type ProductoPropio,
+  } from '../lib/productos-panel'
+  import {
+    cambiarTarifa,
+    tarifasDePaquetes,
+    type PaqueteTarifa,
+  } from '../lib/tarifas-owner'
+  import { formatearPrecio } from '../lib/formato'
 
   type Variante = 'cuenta' | 'panel' | 'owner'
 
@@ -86,11 +98,35 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
    * de donde recibe dinero quien vende: un comprador que nunca vende no tiene
    * nada que poner ahi, y enseñarle un formulario para que rellene su numero de
    * cuenta seria pedirle un dato que el sitio todavia no sabe para que.
+   *
+   * `precios` SI esta en las tres, y esa es la diferencia con `medios`. El
+   * precio es la unica cosa de un producto que cualquier persona que se
+   * registra llegara a tocar, y no depende de tener tienda montada: una cuenta
+   * nueva ve la seccion y dentro no hay nada que cambiar, que es exactamente lo
+   * que pasa. Esconderla a los que todavia no venden exigiria que el sitio
+   * decidiera de antemano quien va a vender, y eso no lo sabe nadie hasta que
+   * alguien anade un producto.
+   *
+   * `tarifas` esta SOLO en `owner`, y no es una decision de comodidad. Esas son
+   * los precios de TODOS los paquetes, no de nadie en particular: si un vendedor
+   * pudiera verlas en su panel estaria mirando la matriz tarifaria entera con
+   * un formulario que le dejaria cambiar el precio de lo que paga el. El
+   * Worker lo niega igualmente (pide rol `owner`), pero no llegara un
+   * formulario a una pantalla que no deberia tenerlo.
    */
   const SECCIONES: Record<Variante, string[]> = {
-    cuenta: ['identidad', 'exencion', 'sesiones'],
-    panel: ['identidad', 'tienda', 'medios', 'exencion', 'sesiones'],
-    owner: ['identidad', 'exencion', 'tienda', 'medios', 'sesiones', 'privilegios'],
+    cuenta: ['identidad', 'precios', 'exencion', 'sesiones'],
+    panel: ['identidad', 'tienda', 'precios', 'medios', 'exencion', 'sesiones'],
+    owner: [
+      'identidad',
+      'exencion',
+      'tienda',
+      'precios',
+      'tarifas',
+      'medios',
+      'sesiones',
+      'privilegios',
+    ],
   }
 
   /**
@@ -391,6 +427,680 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
   }
 
   /** Caja de error. Con funcion, anade un boton de reintento. */
+  /* ---------------------------------------------------------------------- */
+  /* Precios de los productos propios                                       */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Los tres numeros del desplegable, y como se llaman fuera.
+   *
+   * Se declara aqui igual que en el Worker y en `productos-panel.ts`. Las tres
+   * copias no son un descuido: el Worker tiene su propio `tsconfig` con los
+   * tipos de Cloudflare y no puede importar de este fichero. Lo que las
+   * mantiene iguales es el `CHECK` de la migracion, que es el unico sitio
+   * donde se decide que monedas existen.
+   */
+  const MONEDAS_DE_PRECIO: { valor: MonedaProducto; texto: string }[] = [
+    { valor: 'CUP', texto: 'CUP (Peso cubano)' },
+    { valor: 'USD', texto: 'USD (Dolar estadounidense)' },
+    { valor: 'EUR', texto: 'EUR (Euro)' },
+  ]
+
+  /**
+   * Comprueba que el desplegable sigue ofreciendo lo que dice ofrecer.
+   *
+   * No es paranoia de tipos: el `value` de un `<select>` llega como `string`, y
+   * sin esto habria que castearlo para poder mandarlo, que es la forma de que un
+   * dia entre una cuarta moneda por donde nadie miro. Con la comprobacion puesta,
+   * `tsc` sabe que despues del `if` el valor es una de las tres.
+   */
+  function esMoneda(valor: string): valor is MonedaProducto {
+    return MONEDAS_DE_PRECIO.some((m) => m.valor === valor)
+  }
+
+  /**
+   * La unidad en que se teclea el precio, segun la moneda.
+   *
+   * CUP se guarda y se escribe en pesos. USD y EUR se guardan en centavos y
+   * centimos: un producto de 10 dolares es `1000` en la base. Esa diferencia no
+   * se puede convertir al cambiar la moneda, porque el sitio no tiene ningun
+   * tipo de cambio y no va a inventar uno para hacer el calculo por detras.
+   * Lo unico honesto es decirlo.
+   */
+  const UNIDADES_DE_MONEDA: Record<MonedaProducto, string> = {
+    CUP: 'pesos enteros',
+    USD: 'centavos',
+    EUR: 'centimos',
+  }
+
+  /**
+   * Los estados del circuito de aprobacion, en palabras.
+   *
+   * La clave cruda va como respaldo: si un dia entra un estado nuevo en la
+   * migracion y este mapa no se toca, se pinta la clave tal cual en vez de
+   * romper o de decir una mentira.
+   */
+  const ESTADOS_DE_PUBLICACION: Record<string, string> = {
+    borrador: 'Borrador',
+    pendiente: 'Pendiente de aprobacion',
+    aprobado: 'Publicado',
+    rechazado: 'Rechazado',
+  }
+
+  /**
+   * La seccion.
+   *
+   * Se pinta sola, por el mismo motivo que la de medios: sus datos no viven en
+   * `GET /api/cuenta` sino en `/api/panel/productos`, con su propia sesion.
+   *
+   * `esVendedor` no decide si la seccion se muestra (para eso ya esta
+   * `SECCIONES`, y `precios` esta en las tres variantes). Decide unicamente que
+   * se le dice a quien tiene la lista vacia, porque "no tienes nada todavia" no
+   * es lo mismo para una cuenta con tienda que para una que no la tiene.
+   */
+  function seccionPrecios(esVendedor: boolean): HTMLElement {
+    const caja = tarjeta('Precios de tus productos', 'percent')
+    const cuerpo = el('div', 'mt-4 space-y-4')
+    cuerpo.append(el('p', 'text-body-md text-on-surface-variant', 'Cargando tus productos...'))
+    caja.append(cuerpo)
+    void refrescarPrecios(cuerpo, esVendedor)
+    return caja
+  }
+
+  /**
+   * Vuelve a pedirlos y repinta la caja entera.
+   *
+   * `aviso` se anade encima de la lista sin borrarla, igual que en los medios:
+   * es lo que pasa si un precio no se pudo guardar. Sustituir la lista por un
+   * error dejaria la caja en blanco hasta que alguien pulse reintentar, y el
+   * fallo casi siempre es una frase que el servidor ya escribio para que se lea.
+   */
+  async function refrescarPrecios(
+    contenedor: HTMLElement,
+    esVendedor: boolean,
+    aviso?: string,
+  ): Promise<void> {
+    const respuesta = await misProductos()
+
+    if (!respuesta.ok) {
+      contenedor.replaceChildren(
+        cajaDeError(respuesta.mensaje, () => void refrescarPrecios(contenedor, esVendedor)),
+      )
+      return
+    }
+
+    const productos = respuesta.datos.productos
+    const pieza = el('div', 'space-y-4')
+
+    if (aviso) pieza.append(cajaDeError(aviso))
+
+    if (productos.length === 0) {
+      pieza.append(
+        vacio(
+          esVendedor
+            ? 'Todavia no tienes productos. Cuando publiques el primero, aqui se pone su precio y su moneda.'
+            : 'Todavia no tienes productos con precio. Tu cuenta todavia no tiene tienda; el precio se pone sobre lo que vendas.',
+        ),
+      )
+      contenedor.replaceChildren(pieza)
+      return
+    }
+
+    const huecoDelFormulario = el('div', 'hidden')
+    const lista = el('ul', 'space-y-3')
+    for (const producto of productos) {
+      lista.append(filaDeProducto(producto, contenedor, huecoDelFormulario, esVendedor))
+    }
+    pieza.append(lista, huecoDelFormulario)
+
+    contenedor.replaceChildren(pieza)
+  }
+
+  /** Un producto: lo que cuesta hoy, como esta publicado, y su boton de precio. */
+  function filaDeProducto(
+    producto: ProductoPropio,
+    contenedor: HTMLElement,
+    huecoDelFormulario: HTMLElement,
+    esVendedor: boolean,
+  ): HTMLElement {
+    const caja = el('li', 'rounded-xl border border-outline-variant/60 bg-surface-container-low p-4')
+
+    const cabecera = el('div', 'flex flex-wrap items-center justify-between gap-2')
+    cabecera.append(
+      el('h3', 'font-headline text-body-md font-semibold text-on-surface', producto.titulo),
+      insignia(
+        ESTADOS_DE_PUBLICACION[producto.estado_publicacion] ?? producto.estado_publicacion,
+        producto.estado_publicacion === 'aprobado',
+      ),
+    )
+    caja.append(cabecera)
+
+    const datos = el('dl', 'mt-3 grid gap-3 sm:grid-cols-2')
+    datos.append(
+      fila(
+        'Precio actual',
+        // El 0 no se pinta como 0 CUP: es "sin precio puesto", y el sitio
+        // publico hace exactamente lo mismo, para que lo que se ve aqui y lo
+        // que se ve en el escaparate no cuenten dos historias distintas.
+        producto.precio === 0
+          ? 'Sin precio (no disponible)'
+          : formatearPrecio(producto.precio, producto.moneda),
+      ),
+      fila('Moneda', producto.moneda),
+      fila('Categoria', producto.categoria || 'Sin categoria'),
+    )
+    if (producto.precio_anterior !== null) {
+      datos.append(fila('Antes', formatearPrecio(producto.precio_anterior, producto.moneda)))
+    }
+    caja.append(datos)
+
+    if (producto.precio === 0) {
+      caja.append(
+        el(
+          'p',
+          'mt-2 text-body-sm text-on-surface-variant',
+          'Sin precio puesto: en la tienda aparece como "no disponible" y nadie puede comprarlo hasta que pongas uno.',
+        ),
+      )
+    }
+
+    const acciones = el('div', 'mt-4 flex flex-wrap gap-2')
+    const editar = botonSecundario('Cambiar precio')
+    editar.addEventListener('click', () =>
+      mostrarFormularioDePrecio(huecoDelFormulario, contenedor, producto, esVendedor),
+    )
+    acciones.append(editar)
+    caja.append(acciones)
+
+    return caja
+  }
+
+  /** Monta el formulario, que aparece debajo de la lista entera. */
+  function mostrarFormularioDePrecio(
+    huecoDelFormulario: HTMLElement,
+    contenedor: HTMLElement,
+    producto: ProductoPropio,
+    esVendedor: boolean,
+  ): void {
+    huecoDelFormulario.replaceChildren(
+      formularioDePrecio(contenedor, huecoDelFormulario, producto, esVendedor),
+    )
+    huecoDelFormulario.classList.remove('hidden')
+    huecoDelFormulario.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  /**
+   * Una frase que dice lo que significa el numero tecleado.
+   *
+   * Cambia cada vez que se cambia la moneda, y esa es media parte del aviso. En
+   * el formulario, el `250` tecleado en CUP y el mismo `250` en USD son dos
+   * precios distintos, y no hay ningun tipo de cambio que los convierta. Lo unico
+   * que se puede hacer es decir, con el numero ya puesto, lo que vera el
+   * comprador.
+   */
+  function avisoDeUnidad(monedaElegida: string, valor: string): string {
+    if (!esMoneda(monedaElegida)) return 'Elige una moneda para ver lo que significara.'
+    const numero = Number(valor.trim())
+    if (!Number.isFinite(numero) || numero < 0) {
+      return `Se teclea en ${UNIDADES_DE_MONEDA[monedaElegida]}.`
+    }
+    const enLaTienda = formatearPrecio(numero, monedaElegida)
+    if (monedaElegida === 'CUP') return `En la tienda se veria como ${enLaTienda}.`
+    return `Se teclea en ${UNIDADES_DE_MONEDA[monedaElegida]}: en la tienda se veria como ${enLaTienda}.`
+  }
+
+  /**
+   * El formulario: dos campos, un envio y el mismo trato que el de cobro.
+   *
+   * Se mandan SIEMPRE los dos campos, aunque solo se haya tocado uno. En el
+   * servidor campo ausente significa "dejalo como estaba", y mandar el par
+   * completo hace que la respuesta describa lo que quedo guardado entero, no la
+   * mitad que se acaba de cambiar.
+   */
+  function formularioDePrecio(
+    contenedor: HTMLElement,
+    huecoDelFormulario: HTMLElement,
+    producto: ProductoPropio,
+    esVendedor: boolean,
+  ): HTMLElement {
+    const formulario = el(
+      'form',
+      'rounded-xl border border-outline-variant/60 bg-surface-container-low p-4 space-y-4',
+    )
+
+    formulario.append(
+      el(
+        'h4',
+        'font-headline text-body-md font-semibold text-on-surface',
+        `Precio de "${producto.titulo}"`,
+      ),
+    )
+
+    const rejilla = el('div', 'grid gap-4 sm:grid-cols-2')
+
+    // --- Moneda. Primero, porque el aviso de la unidad depende de ella. ---
+    const grupoMoneda = el('div', 'space-y-1')
+    const rotuloMoneda = el('label', 'text-label-md font-medium text-on-surface', 'Moneda')
+    rotuloMoneda.htmlFor = 'precio-moneda'
+    const moneda = el(
+      'select',
+      'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
+    )
+    moneda.id = 'precio-moneda'
+    for (const opcion of MONEDAS_DE_PRECIO) {
+      const item = el('option', '', opcion.texto)
+      item.value = opcion.valor
+      moneda.append(item)
+    }
+    moneda.value = producto.moneda
+    grupoMoneda.append(rotuloMoneda, moneda)
+    rejilla.append(grupoMoneda)
+
+    // --- Precio, en la misma unidad en que lo guarda la base. ---
+    const grupoPrecio = el('div', 'space-y-1')
+    const rotuloPrecio = el('label', 'text-label-md font-medium text-on-surface', 'Precio')
+    rotuloPrecio.htmlFor = 'precio-valor'
+    const precio = el(
+      'input',
+      'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
+    )
+    precio.type = 'text'
+    precio.inputMode = 'numeric'
+    precio.id = 'precio-valor'
+    precio.value = String(producto.precio)
+    const ayuda = el(
+      'p',
+      'text-body-sm text-on-surface-variant',
+      avisoDeUnidad(producto.moneda, precio.value),
+    )
+    grupoPrecio.append(rotuloPrecio, precio, ayuda)
+    rejilla.append(grupoPrecio)
+
+    formulario.append(rejilla)
+
+    const decirAyuda = (): void => {
+      ayuda.textContent = avisoDeUnidad(moneda.value, precio.value)
+    }
+    precio.addEventListener('input', decirAyuda)
+    moneda.addEventListener('change', decirAyuda)
+
+    const mensaje = el(
+      'p',
+      'hidden rounded-lg border border-error/40 bg-error-container/40 px-3 py-2 text-body-md text-on-error-container',
+    )
+    formulario.append(mensaje)
+    const decir = (texto: string): void => {
+      mensaje.textContent = texto
+      mensaje.classList.remove('hidden')
+    }
+
+    const acciones = el('div', 'flex flex-wrap gap-3')
+    const guardar = el(
+      'button',
+      'inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
+    )
+    guardar.type = 'submit'
+    guardar.append(crearIcono('check', 'text-label-md'), el('span', '', 'Guardar precio'))
+    const cancelar = el(
+      'button',
+      'rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-on-surface transition hover:border-primary',
+      'Cancelar',
+    )
+    cancelar.type = 'button'
+    cancelar.addEventListener('click', () => {
+      huecoDelFormulario.replaceChildren()
+      huecoDelFormulario.classList.add('hidden')
+    })
+    acciones.append(guardar, cancelar)
+    formulario.append(acciones)
+
+    formulario.addEventListener('submit', (evento) => {
+      evento.preventDefault()
+
+      // Antes de nada, que el desplegable siga diciendo la verdad. Se comprueba
+      // aqui y no solo al montarlo: el HTML de esta pagina se puede rellenar
+      // desde la consola como cualquier otro, y lo que se manda al servidor
+      // tiene que seguir pasando por el mismo filtro que el servidor aplicara.
+      const monedaElegida = moneda.value
+      if (!esMoneda(monedaElegida)) {
+        decir('Esa moneda no existe aqui. Elige CUP, USD o EUR.')
+        return
+      }
+      void guardarPrecio(monedaElegida)
+    })
+
+    async function guardarPrecio(monedaElegida: MonedaProducto): Promise<void> {
+      guardar.disabled = true
+      cancelar.disabled = true
+
+      const respuesta = await cambiarPrecio({
+        id: producto.id,
+        precio: precio.value,
+        moneda: monedaElegida,
+      })
+
+      guardar.disabled = false
+      cancelar.disabled = false
+
+      if (!respuesta.ok) {
+        decir(respuesta.mensaje)
+        return
+      }
+
+      huecoDelFormulario.replaceChildren()
+      huecoDelFormulario.classList.add('hidden')
+
+      // El servidor puede haber borrado el precio anterior (el nuevo subio por
+      // encima, o cambio la moneda) y lo avisa. Si no se contara, quien lo tenga
+      // en la cabeza seguiria creyendo que la ficha ensena un "antes" que ya no
+      // esta, y lo comprobaria tarde.
+      await refrescarPrecios(
+        contenedor,
+        esVendedor,
+        respuesta.datos.producto.precioAnteriorBorrado
+          ? 'El precio anterior se quito: ya no corresponde con el precio ni con la moneda nueva.'
+          : undefined,
+      )
+    }
+
+    return formulario
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Tarifas de los paquetes de 60 dias (solo Owner)                        */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Un precio de paquete como se ve en el escaparate.
+   *
+   * `null` y `0` se tratan igual porque asi lo hace el catalogo: los dos
+   * pintan "no disponible". Decir aqui "0 CUP" cuando la portada no enseña nada
+   * seria enseñar dos historias distintas de la misma fila.
+   */
+  function precioDePaqueteVisible(valor: number | null, moneda: MonedaProducto): string {
+    return valor === null || valor === 0
+      ? 'Sin precio (no disponible)'
+      : formatearPrecio(valor, moneda)
+  }
+
+  /**
+   * La seccion.
+   *
+   * Se pinta sola, igual que `precios` y que `medios`: sus datos no estan en
+   * `GET /api/cuenta` sino en `/api/plataforma/paquetes`, que es la unica ruta
+   * del panel que exige rol de Owner tambien para leer.
+   */
+  function seccionTarifas(): HTMLElement {
+    const caja = tarjeta('Tarifas de los paquetes (60 dias)', 'storefront')
+    const cuerpo = el('div', 'mt-4 space-y-4')
+    cuerpo.append(el('p', 'text-body-md text-on-surface-variant', 'Cargando las tarifas...'))
+    caja.append(cuerpo)
+    void refrescarTarifas(cuerpo)
+    return caja
+  }
+
+  /**
+   * Vuelve a pedir la matriz entera y repinta la caja.
+   *
+   * Igual que en `refrescarPrecios`: `aviso` se anade ENCIMA de la lista sin
+   * borrarla. Sustituir la lista por un error dejaria la caja en blanco hasta
+   * que alguien pulse reintentar, y el fallo casi siempre es una frase que el
+   * servidor ya escribio para que se lea.
+   */
+  async function refrescarTarifas(contenedor: HTMLElement, aviso?: string): Promise<void> {
+    const respuesta = await tarifasDePaquetes()
+
+    if (!respuesta.ok) {
+      contenedor.replaceChildren(cajaDeError(respuesta.mensaje, () => void refrescarTarifas(contenedor)))
+      return
+    }
+
+    const paquetes = respuesta.datos.paquetes
+    const pieza = el('div', 'space-y-4')
+
+    if (aviso) pieza.append(cajaDeError(aviso))
+
+    if (paquetes.length === 0) {
+      pieza.append(
+        vacio(
+          'Todavia no hay ningun paquete. Los paquetes se crean en la base de datos y no desde este panel: aqui solo se cambian sus precios.',
+        ),
+      )
+      contenedor.replaceChildren(pieza)
+      return
+    }
+
+    const huecoDelFormulario = el('div', 'hidden')
+    const lista = el('ul', 'space-y-3')
+    for (const paquete of paquetes) {
+      lista.append(filaDePaquete(paquete, contenedor, huecoDelFormulario))
+    }
+    pieza.append(lista, huecoDelFormulario)
+
+    contenedor.replaceChildren(pieza)
+  }
+
+  /**
+   * Un paquete: sus tres precios, sus datos, y su boton de tarifa.
+   *
+   * Las tres monedas van juntas y no con un desplegable. Un producto tiene un
+   * precio y una moneda; un paquete tiene tres precios a la vez porque se vende
+   * en tres mercados, y separarlos en tres formularios obligaria a guardar tres
+   * veces para cambiar lo que en la matriz tarifaria es una sola fila.
+   */
+  function filaDePaquete(
+    paquete: PaqueteTarifa,
+    contenedor: HTMLElement,
+    huecoDelFormulario: HTMLElement,
+  ): HTMLElement {
+    const caja = el('li', 'rounded-xl border border-outline-variant/60 bg-surface-container-low p-4')
+
+    const cabecera = el('div', 'flex flex-wrap items-center justify-between gap-2')
+    cabecera.append(
+      el('h3', 'font-headline text-body-md font-semibold text-on-surface', paquete.nombre),
+      insignia(paquete.activo ? 'A la venta' : 'Apagado', paquete.activo),
+    )
+    caja.append(cabecera)
+
+    const precios = el('dl', 'mt-3 grid gap-3 sm:grid-cols-3')
+    precios.append(
+      fila('CUP', precioDePaqueteVisible(paquete.precio_cup, 'CUP')),
+      fila('USD', precioDePaqueteVisible(paquete.precio_usd, 'USD')),
+      fila('EUR', precioDePaqueteVisible(paquete.precio_eur, 'EUR')),
+    )
+    caja.append(precios)
+
+    const datos = el('dl', 'mt-3 grid gap-3 sm:grid-cols-3')
+    datos.append(
+      fila('Categoria', paquete.categoria || 'Sin categoria'),
+      fila('Espacios simultaneos', String(paquete.slots)),
+      fila('Vigencia', `${paquete.vigencia_dias} dias`),
+    )
+    caja.append(datos)
+
+    // Las dos categorias que el Documento Maestro deja con rango en vez de
+    // precio fijo. La marca esta para que al editar no se crea que el numero
+    // de al lado es un tope.
+    if (paquete.precio_configurable) {
+      caja.append(
+        el(
+          'p',
+          'mt-2 text-body-sm text-on-surface-variant',
+          'El documento deja esta categoria con un rango de precios. Lo que se ponga aqui es el precio bajo del rango.',
+        ),
+      )
+    }
+
+    if (!paquete.activo) {
+      caja.append(
+        el(
+          'p',
+          'mt-2 text-body-sm text-on-surface-variant',
+          'Este paquete esta apagado: no aparece en la portada y nadie puede comprarlo, aunque tenga precio.',
+        ),
+      )
+    }
+
+    const acciones = el('div', 'mt-4 flex flex-wrap gap-2')
+    const editar = botonSecundario('Cambiar tarifas')
+    editar.addEventListener('click', () =>
+      mostrarFormularioDeTarifa(huecoDelFormulario, contenedor, paquete),
+    )
+    acciones.append(editar)
+    caja.append(acciones)
+
+    return caja
+  }
+
+  /** Monta el formulario de tarifas, que aparece debajo de la lista entera. */
+  function mostrarFormularioDeTarifa(
+    huecoDelFormulario: HTMLElement,
+    contenedor: HTMLElement,
+    paquete: PaqueteTarifa,
+  ): void {
+    huecoDelFormulario.replaceChildren(formularioDeTarifa(contenedor, huecoDelFormulario, paquete))
+    huecoDelFormulario.classList.remove('hidden')
+    huecoDelFormulario.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  /**
+   * Los tres campos, uno por moneda, en su propia unidad.
+   *
+   * No hay desplegable de moneda porque las tres conviven en la misma fila. Lo
+   * que si hay, debajo de cada campo, es `avisoDeUnidad` con el resultado ya
+   * calculado: es la unica forma de que quien teclea `10` en USD vea delante
+   * que eso son diez CENTAVOS y no diez dolares. Es el error mas caro que se
+   * puede cometer aqui y sale sin ruido.
+   *
+   * Se mandan los tres campos SIEMPRE, aunque solo se haya tocado uno. En el
+   * servidor campo ausente conserva el valor anterior, y mandar el conjunto
+   * entero hace que la respuesta describa la fila tal cual quedo.
+   */
+  function formularioDeTarifa(
+    contenedor: HTMLElement,
+    huecoDelFormulario: HTMLElement,
+    paquete: PaqueteTarifa,
+  ): HTMLElement {
+    const formulario = el(
+      'form',
+      'rounded-xl border border-outline-variant/60 bg-surface-container-low p-4 space-y-4',
+    )
+
+    formulario.append(
+      el(
+        'h4',
+        'font-headline text-body-md font-semibold text-on-surface',
+        `Tarifas de "${paquete.nombre}"`,
+      ),
+    )
+
+    const rejilla = el('div', 'grid gap-4 sm:grid-cols-3')
+    const campos = new Map<MonedaProducto, HTMLInputElement>()
+
+    const actuales: Record<MonedaProducto, number | null> = {
+      CUP: paquete.precio_cup,
+      USD: paquete.precio_usd,
+      EUR: paquete.precio_eur,
+    }
+
+    for (const moneda of ['CUP', 'USD', 'EUR'] as const) {
+      const grupo = el('div', 'space-y-1')
+
+      const rotulo = el('label', 'text-label-md font-medium text-on-surface', `Precio en ${moneda}`)
+      const id = `tarifa-${moneda.toLowerCase()}`
+      rotulo.htmlFor = id
+
+      const campo = el(
+        'input',
+        'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
+      )
+      campo.type = 'text'
+      // `numeric` y no `decimal`: en las tres monedas lo que se teclea es un
+      // entero (pesos, centavos o centimos) y no lleva punto. El teclado de un
+      // movil con `decimal` ofreceria uno, y un `10.5` en USD son CENTAVOS con
+      // decimales, que la columna no admite y el Worker rechaza.
+      campo.inputMode = 'numeric'
+      campo.id = id
+      campo.value = actuales[moneda] === null ? '' : String(actuales[moneda])
+
+      const ayuda = el('p', 'text-body-sm text-on-surface-variant', avisoDeUnidad(moneda, campo.value))
+      campo.addEventListener('input', () => {
+        ayuda.textContent = avisoDeUnidad(moneda, campo.value)
+      })
+
+      grupo.append(rotulo, campo, ayuda)
+      rejilla.append(grupo)
+      campos.set(moneda, campo)
+    }
+
+    formulario.append(rejilla)
+
+    const mensaje = el(
+      'p',
+      'hidden rounded-lg border border-error/40 bg-error-container/40 px-3 py-2 text-body-md text-on-error-container',
+    )
+    formulario.append(mensaje)
+    const decir = (texto: string): void => {
+      mensaje.textContent = texto
+      mensaje.classList.remove('hidden')
+    }
+
+    const acciones = el('div', 'flex flex-wrap gap-3')
+    const guardar = el(
+      'button',
+      'inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
+    )
+    guardar.type = 'submit'
+    guardar.append(crearIcono('check', 'text-label-md'), el('span', '', 'Guardar tarifas'))
+    const cancelar = el(
+      'button',
+      'rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-on-surface transition hover:border-primary',
+      'Cancelar',
+    )
+    cancelar.type = 'button'
+    cancelar.addEventListener('click', () => {
+      huecoDelFormulario.replaceChildren()
+      huecoDelFormulario.classList.add('hidden')
+    })
+    acciones.append(guardar, cancelar)
+    formulario.append(acciones)
+
+    formulario.addEventListener('submit', (evento) => {
+      evento.preventDefault()
+      void guardarTarifas()
+    })
+
+    async function guardarTarifas(): Promise<void> {
+      guardar.disabled = true
+      cancelar.disabled = true
+
+      // Vacio manda cadena vacia, que el servidor traduce en `null`: "sin
+      // precio en esta moneda". No se convierte a numero aqui porque `0` y
+      // vacio son dos cosas distintas y quien decide lo que significan son las
+      // columnas anulables de la tabla, no este formulario.
+      const respuesta = await cambiarTarifa({
+        id: paquete.id,
+        precio_cup: campos.get('CUP')?.value ?? '',
+        precio_usd: campos.get('USD')?.value ?? '',
+        precio_eur: campos.get('EUR')?.value ?? '',
+      })
+
+      guardar.disabled = false
+      cancelar.disabled = false
+
+      if (!respuesta.ok) {
+        decir(respuesta.mensaje)
+        return
+      }
+
+      huecoDelFormulario.replaceChildren()
+      huecoDelFormulario.classList.add('hidden')
+      await refrescarTarifas(contenedor)
+    }
+
+    return formulario
+  }
+
   function cajaDeError(mensaje: string, alReintentar?: () => void): HTMLElement {
     const caja = el('div', 'rounded-xl border border-error/40 bg-error-container/40 p-4')
     caja.append(el('p', 'text-body-md text-on-error-container', mensaje))
@@ -828,6 +1538,19 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
           // Se pinta sola y no recibe nada: sus datos no estan en `datos`, que
           // es justamente por lo que es una seccion aparte. Ver mas abajo.
           zona.append(seccionMediosCobro())
+          break
+        case 'precios':
+          // Igual que `medios`: se pide a su propia ruta. Lo unico que le pasa
+          // de aqui dentro es si la cuenta tiene o no tienda, porque eso cambia
+          // lo que se dice con la lista vacia, no lo que se enseña.
+          zona.append(seccionPrecios(datos.usuario.esVendedor))
+          break
+        case 'tarifas':
+          // Tambien a su propia ruta, que es la unica de este panel que exige
+          // rol de Owner. No recibe nada de `datos`: la matriz tarifaria no
+          // esta en `GET /api/cuenta` ni tiene por que estarlo, y quien no es
+          // el Owner tampoco llega a esta rama.
+          zona.append(seccionTarifas())
           break
         case 'sesiones':
           zona.append(seccionSesiones(datos))

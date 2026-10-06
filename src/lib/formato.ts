@@ -54,14 +54,45 @@ export const SIMBOLO_MONEDA: Record<'CUP' | 'USD' | 'EUR', string> = {
 }
 
 /**
+ * Dos decimales fijos, para las monedas que se guardan en la unidad menor.
+ *
+ * No se le pasa esto a `formatearNumero` porque esa funcion recorta los
+ * decimales cuando el numero resulta entero: 10 dolares saldria escrito "10"
+ * y no "10,00". Recortar es lo correcto en CUP, donde el entero ya es la
+ * moneda, pero en USD y EUR "10 USD" junto a "10,50 USD" en la misma lista se
+ * leen como dos precios con reglas distintas.
+ */
+const FORMATO_DOS_DECIMALES = new Intl.NumberFormat(LOCALE, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+/**
  * Formatea un precio.
  *
- * `vitalicia` no se pide aqui: es una condicion de la compra, no del numero, y
- * la resuelve `formatearPrecioProducto`, que si sabe de reglas de negocio.
+ * ============================================================================
+ *  LA UNIDAD EN QUE SE GUARDA Y LA QUE SE ESCRIBE
+ * ============================================================================
+ * La base guarda enteros de la unidad menor: 250 CUP es `250` y $10.00 USD es
+ * `1000`. La conversion al texto la hace el frontend, y este es el sitio donde.
+ *
+ * Durante un tiempo no se hacia. `formatearPrecio(1000, 'USD')` devolvia
+ * "1.000 USD" para un paquete que cuesta diez dolares, y salia asi en la pagina
+ * de paquetes, en la del producto y en la del vendedor: el precio equivocado
+ * en el sitio que decide si alguien compra. No se veia con CUP, que se guarda
+ * y se escribe en la misma unidad, y por eso estuvo tanto tiempo sin notarse:
+ * solo se rompia en las dos monedas que casi nadie miraba.
+ *
+ * CUP no se divide: el Documento Maestro la guarda en enteros y en enteros se
+ * escribe, sin decimales. USD y EUR se dividen entre 100 y se escriben siempre
+ * con dos, tambien cuando el resultado es entero.
+ *
+ * `vitalicia` no se pide aqui: es una condicion de la compra, no del numero.
  */
 export function formatearPrecio(monto: number, moneda: 'CUP' | 'USD' | 'EUR'): string {
   const simbolo = SIMBOLO_MONEDA[moneda]
   if (!Number.isFinite(monto)) return `precio no disponible ${simbolo}`
+  if (moneda !== 'CUP') return `${FORMATO_DOS_DECIMALES.format(monto / 100)} ${simbolo}`
   return `${formatearNumero(monto)} ${simbolo}`
 }
 
