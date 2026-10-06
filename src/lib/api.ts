@@ -465,11 +465,48 @@ export interface VendedorResumen {
   productosPublicados: number
 }
 
+/**
+ * Filtros del listado de vendedores.
+ *
+ * Solo paginacion. `/api/vendedores` no acepta orden, categoria ni busqueda: se
+ * declara lo que el endpoint acepta y no lo que seria util tener. Un filtro aqui
+ * que el router ignore es un filtro que no filtra y parece que si.
+ */
+export interface FiltrosVendedores {
+  pagina?: number
+  porPagina?: number
+}
+
+/**
+ * Listado de vendedores, troceado.
+ *
+ * Antes no aceptaba paginacion y devolvia `paginas: 0` escrito a mano. Las dos
+ * cosas juntas hacían que este listado fuera inutil para lo unico que lo necesita
+ * de verdad, que es `getStaticPaths`: sin poder pedir la pagina 2 solo salian
+ * los primeros 24 vendedores, y como `paginas` valia 0 cualquier bucle de
+ * paginacion se cortaba en la primera vuelta sin avisar.
+ *
+ * `paginas` se calcula aqui con la misma regla que usa el router para los
+ * productos (`total === 0 ? 0 : Math.ceil(total / porPagina)`) porque
+ * `/api/vendedores` no devuelve ese campo: lo devuelve `/api/productos` y no el
+ * otro. Calcularlo en un lado y no en el otro obligaba a que quien llamara
+ * supiera cual de los dos endpoints estaba usando.
+ */
 export async function listarVendedores(
+  filtros: FiltrosVendedores = {},
   opciones?: OpcionesRequest,
 ): Promise<ResultadoPaginado<VendedorResumen>> {
-  const ruta = '/api/vendedores'
+  const params = new URLSearchParams()
+  if (filtros.pagina) params.set('pagina', String(filtros.pagina))
+  if (filtros.porPagina) params.set('por_pagina', String(filtros.porPagina))
+  const query = params.toString()
+
+  const ruta = query ? `/api/vendedores?${query}` : '/api/vendedores'
   const cuerpo = await pedir(ruta, opciones)
+
+  const total = (cuerpo.total as number) ?? 0
+  const porPagina = (cuerpo.por_pagina as number) ?? 24
+
   return {
     items: listaDe(cuerpo, 'vendedores', ruta).map((f) => ({
       slug: String(f.slug),
@@ -481,10 +518,10 @@ export async function listarVendedores(
       verificado: f.verificado === 1,
       productosPublicados: f.productos_publicados as number,
     })),
-    total: (cuerpo.total as number) ?? 0,
+    total,
     pagina: (cuerpo.pagina as number) ?? 1,
-    porPagina: (cuerpo.por_pagina as number) ?? 24,
-    paginas: 0,
+    porPagina,
+    paginas: total === 0 ? 0 : Math.ceil(total / porPagina),
   }
 }
 

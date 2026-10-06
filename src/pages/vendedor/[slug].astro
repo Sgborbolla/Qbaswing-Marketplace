@@ -6,10 +6,56 @@ import Icono from '../../components/Icono.astro'
 import Base from '../../layouts/Base.astro'
 import { formatearPrecio, recortar } from '../../lib/formato'
 
-const { obtenerVendedor } = await import('../../lib/api')
+import { IDIOMAS } from '../../i18n/config'
+import { listarVendedores, obtenerVendedor } from '../../lib/api'
 
+/**
+ * Imports estaticos, por la misma razon que en la ficha de producto: Astro
+ * extrae `getStaticPaths` a su propio ambito y un `const` de un `await import()`
+ * no esta visible ahi dentro. El detalle esta en `producto/[slug].astro`.
+ */
+
+/**
+ * ============================================================================
+ *  POR QUE NO PUEDE DEVOLVER `[]`
+ * ============================================================================
+ * Antes devolvia `[]`. Aqui no es SSR: es HTML estatico en Cloudflare Pages, sin
+ * funciones. Devolver `[]` no deja las rutas "para cuando haga falta": no deja
+ * ninguna. El build se terminaba sin un aviso, el despliegue salia bien, y
+ * `/vendedor/<cualquier-cosa>` daba 404 en produccion.
+ *
+ * Es el mismo fallo que el de la ficha de producto, y por eso la explicacion
+ * esta ahi y aqui solo se remite a ella.
+ *
+ * ============================================================================
+ *  QUE SE PIDE Y QUE SE CORTE
+ * ============================================================================
+ * El listado troceado, en bucle, y se corta con `paginas`, que es el numero que
+ * da la propia API. Pedir solo la primera pagina deja al resto en 404 sin un solo
+ * error en ninguna parte.
+ */
 export async function getStaticPaths() {
-  return []
+  let slugs: string[] = []
+
+  try {
+    const POR_PAGINA = 100
+    for (let pagina = 1; ; pagina += 1) {
+      const r = await listarVendedores({ pagina, porPagina: POR_PAGINA })
+      slugs.push(...r.items.map((v) => v.slug).filter(Boolean))
+      if (r.items.length === 0 || pagina >= r.paginas) break
+      if (pagina > 50) break
+    }
+  } catch (e) {
+    console.warn(
+      `[getStaticPaths] No se pudo pedir el listado de vendedores, no se genera ninguna ficha. ` +
+        `El sitio se publicara sin fichas de vendedor. Motivo: ${(e as Error)?.message ?? e}`,
+    )
+    return []
+  }
+
+  console.log(`[getStaticPaths] vendedores pedidos: ${slugs.length}`)
+
+  return slugs.map((slug) => ({ params: { slug }, locales: [...IDIOMAS] }))
 }
 
 const { slug } = Astro.params

@@ -236,21 +236,51 @@ async function productoPorSlug(env: Env, slug: string) {
 /**
  * Listado de vendedores.
  *
- * Solo entran los que tienen al menos un producto visible. Un vendedor con el
- * perfil completo y cero publicaciones es una ficha vacia: mostrarla en el
- * catalogo de vendedores es la forma de tener perfiles a medias de cubir.
+ * ============================================================================
+ *  POR QUE ES `LEFT JOIN` Y NO `JOIN`
+ * ============================================================================
+ * Esto era un `INNER JOIN` con condicion en el `WHERE`, y solo entraban los que
+ * tenian al menos un producto visible. Estaba justificado en el comentario
+ * original: un perfil con cero publicaciones es una ficha a medio montar.
+ *
+ * El problema es que esa decision no estaba en un solo sitio, sino dos, y las
+ * dos no decian lo mismo. `vendedorPorSlug`, el detalle, NO tiene esa
+ * condicion: busca por slug y devuelve el vendedor aunque tenga cero productos,
+ * y la pagina ya sabe pintar ese estado ("todavia no tiene productos
+ * visibles"). El listado, en cambio, lo excluia.
+ *
+ * La consecuencia concreta era que `getStaticPaths` —que pide ESTE listado para
+ * decidir que paginas se generan— no incluia al vendedor, asi que su ficha
+ * nunca se creaba y `/vendedor/<slug>` daba 404. El endpoint de detalle servia
+ * una pagina que nadie podia alcanzar.
+ *
+ * Con `LEFT JOIN` las dos vistas dejan de contradecirse. Y la condicion de
+ * visibilidad se va al `ON`, no al `WHERE`: en un `LEFT JOIN`, cualquier
+ * columna de `p` en el `WHERE` convierte la union otra vez en interior y
+ * volvemos al mismo sitio.
+ *
+ * Que salga un vendedor con 0 productos en el listado no es un estado
+ * disimulado: `productos_publicados` se cuenta con `COUNT(p.id)`, que cuenta
+ * solo las filas visibles, y la pagina lo escribe tal cual. Un vendedor sin
+ * nada publicado se ve como lo que es.
+ *
+ * Que el listado muestre tiendas vacias es además lo honesto aqui: con un
+ * catalogo recien estrenado, esconder al unico vendedor deja la seccion de
+ * vendedores en blanco y el sitio parece caido.
  */
 async function listarVendedores(peticion: Request, env: Env) {
   const url = new URL(peticion.url)
   const pagina = enteroDeQuery(url, 'pagina', 1, 1000)
   const porPagina = enteroDeQuery(url, 'por_pagina', 24, MAXIMO_POR_PAGINA)
 
+  // La visibilidad vive en el `ON` y no en un `WHERE`: ver el comentario.
+  const UNION = `LEFT JOIN productos p ON p.vendedor_id = v.id AND ${WHERE_VISIBLE}`
+
   const total = await contar(
     env,
     `SELECT COUNT(DISTINCT v.id) AS n
        FROM vendedores v
-       JOIN productos p ON p.vendedor_id = v.id
-      WHERE ${WHERE_VISIBLE}`,
+       ${UNION}`,
     [],
   )
 
@@ -259,8 +289,7 @@ async function listarVendedores(peticion: Request, env: Env) {
             v.ubicacion, v.verificado,
             COUNT(p.id) AS productos_publicados
        FROM vendedores v
-       JOIN productos p ON p.vendedor_id = v.id
-      WHERE ${WHERE_VISIBLE}
+       ${UNION}
       GROUP BY v.id
       ORDER BY v.verificado DESC, v.nombre_comercial COLLATE NOCASE ASC, v.id ASC
       LIMIT ? OFFSET ?`,

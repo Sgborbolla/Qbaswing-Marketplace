@@ -10,14 +10,100 @@ import Base from '../../layouts/Base.astro'
 import QrCuenta from '../../components/QrCuenta.astro'
 import { formatearFecha, formatearPrecio } from '../../lib/formato'
 
-const { obtenerProducto, obtenerMediosPago } = await import('../../lib/api')
+import { IDIOMAS } from '../../i18n/config'
+import { listarProductos, obtenerMediosPago, obtenerProducto } from '../../lib/api'
 
+/**
+ * ============================================================================
+ *  IMPORTS ESTATICOS Y NO `await import()`
+ * ============================================================================
+ * Aqui estaban desestructurados de una carga dinamica, y el build moria con
+ * `listarProductos is not defined` DESPUES de publicar 17 paginas y cero
+ * fichas.
+ *
+ * La razon es que Astro saca `getStaticPaths` del componente a su propio
+ * ambito. Los `const` que crea un `await import()` en el frontmatter se crean
+ * al evaluar el componente, que es un tiempo que esa funcion no ve: cuando se
+ * ejecuta, el `const` todavia no existe y el nombre no esta definido. Un
+ * `import` estatico es declaracion de modulo, esta antes de que nada se
+ * ejecute, y por eso si esta disponible.
+ *
+ * No hay coste que recuperar: `obtenerProducto` ya usaba estas mismas
+ * dependencias, asi que el peso del bundle no cambia.
+ */
+
+/**
+ * ============================================================================
+ *  POR QUE ESTA FUNCION NO PUEDE DEVOLVER `[]`
+ * ============================================================================
+ * Antes devolvia `[]` con un comentario que decia que Astro generaria las
+ * rutas por demanda "si fuera SSR". Este sitio NO es SSR: son HTML estatico en
+ * Cloudflare Pages, sin funciones. Devolver `[]` no genera las rutas "a
+ * demanda": no genera NINGUNA.
+ *
+ * El resultado era que el build se terminaba sin un solo aviso, el despliegue
+ * salia bien, y `/producto/<cualquier-cosa>` daba 404 en produccion. Con cero
+ * productos en la base de verdad no se notaba, y por eso no se habia visto.
+ *
+ * Un `getStaticPaths` mal escrito no da error: da un sitio que se publica
+ * limpio y con un 404 en cada ficha. Es el fallo que no se ve, asi que aqui se
+ * escribe lo que hace y no lo que se espera que haga.
+ *
+ * ============================================================================
+ *  COMO SE GENERA CADA FICHA
+ * ============================================================================
+ * Una entrada por producto, con `locales` en los 22 idiomas. Astro crea una
+ * pagina por idioma: sin prefijo el de por defecto (espanol) y con prefijo los
+ * otros 21, que es justo como ya funcionan las paginas fijas (`/productos` y
+ * `/pt-BR/productos`).
+ *
+ * `locales` y no `locale`: con `locale` habria que repetir la entrada 22 veces y
+ * una entrada sin idioma se queda fuera sin avisar.
+ *
+ * Que salen 22 y no 1 es correcto, no un error: el catalogo es el mismo en todos
+ * los idiomas porque solo el espanol esta traducido. Las otras 21 fichas
+ * muestran el texto en espanol y el selector marca que la traduccion no esta.
+ *
+ * ============================================================================
+ *  SI LA API NO RESPONDE
+ * ============================================================================
+ * Se avisa por consola y se devuelve `[]`, en vez de dejar caer el build.
+ *
+ * Un sitio sin fichas de producto se puede publicar y esta roto de una forma
+ * visible. Un deploy que no se publica deja el sitio viejo en pie, que es peor.
+ * Que la consola diga cuantos productos se pidieron y cuantos salieron es lo que
+ * permite notar el fallo sin tener que abrir cada URL a mano.
+ */
 export async function getStaticPaths() {
-  // No pre-generamos slugs: el catálogo es dinámico y cambia con el Owner.
-  // Con fallback SSR no aplicable en Pages estático, pero dejamos paths vacío
-  // y Astro generará por demanda si fuera SSR; aquí es estático y con contenido
-  // cambiante: mejor devolver [] y confiar en que en build no falla.
-  return []
+  let slugs: string[] = []
+
+  try {
+    // Paginado en bucle: el listado viene troceado y aqui se quieren TODOS.
+    // Si se pidiera solo la primera pagina, el catalogo se publicaria con los
+    // primeros productos y el resto en 404, sin error en ninguna parte.
+    //
+    // El corte es `paginas`, el numero que la propia API devuelve, y no un
+    // `items.length < porPagina` inventado: con filtros de la API el total de
+    // paginas puede no cuadrar con el tamano de la ultima, y comparando con el
+    // total se corta donde la API dice que se corta.
+    const POR_PAGINA = 100
+    for (let pagina = 1; ; pagina += 1) {
+      const r = await listarProductos({ pagina, porPagina: POR_PAGINA })
+      slugs.push(...r.items.map((p) => p.slug).filter(Boolean))
+      if (r.items.length === 0 || pagina >= r.paginas) break
+      if (pagina > 50) break
+    }
+  } catch (e) {
+    console.warn(
+      `[getStaticPaths] No se pudo pedir el catalogo a la API, no se genera ninguna ficha de producto. ` +
+        `El sitio se publicara sin fichas. Motivo: ${(e as Error)?.message ?? e}`,
+    )
+    return []
+  }
+
+  console.log(`[getStaticPaths] productos pedidos: ${slugs.length}`)
+
+  return slugs.map((slug) => ({ params: { slug }, locales: [...IDIOMAS] }))
 }
 
 const { slug } = Astro.params
