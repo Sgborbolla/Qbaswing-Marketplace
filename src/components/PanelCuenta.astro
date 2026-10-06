@@ -61,6 +61,15 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
 
 <script>
   import { miCuenta, type DatosCuentaCliente, type UsuarioCliente } from '../lib/identidad-cliente'
+  import {
+    anadirMedio,
+    borrarMedio,
+    cambiarMedio,
+    misMedios,
+    type MedioCobro,
+    type MedioCobroEnvio,
+    type TipoMedio,
+  } from '../lib/medios-cliente'
   import { crearIcono } from '../lib/icono-dom'
   import type { NombreIcono } from '../lib/iconos'
 
@@ -72,11 +81,16 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
    * Van aqui y no dentro de `zonaDeDatos` porque son datos, no logica: saber que
    * la cuenta no muestra la tienda pero el panel si, es una decision de
    * contenido, no de programacion.
+   *
+   * `medios` no esta en `cuenta` a proposito. Los medios de cobro son la lista
+   * de donde recibe dinero quien vende: un comprador que nunca vende no tiene
+   * nada que poner ahi, y enseñarle un formulario para que rellene su numero de
+   * cuenta seria pedirle un dato que el sitio todavia no sabe para que.
    */
   const SECCIONES: Record<Variante, string[]> = {
     cuenta: ['identidad', 'exencion', 'sesiones'],
-    panel: ['identidad', 'tienda', 'exencion', 'sesiones'],
-    owner: ['identidad', 'exencion', 'tienda', 'sesiones', 'privilegios'],
+    panel: ['identidad', 'tienda', 'medios', 'exencion', 'sesiones'],
+    owner: ['identidad', 'exencion', 'tienda', 'medios', 'sesiones', 'privilegios'],
   }
 
   /**
@@ -246,6 +260,486 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     return caja
   }
 
+  /* ---------------------------------------------------------------------- */
+  /* Medios de cobro propios                                                */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Los cinco tipos de la base, en palabras de persona.
+   *
+   * La tabla guarda `tarjeta`, `app`, `cripto`, `efectivo` y `otro` porque son
+   * cinco valores fijos con los que el `CHECK` puede comprobar algo. Pero
+   * `tarjeta` no le dice nada a quien va a elegir donde cobrar: ahi se traduce
+   * a lo que se lee en el desplegable.
+   */
+  const TIPOS_DE_MEDIO: Record<TipoMedio, string> = {
+    tarjeta: 'Tarjeta o cuenta bancaria',
+    app: 'App de pago o billetera',
+    cripto: 'Criptomoneda',
+    efectivo: 'Efectivo en mano',
+    otro: 'Otra forma de cobro',
+  }
+
+  /**
+   * Lo que se advierte antes de rellenar nada.
+   *
+   * ============================================================================
+   *  POR QUE ESTE AVISO ESTA AQUI Y NO EN LA DOCUMENTACION
+   * ============================================================================
+   * El sitio decidio que en esta tabla solo van enlaces e identificadores
+   * publicos, y que la clave de API de cada vendedor no se guarda en ninguna
+   * parte. Esa decision no hace nada si no se cuenta a quien rellena el campo.
+   *
+   * En cualquier otro sitio de internet ir a un campo y poner la clave de la
+   * pasarela es lo normal. Si aqui no se dice lo contrario, alguien la pondra
+   * al lado del numero de cuenta porque es donde pone sus datos de cobro, y lo
+   * que seria un problema de seguridad se leera como un descuido del vendedor.
+   *
+   * Se pone encima del formulario y no debajo: quien lee el aviso antes de
+   * escribir no tiene que borrar lo que ya escribio.
+   */
+  const AVISO_DE_SECRETOS =
+    'Aqui solo van enlaces e identificadores publicos: el numero de cuenta, la cartera, el enlace de pago de tu pasarela. Nunca pongas claves de API ni contraseñas: este sitio no las guarda, y no deberian salir de tu pasarela.'
+
+  /**
+   * La seccion.
+   *
+   * ============================================================================
+   *  POR QUE SE PINTA SOLA
+   * ============================================================================
+   * Las demas secciones reciben lo suyo dentro de `datos`, que viene de
+   * `GET /api/cuenta`. Esta no puede: los medios de cobro viven en una ruta
+   * aparte, `/api/panel/medios-pago`, con su propia sesion.
+   *
+   * Meterlos en `miCuenta()` obligaria a descargarlos a quien solo abre el panel
+   * para mirar su nombre o cerrar sesion, y a confundir dos cosas que se piden
+   * con permisos distintos: cualquiera autenticado puede leer su cuenta, pero
+   * solo quien tiene sesion propia ve sus medios, y verlos o no es lo que
+   * distingue a un vendedor de un comprador que nunca va a vender.
+   *
+   * La caja se devuelve en blanco y se rellena en cuanto llega la respuesta.
+   * Mientras dice que esta cargando; si falla, dice que fallo y deja
+   * reintentar, el mismo trato que `miCuenta()` en `cargar`.
+   */
+  function seccionMediosCobro(): HTMLElement {
+    const caja = tarjeta('Por donde cobras', 'payments')
+    const cuerpo = el('div', 'mt-4 space-y-4')
+    cuerpo.append(el('p', 'text-body-md text-on-surface-variant', 'Cargando tus medios de cobro...'))
+    caja.append(cuerpo)
+    void refrescarMedios(cuerpo)
+    return caja
+  }
+
+  /**
+   * Vuelve a pedirlos y repinta la caja entera.
+   *
+   * `aviso` es un mensaje de error que se anade encima de la lista sin borrarla:
+   * es lo que pasa si un apagado o un borrado sale mal. El que rellena acaba de
+   * ver sus medios y perderlos por un error de red seria confuso, y ademas el
+   * error casi siempre es una frase que el servidor escribio para que se lea
+   * ("ya tienes esa cuenta activa"), no un fallo del sitio.
+   */
+  async function refrescarMedios(contenedor: HTMLElement, aviso?: string): Promise<void> {
+    const respuesta = await misMedios()
+
+    // Aqui si se reemplaza todo: sin la lista no hay nada que conservar.
+    if (!respuesta.ok) {
+      contenedor.replaceChildren(
+        cajaDeError(respuesta.mensaje, () => void refrescarMedios(contenedor)),
+      )
+      return
+    }
+
+    const medios = respuesta.datos.medios
+    const pieza = el('div', 'space-y-4')
+
+    if (aviso) pieza.append(cajaDeError(aviso))
+    pieza.append(
+      el('p', 'rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant', AVISO_DE_SECRETOS),
+    )
+
+    // El formulario vive en su propio hueco y no dentro de la lista, porque se
+    // rellena sin volver a pedir nada al servidor.
+    const huecoDelFormulario = el('div', 'hidden')
+
+    if (medios.length === 0) {
+      pieza.append(
+        vacio(
+          'Todavia no has puesto ninguna forma de cobro. Anade tu cuenta, tu cartera o tu enlace para que el comprador sepa donde pagarte.',
+        ),
+      )
+    } else {
+      const lista = el('ul', 'space-y-3')
+      for (const medio of medios) lista.append(filaDeMedio(medio, contenedor, huecoDelFormulario))
+      pieza.append(lista)
+    }
+
+    pieza.append(huecoDelFormulario)
+
+    const anadir = el(
+      'button',
+      'inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
+    )
+    anadir.type = 'button'
+    anadir.append(crearIcono('add', 'text-label-md'), el('span', '', 'Anadir forma de cobro'))
+    anadir.addEventListener('click', () =>
+      mostrarFormulario(huecoDelFormulario, contenedor, null),
+    )
+    pieza.append(anadir)
+
+    contenedor.replaceChildren(pieza)
+  }
+
+  /** Caja de error. Con funcion, anade un boton de reintento. */
+  function cajaDeError(mensaje: string, alReintentar?: () => void): HTMLElement {
+    const caja = el('div', 'rounded-xl border border-error/40 bg-error-container/40 p-4')
+    caja.append(el('p', 'text-body-md text-on-error-container', mensaje))
+    if (alReintentar) {
+      const reintentar = el(
+        'button',
+        'mt-3 inline-flex items-center gap-2 rounded-full border border-on-error-container/40 px-4 py-2 text-body-md font-semibold text-on-error-container transition hover:bg-on-error-container/10',
+        'Reintentar',
+      )
+      reintentar.type = 'button'
+      reintentar.addEventListener('click', alReintentar)
+      caja.append(reintentar)
+    }
+    return caja
+  }
+
+  /**
+   * Un numero de cuenta en bloques de cuatro.
+   *
+   * No cambia el dato: solo cambia como se lee. Un `9204129979925122` son dieciseis
+   * cifras seguidas y se pifia quien las copia a mano, que es justamente como se
+   * hace una transferencia en Cuba. Agruparlas no cuesta nada y ya se hace en la
+   * tienda.
+   */
+  function agruparNumero(numero: string): string {
+    return numero.replace(/(\d{4})(?=\d)/g, '$1 ')
+  }
+
+  /** Una forma de cobro: sus datos, su estado y las tres cosas que se pueden hacer. */
+  function filaDeMedio(
+    medio: MedioCobro,
+    contenedor: HTMLElement,
+    huecoDelFormulario: HTMLElement,
+  ): HTMLElement {
+    const caja = el('li', 'rounded-xl border border-outline-variant/60 bg-surface-container-low p-4')
+
+    const cabecera = el('div', 'flex flex-wrap items-center justify-between gap-2')
+    cabecera.append(
+      el('h3', 'font-headline text-body-md font-semibold text-on-surface', medio.nombre),
+      insignia(medio.activo === 1 ? 'Encendido' : 'Apagado', medio.activo === 1),
+    )
+    caja.append(cabecera)
+    caja.append(
+      el('p', 'mt-1 text-body-sm text-on-surface-variant', TIPOS_DE_MEDIO[medio.tipo]),
+    )
+
+    const datos = el('dl', 'mt-3 grid gap-3 sm:grid-cols-2')
+    if (medio.numero_cuenta) datos.append(fila('Numero de cuenta', agruparNumero(medio.numero_cuenta)))
+    if (medio.direccion) datos.append(fila('Direccion de la cartera', medio.direccion))
+    if (medio.red) datos.append(fila('Red', medio.red))
+    if (medio.titular) datos.append(fila('Titular', medio.titular))
+    if (medio.instrucciones) datos.append(fila('Instrucciones para el comprador', medio.instrucciones))
+    if (datos.childElementCount > 0) caja.append(datos)
+
+    if (medio.enlace) {
+      const linea = el('p', 'mt-3 text-body-sm')
+      const enlace = el('a', 'font-semibold break-all text-primary hover:underline', medio.enlace)
+      enlace.href = medio.enlace
+      // El comprador lo abre en otra pestana, y `noopener` es lo que impide que
+      // la pagina de destino llegue al objeto `window` de este sitio. Sin el, un
+      // enlace ajeno podria navegar la sesion de quien lo pulsa.
+      enlace.target = '_blank'
+      enlace.rel = 'noopener noreferrer nofollow'
+      linea.append(el('span', 'text-on-surface-variant', 'Enlace de pago: '), enlace)
+      caja.append(linea)
+    }
+
+    const acciones = el('div', 'mt-4 flex flex-wrap gap-2')
+
+    const editar = botonSecundario('Editar')
+    editar.addEventListener('click', () =>
+      mostrarFormulario(huecoDelFormulario, contenedor, medio),
+    )
+    acciones.append(editar)
+
+    const conmutar = botonSecundario(medio.activo === 1 ? 'Apagar' : 'Encender')
+    conmutar.addEventListener('click', () => void alConmutar(medio, contenedor))
+    acciones.append(conmutar)
+
+    // Borra y no "desactiva". Se confirma porque no se puede deshacer desde
+    // aqui, y la alternativa seria un boton de deshacer que hay que recordar
+    // mantener en pantalla.
+    const borrar = el(
+      'button',
+      'rounded-full border border-error/40 px-4 py-1.5 text-label-md font-semibold text-error transition hover:bg-error-container/40',
+      'Borrar',
+    )
+    borrar.type = 'button'
+    borrar.addEventListener('click', () => void alBorrar(medio, contenedor))
+    acciones.append(borrar)
+
+    caja.append(acciones)
+    return caja
+  }
+
+  /** El boton normal de las filas. */
+  function botonSecundario(texto: string): HTMLButtonElement {
+    const boton = el(
+      'button',
+      'rounded-full border border-outline-variant px-4 py-1.5 text-label-md font-semibold text-on-surface transition hover:border-primary',
+      texto,
+    )
+    boton.type = 'button'
+    return boton
+  }
+
+  async function alConmutar(medio: MedioCobro, contenedor: HTMLElement): Promise<void> {
+    const respuesta = await cambiarMedio(medio.id, { activo: medio.activo !== 1 })
+    if (!respuesta.ok) {
+      // Se mantiene la lista y el error va encima. Los indices de la base
+      // pueden impedir el cambio (dos cuentas activas de una vez) y eso se
+      // arregla mirando lo que hay, no borrandolo.
+      await refrescarMedios(contenedor, respuesta.mensaje)
+      return
+    }
+    await refrescarMedios(contenedor)
+  }
+
+  async function alBorrar(medio: MedioCobro, contenedor: HTMLElement): Promise<void> {
+    const seguro = window.confirm(`¿Borrar "${medio.nombre}"? No se puede deshacer desde aqui.`)
+    if (!seguro) return
+
+    const respuesta = await borrarMedio(medio.id)
+    if (!respuesta.ok) {
+      await refrescarMedios(contenedor, respuesta.mensaje)
+      return
+    }
+    await refrescarMedios(contenedor)
+  }
+
+  function mostrarFormulario(
+    huecoDelFormulario: HTMLElement,
+    contenedor: HTMLElement,
+    existente: MedioCobro | null,
+  ): void {
+    huecoDelFormulario.replaceChildren(
+      formularioDeMedio(contenedor, huecoDelFormulario, existente),
+    )
+    huecoDelFormulario.classList.remove('hidden')
+    huecoDelFormulario.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  /** Un campo de texto con su etiqueta y su ayuda. */
+  function campoDeTexto(
+    nombre: string,
+    etiqueta: string,
+    valor: string,
+    ayuda?: string,
+  ): { grupo: HTMLElement; entrada: HTMLInputElement } {
+    const grupo = el('div', 'space-y-1')
+    const rotulo = el('label', 'text-label-md font-medium text-on-surface', etiqueta)
+    rotulo.htmlFor = `medio-${nombre}`
+    const entrada = el(
+      'input',
+      'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
+    )
+    entrada.type = 'text'
+    entrada.id = `medio-${nombre}`
+    entrada.value = valor
+    grupo.append(rotulo, entrada)
+    if (ayuda) grupo.append(el('p', 'text-body-sm text-on-surface-variant', ayuda))
+    return { grupo, entrada }
+  }
+
+  /**
+   * El formulario, para anadir o para editar.
+   *
+   * Los mismos campos en los dos casos y un solo envio al final. Hacer dos
+   * formularios daria dos sitios donde olvidarse de comprobar algo: si el de
+   * "anadir" pidiera la red y el de "editar" no, se podria guardar una cripto
+   * sin red desde el segundo y el `CHECK` de la base la rechazaria con un
+   * mensaje que nadie entenderia.
+   *
+   * Se mandan SIEMPRE todos los campos, aunque esten vacios. En el servidor,
+   * campo ausente significa "dejalo como estaba" y campo vacio significa
+   * "borralo", que son dos cosas distintas; mandarlos todos hace que un numero
+   * vaciado se vacie de verdad en vez de quedarse con el anterior.
+   */
+  function formularioDeMedio(
+    contenedor: HTMLElement,
+    huecoDelFormulario: HTMLElement,
+    existente: MedioCobro | null,
+  ): HTMLElement {
+    const formulario = el(
+      'form',
+      'mt-4 space-y-4 rounded-xl border border-primary/40 bg-surface-container-low p-4',
+    )
+    const rejilla = el('div', 'grid gap-4 sm:grid-cols-2')
+    formulario.append(rejilla)
+
+    const nombre = campoDeTexto(
+      'nombre',
+      'Nombre para reconocerlo',
+      existente?.nombre ?? '',
+      'Por ejemplo: BPA del Vedado, o Mi cartera de USDT.',
+    )
+    rejilla.append(nombre.grupo)
+
+    const grupoTipo = el('div', 'space-y-1')
+    const etiquetaTipo = el('label', 'text-label-md font-medium text-on-surface', 'Tipo de medio')
+    etiquetaTipo.htmlFor = 'medio-tipo'
+    const tipo = el(
+      'select',
+      'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
+    )
+    tipo.id = 'medio-tipo'
+    for (const clave of Object.keys(TIPOS_DE_MEDIO) as TipoMedio[]) {
+      const opcion = el('option', '', TIPOS_DE_MEDIO[clave])
+      opcion.value = clave
+      opcion.selected = clave === (existente?.tipo ?? 'tarjeta')
+      tipo.append(opcion)
+    }
+    grupoTipo.append(etiquetaTipo, tipo)
+    rejilla.append(grupoTipo)
+
+    const numero = campoDeTexto(
+      'numeroCuenta',
+      'Numero de cuenta',
+      existente?.numero_cuenta ?? '',
+      'Solo digitos: los espacios se quitan solos.',
+    )
+    const direccion = campoDeTexto(
+      'direccion',
+      'Direccion de la cartera',
+      existente?.direccion ?? '',
+    )
+    const red = campoDeTexto('red', 'Red', existente?.red ?? '', 'TRON, Ethereum, Solana...')
+    const titular = campoDeTexto('titular', 'Titular', existente?.titular ?? '')
+    const enlace = campoDeTexto(
+      'enlace',
+      'Enlace de pago',
+      existente?.enlace ?? '',
+      'Una direccion https:// publica. Nunca una clave.',
+    )
+
+    for (const campo of [numero, direccion, red, titular, enlace]) rejilla.append(campo.grupo)
+
+    // Cada tipo pide lo suyo y se oculta lo demas en vez de vaciarlo: si el
+    // vendedor cambia de "cripto" a "tarjeta" y vuelve atras, su direccion
+    // sigue ahi.
+    function mostrarLoQueCorresponde(): void {
+      const actual = tipo.value
+      numero.grupo.hidden = actual !== 'tarjeta' && actual !== 'app'
+      direccion.grupo.hidden = actual !== 'cripto'
+      red.grupo.hidden = actual !== 'cripto'
+    }
+    tipo.addEventListener('change', mostrarLoQueCorresponde)
+    mostrarLoQueCorresponde()
+
+    const grupoInstrucciones = el('div', 'space-y-1')
+    const etiquetaInstrucciones = el(
+      'label',
+      'text-label-md font-medium text-on-surface',
+      'Instrucciones para el comprador',
+    )
+    etiquetaInstrucciones.htmlFor = 'medio-instrucciones'
+    const instrucciones = el(
+      'textarea',
+      'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
+    )
+    instrucciones.id = 'medio-instrucciones'
+    instrucciones.rows = 3
+    instrucciones.value = existente?.instrucciones ?? ''
+    grupoInstrucciones.append(
+      etiquetaInstrucciones,
+      instrucciones,
+      el('p', 'text-body-sm text-on-surface-variant', 'Como el comprador debe entregarte el dinero.'),
+    )
+    formulario.append(grupoInstrucciones)
+
+    const grupoActivo = el('label', 'flex items-center gap-2 text-body-md text-on-surface')
+    const activo = el('input', 'h-4 w-4 accent-primary')
+    activo.type = 'checkbox'
+    activo.checked = existente ? existente.activo === 1 : true
+    grupoActivo.append(activo, el('span', '', 'Encendido y visible para el comprador'))
+    formulario.append(grupoActivo)
+
+    const mensaje = el(
+      'p',
+      'hidden rounded-lg border border-error/40 bg-error-container/40 px-3 py-2 text-body-md text-on-error-container',
+    )
+    formulario.append(mensaje)
+
+    const acciones = el('div', 'flex flex-wrap gap-3')
+    const guardar = el(
+      'button',
+      'inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
+    )
+    guardar.type = 'submit'
+    guardar.append(
+      crearIcono('check', 'text-label-md'),
+      el('span', '', existente ? 'Guardar cambios' : 'Anadir forma de cobro'),
+    )
+    const cancelar = el(
+      'button',
+      'rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-on-surface transition hover:border-primary',
+      'Cancelar',
+    )
+    cancelar.type = 'button'
+    cancelar.addEventListener('click', () => {
+      huecoDelFormulario.replaceChildren()
+      huecoDelFormulario.classList.add('hidden')
+    })
+    acciones.append(guardar, cancelar)
+    formulario.append(acciones)
+
+    formulario.addEventListener('submit', (evento) => {
+      evento.preventDefault()
+      void enviar()
+    })
+
+    async function enviar(): Promise<void> {
+      const cuerpo: MedioCobroEnvio = {
+        nombre: nombre.entrada.value,
+        tipo: tipo.value as TipoMedio,
+        activo: activo.checked,
+        numeroCuenta: numero.entrada.value,
+        direccion: direccion.entrada.value,
+        red: red.entrada.value,
+        titular: titular.entrada.value,
+        enlace: enlace.entrada.value,
+        instrucciones: instrucciones.value,
+      }
+
+      // Sin esto, un doble clic manda dos altas y el servidor crea dos filas con
+      // el mismo nombre pero con claves distintas.
+      guardar.disabled = true
+      const respuesta = existente
+        ? await cambiarMedio(existente.id, cuerpo)
+        : await anadirMedio(cuerpo)
+      guardar.disabled = false
+
+      if (!respuesta.ok) {
+        // El servidor escribe el mensaje y dice cual campo fallo. Se pone aqui
+        // y no en un aviso aparte, porque quien acaba de escribir el formulario
+        // tiene la mirada puesta en el formulario.
+        mensaje.textContent = respuesta.mensaje
+        mensaje.classList.remove('hidden')
+        return
+      }
+
+      huecoDelFormulario.replaceChildren()
+      huecoDelFormulario.classList.add('hidden')
+      await refrescarMedios(contenedor)
+    }
+
+    return formulario
+  }
+
   function seccionSesiones(datos: DatosCuentaCliente): HTMLElement {
     const caja = tarjeta('Actividad', 'history')
 
@@ -329,6 +823,11 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
           break
         case 'tienda':
           zona.append(seccionTienda(datos.tienda))
+          break
+        case 'medios':
+          // Se pinta sola y no recibe nada: sus datos no estan en `datos`, que
+          // es justamente por lo que es una seccion aparte. Ver mas abajo.
+          zona.append(seccionMediosCobro())
           break
         case 'sesiones':
           zona.append(seccionSesiones(datos))

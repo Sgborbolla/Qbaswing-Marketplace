@@ -51,6 +51,16 @@ export interface MedioCobro {
   titular: string | null
   direccion: string | null
   red: string | null
+  /**
+   * Enlace publico de pago del vendedor: su pasarela, su monedero, su bot.
+   *
+   * Siempre `http://` o `https://`, ya comprobado en el servidor. Se guarda tal
+   * cual llega y se pinta como `href` en la ficha del producto, asi que el
+   * esquema NO se toca aqui: si se normalizara a lo que parezca correcto, estaria
+   * este archivo adivinando el significado de una URL que despues va a pulsar
+   * otra persona. Quien comprueba es el Worker, una vez.
+   */
+  enlace: string | null
   instrucciones: string
   /** 1 encendido, 0 apagado. Nunca es booleano: viene de SQLite. */
   activo: 0 | 1
@@ -60,6 +70,22 @@ export interface MedioCobro {
 /**
  * Lo que se puede mandar en `POST` o `PATCH`.
  *
+ * ============================================================================
+ *  POR QUE AQUI VAN EN CAMEL CASE Y EN `MedioCobro` NO
+ * ============================================================================
+ * Los dos tipos parecen una inconsistencia y no lo son: describen dos extremos
+ * distintos de la misma conversacion.
+ *
+ * `MedioCobro` describe lo que DEVUELVE la base, que son filas de SQLite y por
+ * eso `numero_cuenta`. Este describe lo que ESPERA el Worker, que lee
+ * `cuerpo.numeroCuenta` en `leerCampos`, y por eso `numeroCuenta`.
+ *
+ * Se comprobo el coste de no distinguirlos: con `numero_cuenta` aqui, el
+ * formulario no compila al enviar `numeroCuenta`, y si se le diera la vuelta al
+ * revés, el campo se mandaria y el servidor lo pasaria por alto sin quejarse,
+ * guardando un medio sin numero y con el `CHECK` de la base en contra. Los dos
+ * nombres conviven en el archivo a proposito, no por descuido.
+ *
  * Todo opcional en `PATCH`, todo obligatorio salvo lo marcado en `POST`. El
  * servidor decide con lo que llegue y con lo que ya habia; de aqui no se
  * deduce nada, porque un campo ausente y un campo vacio significan dos cosas
@@ -68,11 +94,12 @@ export interface MedioCobro {
 export interface MedioCobroEnvio {
   nombre?: string
   tipo?: TipoMedio
-  color_marca?: string | null
-  numero_cuenta?: string | null
+  colorMarca?: string | null
+  numeroCuenta?: string | null
   titular?: string | null
   direccion?: string | null
   red?: string | null
+  enlace?: string | null
   instrucciones?: string
   activo?: boolean | 0 | 1
   orden?: number

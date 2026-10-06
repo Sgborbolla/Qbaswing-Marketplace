@@ -1,0 +1,70 @@
+-- Migracion 0019: `medios_pago_usuario` gana un campo `enlace`.
+--
+-- ===========================================================================
+--  QUE ES Y QUE NO ES
+-- ===========================================================================
+-- El enlace de pago de la pasarela del vendedor, o la direccion publica donde
+-- el comprador le paga. Un identificador PUBLICO, no un secreto.
+--
+-- Esta distincion es el motivo entero de la migracion y conviene escribirla,
+-- porque es facil que el proximo en tocar esto la pise:
+--
+--   ENLACE      -> lo que el comprador abre o copia. Visible para todos.
+--   API KEY     -> lo que el vendedor usa para autenticarse ante su pasarela.
+--                  NUNCA se guarda aqui.
+--
+-- La regla del proyecto es que los secretos de pasarela no se meten en un campo
+-- web, y esa regla no se le da la vuelta porque los secretos ahora sean de los
+-- vendedores en vez de la plataforma. Un secreto por vendedor no cabe en un
+-- `wrangler secret put`, que es de nivel de Worker, y guardarlo en claro en D1
+-- significaria que cualquier respaldo o consulta con privilegios leeria la clave
+-- de todos a la vez.
+--
+-- Por eso este campo se limita a URL publicas. No es una omision: es la
+-- decision. Si un dia se necesita llamar a la API de un vendedor desde el
+-- Worker, eso sera otro problema con otra solucion y no rellenando una columna.
+--
+-- ===========================================================================
+--  POR QUE NO SE PONE EN `instrucciones`
+-- ===========================================================================
+-- `instrucciones` ya existe y sirve para texto de ventanilla: "pide a Maria en
+-- el mostratorio". Meter un URL ahi funcionaria tecnicamente, pero el
+-- navegador no puede distinguir un enlace de una frase, asi que no se podria
+-- pintar como algo pulsable, no se podria comprobar que sea seguro antes de
+-- mostrarlo, y quien leyera la base no sabria si esa cadena es una direccion
+-- o una indicacion.
+--
+-- Con su propia columna, el comprador ve un enlace pulsable y el servidor sabe
+-- que tiene que validarlo como URL antes de darlo por bueno.
+--
+-- ===========================================================================
+--  POR QUE `http://` TAMBIEN SIRVE
+-- ===========================================================================
+-- Solo se exige que empiece por `http://` o `https://`. `javascript:` no pasa
+-- por el CHECK de la base ni por la validacion del Worker: si se pintara como
+-- `href`, pulsarlo ejecutaria codigo en la sesion del comprador. Exigir
+-- `https://` ademas dejaria fuera a quien monte su propio cobro en una red
+-- local o con un certificado que no pueda conseguir, y no aporta nada aqui:
+-- el dato es publico, no confidencial.
+--
+-- ===========================================================================
+--  POR QUE ES SEGURO
+-- ===========================================================================
+-- Añadir una columna anulable no toca ninguna fila existente. Las filas que ya
+-- hubiera quedan con `NULL`, que es exactamente "este medio no tiene enlace",
+-- y el resto del codigo ya sabe tratar `null` en `color_marca` y en `red`.
+--
+-- No se comprueba nada mas porque no hace falta: `ALTER TABLE ... ADD COLUMN`
+-- sobre una columna sin `NOT NULL` ni default es una operacion que SQLite
+-- resuelve apuntando al nuevo esquema, sin reescribir la tabla.
+
+ALTER TABLE medios_pago_usuario ADD COLUMN enlace TEXT;
+
+-- La validacion no puede ser un CHECK que exija `http`, porque la mayoria de
+-- medios no tiene enlace y deberian aceptar `NULL`. Un CHECK condicional
+-- existiria pero obligaria a rehacer la tabla entera, y una comprobacion que
+-- solo se ejecuta al guardar ya vive en el Worker, donde ademas puede decir
+-- cual campo fallo. En SQLite no hay `ADD CONSTRAINT` de todos modos.
+--
+-- Lo que SI deja la base protegida es la unica regla que aplica a todos: que
+-- el campo sea anulable y que no se ponga nada que no haya pedido nadie.

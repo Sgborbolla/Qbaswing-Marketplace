@@ -71,6 +71,7 @@ const TOPE_NOMBRE = 80
 const TOPE_INSTRUCCIONES = 600
 const TOPE_RED = 40
 const TOPE_DIRECCION = 120
+const TOPE_ENLACE = 300
 
 /* ===========================================================================
  * Router
@@ -124,7 +125,7 @@ async function listar(peticion: Request, env: Env, usuarioId: number): Promise<R
   const { results } = await env.DB.prepare(
     `SELECT id, clave, nombre, tipo, color_marca,
             numero_cuenta, titular, direccion, red,
-            instrucciones, activo, orden
+            enlace, instrucciones, activo, orden
        FROM medios_pago_usuario
       WHERE usuario_id = ?
       ORDER BY activo DESC, orden, id`,
@@ -165,9 +166,9 @@ async function anadir(peticion: Request, env: Env, usuarioId: number): Promise<R
     insertado = await env.DB.prepare(
       `INSERT INTO medios_pago_usuario
          (usuario_id, clave, nombre, tipo, color_marca,
-          numero_cuenta, titular, direccion, red,
+          numero_cuenta, titular, direccion, red, enlace,
           instrucciones, activo, orden)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         usuarioId,
@@ -179,6 +180,7 @@ async function anadir(peticion: Request, env: Env, usuarioId: number): Promise<R
         campos.titular,
         campos.direccion,
         campos.red,
+        campos.enlace,
         campos.instrucciones,
         campos.activo,
         campos.orden,
@@ -199,7 +201,7 @@ async function anadir(peticion: Request, env: Env, usuarioId: number): Promise<R
   const fila = await env.DB.prepare(
     `SELECT id, clave, nombre, tipo, color_marca,
             numero_cuenta, titular, direccion, red,
-            instrucciones, activo, orden
+            enlace, instrucciones, activo, orden
        FROM medios_pago_usuario WHERE id = ? AND usuario_id = ?`,
   )
     .bind(insertado.meta.last_row_id, usuarioId)
@@ -242,7 +244,7 @@ async function cambiar(peticion: Request, env: Env, usuarioId: number): Promise<
       `UPDATE medios_pago_usuario
           SET nombre = ?, tipo = ?, color_marca = ?,
               numero_cuenta = ?, titular = ?, direccion = ?, red = ?,
-              instrucciones = ?, activo = ?, orden = ?,
+              enlace = ?, instrucciones = ?, activo = ?, orden = ?,
               actualizado_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         WHERE id = ? AND usuario_id = ?`,
     )
@@ -254,6 +256,7 @@ async function cambiar(peticion: Request, env: Env, usuarioId: number): Promise<
         campos.titular,
         campos.direccion,
         campos.red,
+        campos.enlace,
         campos.instrucciones,
         campos.activo,
         campos.orden,
@@ -273,7 +276,7 @@ async function cambiar(peticion: Request, env: Env, usuarioId: number): Promise<
   const fila = await env.DB.prepare(
     `SELECT id, clave, nombre, tipo, color_marca,
             numero_cuenta, titular, direccion, red,
-            instrucciones, activo, orden
+            enlace, instrucciones, activo, orden
        FROM medios_pago_usuario WHERE id = ? AND usuario_id = ?`,
   )
     .bind(id, usuarioId)
@@ -324,6 +327,7 @@ interface Campos {
   titular: string | null
   direccion: string | null
   red: string | null
+  enlace: string | null
   instrucciones: string
   activo: 0 | 1
   orden: number
@@ -384,6 +388,55 @@ function leerCampos(cuerpo: Record<string, unknown>, previo?: Record<string, unk
       'instrucciones',
       `Las instrucciones no pueden pasar de ${TOPE_INSTRUCCIONES} caracteres.`,
     )
+  }
+
+  /*
+   * El enlace de pago publico del vendedor.
+   *
+   * ============================================================================
+   *  POR QUE SOLO `http://` Y `https://`
+   * ============================================================================
+   * Este campo se pinta como `href` en la ficha del producto, es decir, el
+   * comprador lo pulsa. Cualquier cosa que empiece por otro esquema se ejecuta
+   * en su sesion: `javascript:` corre codigo, `data:` carga una pagina dentro de
+   * la nuestra, `file:` ni hablemos.
+   *
+   * Es decir, la validacion no es por higiene ni para que quede bonito: si se
+   * dejara pasar cualquier texto, cualquier vendedor podria ejecutar algo con la
+   * sesion de quien le compra. Y la sesion del comprador lleva sus compras.
+   *
+   * `new URL()` es preferido a un regex porque no se inventa esquemas: valida la
+   * URL de verdad y devuelve `protocol`, que es donde esta la informacion. Un
+   * regex que no contemplara `javascript:` o que fuera demasiado laxo daria por
+   * bueno algo que `new URL()` rechaza.
+   *
+   * La base no lo comprueba a proposito: un CHECK no admite `NULL` de forma
+   * condicional sin rehacer la tabla entera, y la mayoria de los medios no tiene
+   * enlace.
+   */
+  const crudoEnlace = texto(cuerpo.enlace, previo?.enlace)
+  let enlace: string | null = null
+  if (crudoEnlace) {
+    if (crudoEnlace.length > TOPE_ENLACE) {
+      throw ErrorApi.invalido('enlace', `El enlace no puede pasar de ${TOPE_ENLACE} caracteres.`)
+    }
+    let protocolo: string
+    try {
+      protocolo = new URL(crudoEnlace).protocol
+    } catch {
+      // No es una URL en absoluto: `new URL` no la puede analizar.
+      throw ErrorApi.invalido('enlace', 'El enlace no es una direccion valida. Tiene que empezar por https://')
+    }
+    if (protocolo !== 'http:' && protocolo !== 'https:') {
+      // Si es una URL, pero de un esquema peligroso. Se dice cual es, porque el
+      // vendedor probablemente no sepa que `javascript:` existe siquiera: sin
+      // verlo, lo reintentaria igual y con el mismo error.
+      throw ErrorApi.invalido(
+        'enlace',
+        `Solo se admiten enlaces http:// o https://, y el que has puesto es ${protocolo} en vez de una direccion. Si el comprador te tiene que pagar de otra forma, escribe las instrucciones en su campo.`,
+      )
+    }
+    enlace = crudoEnlace
   }
 
   const titular = texto(cuerpo.titular, previo?.titular) || null
@@ -460,6 +513,7 @@ function leerCampos(cuerpo: Record<string, unknown>, previo?: Record<string, unk
     titular,
     direccion,
     red,
+    enlace,
     instrucciones,
     activo: activoFinal,
     orden,
