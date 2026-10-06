@@ -12,6 +12,7 @@
 import '../styles/global.css'
 import Header from '../components/layout/Header.astro'
 import Footer from '../components/layout/Footer.astro'
+import Icono from '../components/Icono.astro'
 
 interface Props {
   title: string
@@ -130,12 +131,93 @@ const urlLogo = new URL('/logo-qbaswing-og.jpg', origen)
     {!sinHeader && <Header />}
 
     <main id="contenido" class="flex-1 w-full">
+      {/*
+        Flecha de ir hacia atrás.
+
+        El Owner pidió que las páginas lleven su flecha. Va AQUI y no en la
+        cabecera por dos razones: la cabecera ya tiene su primer elemento fijo
+        (el logo, que es además lo primero que lee un lector de pantalla y el
+        destino del salto al contenido), y un control de navegación dentro del
+        `<header>` se anunciaría como parte de la identidad del sitio.
+
+        Empieza oculta y solo la quita el JavaScript. Un botón de "volver" que
+        no puede volver es un estado mentiroso: si la persona llegó tecleando la
+        dirección, desde un marcador o desde un enlace de WhatsApp, no hay
+        página anterior DENTRO del sitio y la flecha no se pinta. Las reglas
+        están escritas en el script de abajo.
+      */}
+      <div id="barra-volver" class="container-page hidden pt-4">
+        <button
+          type="button"
+          id="boton-volver"
+          class="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-label-md font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+        >
+          <Icono nombre="arrow_back" class="text-[18px]" />
+          Volver
+        </button>
+      </div>
+
       <slot />
     </main>
 
     {!sinHeader && <Footer />}
   </body>
 </html>
+
+<script>
+  /*
+    ============================================================================
+     * LA FLECHA DE "VOLVER"
+    ============================================================================
+     * Es un `<button>` y no un `<a href>` a una ruta concreta: "atrás" significa
+     * volver a donde estaba, y eso lo decide el navegador, no el sitio. Si
+     * vinieron de `/productos?buscar=tinta` o de una ficha concreta, ahi hay que
+     * regresar; una ruta fija seria adivinar y en general acertar mal.
+
+     * CUANDO SE PINTA
+     * Solo cuando de verdad hay un "atrás" dentro del sitio:
+     *
+     *   1. `document.referrer` tiene que ser del MISMO origen. Si está vacío
+     *      (tecleado, marcador, enlace de WhatsApp) o es de otro sitio, "volver"
+     *      sacaría al usuario de la página en la que está, que es lo contrario
+     *      de lo que pide.
+     *   2. `history.length > 1` porque puede haber referrer y aun así la pestaña
+     *      ser nueva (`target="_blank"`), donde atrás no tiene a donde ir.
+     *
+     * Ninguna de las dos se puede saber en el servidor: el sitio es HTML
+     * estático y Pages entrega lo mismo a todo el mundo. Por eso el botón nace
+     * oculto en el HTML y solo se quita `hidden` desde aquí. Sin JavaScript la
+     * flecha no aparece, que es preferible a una flecha que no hace nada.
+     *
+     * POR QUE NO INTERFERE CON EL CIERRE DE SESION
+     * Este botón hace exactamente lo mismo que la flecha del navegador, que es
+     * un control del navegador y no del sitio. Las cinco barreras descritas más
+     * abajo siguen valiendo: aunque se vuelva atrás, la sesión ya fue revocada
+     * en el Worker y la página restaurada no sirve.
+     */
+  const barraVolver = document.getElementById('barra-volver')
+  const botonVolver = document.getElementById('boton-volver')
+
+  if (barraVolver && botonVolver) {
+    let puedeVolver = false
+
+    try {
+      puedeVolver =
+        document.referrer !== '' &&
+        new URL(document.referrer).origin === window.location.origin &&
+        window.history.length > 1
+    } catch {
+      // Un `referrer` que no se puede leer como URL es un referrer inutil:
+      // mejor no pintar la flecha que pintar una que falla al pulsarla.
+      puedeVolver = false
+    }
+
+    if (puedeVolver) {
+      barraVolver.classList.remove('hidden')
+      botonVolver.addEventListener('click', () => window.history.back())
+    }
+  }
+</script>
 
 <script>
   /*
