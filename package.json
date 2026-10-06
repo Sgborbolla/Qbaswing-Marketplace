@@ -21,7 +21,8 @@
     "fuentes": "node scripts/fuentes.mjs",
     "logo": "node scripts/logo.mjs",
     "iconos": "node scripts/iconos.mjs",
-    "probar:qr": "node scripts/probar-qr.mjs"
+    "probar:qr": "node scripts/probar-qr.mjs",
+    "subir": "node scripts/subir-pages.mjs"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
