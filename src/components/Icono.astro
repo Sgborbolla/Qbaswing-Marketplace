@@ -39,6 +39,10 @@
  * iconos del reves, y muy parecidos a los correctos, que es la peor forma de
  * fallar.
  *
+ * Los logotipos de `ICONOS_MARCA` son la excepcion: no vienen de la fuente sino
+ * de Simple Icons, son SVG normales de `0 0 24 24` y lo guardan junto al
+ * trazado. El componente elige mapa, no insiste con este rectangulo.
+ *
  * ============================================================================
  *  SI ALGUN DIA HACE FALTA UN ICONO CON NOMBRE
  * ============================================================================
@@ -51,7 +55,13 @@
  * el nombre va en el `aria-label` del enlace, no aqui. Por eso el componente no
  * tiene `alt`: un icono decorativo con `alt` se lee dos veces.
  */
-import { ICONOS, ICONOS_RELLENOS, VIEWBOX_ICONO, type NombreIcono } from '../lib/iconos'
+import {
+  ICONOS,
+  ICONOS_MARCA,
+  ICONOS_RELLENOS,
+  VIEWBOX_ICONO,
+  type NombreIcono,
+} from '../lib/iconos'
 
 interface Props {
   /**
@@ -81,12 +91,27 @@ interface Props {
 
 const { nombre, class: clases = '', relleno = false } = Astro.props
 
-const trazado = relleno ? (ICONOS_RELLENOS[nombre] ?? ICONOS[nombre]) : ICONOS[nombre]
+/**
+ * Cada mapa trae su propio rectangulo.
+ *
+ * Los de la fuente comparten VIEWBOX_ICONO; los de marca (logotipos) guardan
+ * el suyo junto al trazado. Elegirlo aqui y no en el CSS es lo que hace que un
+ * logotipo de Simple Icons no salga ni fuera de caja ni del reves.
+ */
+const marca = nombre in ICONOS_MARCA ? ICONOS_MARCA[nombre as keyof typeof ICONOS_MARCA] : null
+
+const trazado = marca
+  ? marca.d
+  : relleno
+    ? (ICONOS_RELLENOS[nombre] ?? ICONOS[nombre as keyof typeof ICONOS])
+    : ICONOS[nombre as keyof typeof ICONOS]
+
+const viewBox = marca ? marca.viewBox : VIEWBOX_ICONO
 ---
 
 <svg
   xmlns="http://www.w3.org/2000/svg"
-  viewBox={VIEWBOX_ICONO}
+  viewBox={viewBox}
   width="1em"
   height="1em"
   fill="currentColor"

@@ -37,6 +37,12 @@
  * hacia abajo. Por eso el componente `Icono.astro` copia ese `viewBox` tal cual
  * y no "lo arregla" por unaconversion que lo dejaria del reves.
  *
+ * Los iconos de MARCA (logotipos) no salen de ahi: Google los retiro de la
+ * fuente y el nombre devuelve un 404. Van en `MARCAS`, se bajan de Simple
+ * Icons, que los distribuye con CC0, y cada uno guarda SU `viewBox`, que es el
+ * normal `0 0 24 24`. `Icono.astro` elige rectangulo segun el mapa; forzarles
+ * el de la fuente los dejaria fuera de la caja o del reves.
+ *
  * ============================================================================
  *  LA COMPROBACION QUE IMPORTANTA
  * ============================================================================
@@ -117,6 +123,32 @@ const DESDE_JAVASCRIPT = [
  * sin relleno sin avisar.
  */
 const RELLENOS = ['code', 'checkroom', 'payments', 'timer', 'storefront', 'verified_user']
+
+/**
+ * Iconos de MARCA, que Material Symbols no trae.
+ *
+ * Material Symbols no tiene logotipos: Google los retiro de la fuente por
+ * motivos de marca registrada y el nombre devuelve un 404. Por eso la fila de
+ * redes del pie usa iconos genericos (`send` para Telegram, `chat` para
+ * WhatsApp) y alli no hace falta mas, porque el nombre de la red esta escrito
+ * al lado.
+ *
+ * En la zona de CONTACTO del pie si hace falta: ahi el numero no se publica y
+ * el icono es lo unico que queda, asi que una burbuja generica no identifica
+ * nada. El logotipo de WhatsApp sale de Simple Icons, que los distribuye con
+ * licencia CC0.
+ *
+ * Cada marca guarda SU viewBox. Es un SVG normal de 0 0 24 24, no un glifo de
+ * la fuente con el 0 -960 960 960, y forzarle el de Material la dejaria fuera
+ * de la caja o del reves: exactamente el fallo que explica el comentario de
+ * VIEWBOX_ICONO. Por eso `iconos.ts` genera dos mapas y no uno.
+ *
+ * Se baja aqui y se pega en `src/lib/iconos.ts`. En tiempo de ejecucion el
+ * sitio no pide nada a jsdelivr ni a nadie.
+ */
+const MARCAS = {
+  whatsapp: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/whatsapp.svg',
+}
 
 /** Todos los `.astro` del proyecto, en una lista. */
 /**
@@ -249,8 +281,14 @@ async function main() {
     }
   }
 
-  const lista = [...usados].sort()
-  console.log(`\n${lista.length} iconos referenciados en ${archivos.length} archivos .astro\n`)
+  // Un nombre de marca no se pide a Google: ahi no existe y daria 404. Se
+  // separan antes de buscarlos, porque el error de Google es un 404 sin
+  // contexto y el de aqui dice cual es el problema.
+  const nombresMarca = [...usados].filter((n) => n in MARCAS).sort()
+  const lista = [...usados].filter((n) => !(n in MARCAS)).sort()
+
+  console.log(`\n${lista.length} iconos de Material Symbols + ${nombresMarca.length} de marca`)
+  console.log(`en ${archivos.length} archivos .astro/.ts\n`)
 
   const trazados = []
 
@@ -284,6 +322,25 @@ async function main() {
     process.stdout.write(`  ${`${nombre} (relleno)`.padEnd(22)} ${d.length.toString().padStart(4)} bytes de trazado\n`)
   }
 
+  /**
+   * Los de marca, que salen de Simple Icons y no de Google.
+   *
+   * Van aparte porque traen SU viewBox (`0 0 24 24`, el de un SVG normal) y el
+   * `viewBox` unico de mas abajo es el de los glifos de la fuente. Mezclarlos
+   * seria el fallo que explica el comentario de VIEWBOX_ICONO: o el logotipo
+   * saldria fuera de la caja o invertido.
+   */
+  const marcas = []
+  for (const nombre of nombresMarca) {
+    const svg = await bajar(MARCAS[nombre])
+    const d = svg.match(/<path[^>]*\bd="([^"]+)"/)?.[1]
+    if (!d) throw new Error(`${nombre}: el svg de Simple Icons no trae ningun atributo d`)
+    const viewBox = svg.match(/viewBox="([^"]+)"/)?.[1]
+    if (!viewBox) throw new Error(`${nombre}: el svg de Simple Icons no trae viewBox`)
+    marcas.push({ nombre, d, viewBox })
+    process.stdout.write(`  ${`${nombre} (marca)`.padEnd(22)} ${d.length.toString().padStart(4)} bytes de trazado\n`)
+  }
+
   // El viewBox tiene que ser el mismo para todos. Si no lo fuera, `Icono.astro`
   // tendria que guardarlo por icono, y un unico `viewBox` en el componente seria
   // una suposicion que un dia se rompe en un solo icono y en ninguno mas.
@@ -294,8 +351,27 @@ async function main() {
 
   const lineas = trazados.map((t) => `  ${t.nombre}: '${t.d}',`)
   const lineasRelleno = rellenos.map((t) => `  ${t.nombre}: '${t.d}',`)
+  const lineasMarca = marcas.map(
+    (t) => `  ${t.nombre}: { d: '${t.d}', viewBox: '${t.viewBox}' },`,
+  )
   const total =
-    [...trazados, ...rellenos].reduce((suma, t) => suma + t.d.length, 0)
+    [...trazados, ...rellenos, ...marcas].reduce((suma, t) => suma + t.d.length, 0)
+
+  const bloqueMarca = `
+/**
+ * Iconos de MARCA, con su viewBox propio.
+ *
+ * No salen de Google: Material Symbols no trae logotipos, asi que estos vienen
+ * de Simple Icons (CC0) y cada uno guarda su rectangulo, que es el normal
+ * \`0 0 24 24\` y NO el \`0 -960 960 960\` de la fuente. \`Icono.astro\` elige
+ * viewBox segun el mapa al que pertenezca el nombre.
+ *
+ * Un icono que esta aqui NO esta en \`ICONOS\`: los dos mapas no se solapan.
+ */
+export const ICONOS_MARCA = {
+${lineasMarca.join('\n')}
+} as const
+`
 
   const contenido = `/**
  * Trazados de los iconos del sitio.
@@ -303,13 +379,16 @@ async function main() {
  * ============================================================================
  *  GENERADO POR scripts/iconos.mjs — NO EDITAR A MANO
  * ============================================================================
- * Cada \`d\` es el atributo del SVG que publica Google para ese icono de Material
- * Symbols, copiado tal cual. Para agregar un icono: se escribe en el .astro, se
- * corre \`npm run iconos\`, y el script falla si el nombre no existe en Google.
+ * Cada \`d\` es el atributo de un SVG copiado tal cual de quien lo publica: los
+ * ${trazados.length} de \`ICONOS\` de Google (Material Symbols) y los ${marcas.length} de
+ * \`ICONOS_MARCA\` de Simple Icons (logotipos, que Google no distribuye). Para
+ * agregar un icono: se escribe en el .astro, se corre \`npm run iconos\`, y el
+ * script falla si el nombre no existe en ninguno de los dos.
  *
- * viewBox de todos: \`${[...viewBoxes][0]}\`. No es el habitual \`0 0 24 24\`: la
+ * viewBox de la fuente: \`${[...viewBoxes][0]}\`. No es el habitual \`0 0 24 24\`: la
  * fuente trabaja con la Y hacia arriba y el SVG con la Y hacia abajo, asi que
- * ese rectangulo es el que recorta el dibujo en su sitio.
+ * ese rectangulo es el que recorta el dibujo en su sitio. Los de marca traen
+ * el suyo junto al trazado, y \`Icono.astro\` los separa.
  *
  * Se guardan aqui y no como archivos sueltos porque son unos 17 KB en total y
  * docenas de peticiones menos en cada pagina.
@@ -339,11 +418,14 @@ ${lineas.join('\n')}
 export const ICONOS_RELLENOS: Partial<Record<NombreIcono, string>> = {
 ${lineasRelleno.join('\n')}
 }
-
-export type NombreIcono = keyof typeof ICONOS
+${bloqueMarca}
+export type NombreIcono = keyof typeof ICONOS | keyof typeof ICONOS_MARCA
 
 /**
- * El viewBox que comparten todos los iconos.
+ * El viewBox que comparten los iconos de Material Symbols.
+ *
+ * Los de marca no lo usan: traen el suyo en \`ICONOS_MARCA\`, porque son SVG
+ * normales de \`0 0 24 24\` y este es el de los glifos de la fuente.
  *
  * Sin las comillas de acento del comentario de mas arriba: al ser el valor de un
  * atributo SVG, unas backticks literales lo hacen invalido y el navegador lo
@@ -356,8 +438,10 @@ export const VIEWBOX_ICONO = '${[...viewBoxes][0]}'
 
   console.log(
     `\nescrito: ${relative(RAIZ, DESTINO)}\n` +
-      `${trazados.length} iconos + ${rellenos.length} rellenos, ${(total / 1024).toFixed(1)} KB de trazados\n` +
-      `viewBox comun: ${[...viewBoxes][0]}`,
+      `${trazados.length} iconos + ${rellenos.length} rellenos + ${marcas.length} marcas, ` +
+      `${(total / 1024).toFixed(1)} KB de trazados\n` +
+      `viewBox fuente: ${[...viewBoxes][0]}` +
+      (marcas.length ? ` | marca: ${[...new Set(marcas.map((m) => m.viewBox))].join(', ')}` : ''),
   )
 }
 

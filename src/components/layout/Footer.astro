@@ -65,6 +65,9 @@ import Logo from '../Logo.astro'
 import { COMISIONES } from '../../lib/tipos'
 import { urlDeRed } from '../../lib/plataforma'
 import { infoIdioma } from '../../i18n/idiomas'
+import { diccionarioDe, rellenar } from '../../i18n/diccionario'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 
 /**
  * Ejecuta una llamada a la API y, si falla, devuelve el respaldo.
@@ -135,38 +138,38 @@ const redesConUrl = redes
  */
 const COLUMNAS = [
   {
-    titulo: 'Marketplace',
+    titulo: t.footer.colMarketplace,
     enlaces: [
-      { texto: 'Productos', href: '/productos' },
-      { texto: 'Destacados', href: '/productos?orden=destacados' },
-      { texto: 'Espacios y paquetes', href: '/espacios' },
+      { texto: t.footer.enProductos, href: '/productos' },
+      { texto: t.footer.enDestacados, href: '/productos?orden=destacados' },
+      { texto: t.footer.enEspacios, href: '/espacios' },
     ],
   },
   {
-    titulo: 'Comprar',
+    titulo: t.footer.colComprar,
     enlaces: [
-      { texto: 'Carrito', href: '/carrito' },
-      { texto: 'Pasar por caja', href: '/pagar' },
-      { texto: 'Mis descargas', href: '/descargas' },
-      { texto: 'Preguntas frecuentes', href: '/faq' },
+      { texto: t.footer.enCarrito, href: '/carrito' },
+      { texto: t.footer.enPagar, href: '/pagar' },
+      { texto: t.footer.enDescargas, href: '/descargas' },
+      { texto: t.footer.enFaq, href: '/faq' },
     ],
   },
   {
-    titulo: 'Vender',
+    titulo: t.footer.colVender,
     enlaces: [
-      { texto: 'Panel del vendedor', href: '/panel' },
-      { texto: 'Subir producto', href: '/panel/nuevo' },
-      { texto: 'Consola del Owner', href: '/owner' },
-      { texto: 'Crear cuenta', href: '/registro' },
+      { texto: t.footer.enPanel, href: '/panel' },
+      { texto: t.footer.enSubir, href: '/panel/nuevo' },
+      { texto: t.footer.enOwner, href: '/owner' },
+      { texto: t.footer.enCrearCuenta, href: '/registro' },
     ],
   },
   {
-    titulo: 'Plataforma',
+    titulo: t.footer.colPlataforma,
     enlaces: [
-      { texto: 'Contacto', href: '/contacto' },
-      { texto: 'Nosotros', href: '/nosotros' },
-      { texto: 'Terminos', href: '/terminos' },
-      { texto: 'Privacidad', href: '/privacidad' },
+      { texto: t.footer.enContacto, href: '/contacto' },
+      { texto: t.footer.enNosotros, href: '/nosotros' },
+      { texto: t.footer.enTerminos, href: '/terminos' },
+      { texto: t.footer.enPrivacidad, href: '/privacidad' },
     ],
   },
 ] as const
@@ -227,7 +230,7 @@ const anio = new Date().getFullYear()
     -->
     <div class="grid gap-10 lg:grid-cols-12">
       <div class="lg:col-span-4">
-        <a href="/" class="flex items-center gap-2.5" aria-label="QBASwing Marketplace, ir al inicio">
+        <a href="/" class="flex items-center gap-2.5" aria-label={t.nav.irInicio}>
           <Logo altura={40} alt="" />
           {/*
             Nombre COMPLETO y no solo "QBASwing".
@@ -248,8 +251,7 @@ const anio = new Date().getFullYear()
           </span>
         </a>
         <p class="mt-4 max-w-sm text-body-md text-inverse-on-surface/70">
-          Marketplace de software, plantillas, productos digitales y artesanias de
-          Cuba y el mundo.
+          {t.footer.descripcion}
         </p>
 
         <!--
@@ -289,11 +291,13 @@ const anio = new Date().getFullYear()
               <li class="flex items-start gap-2">
                 <Icono nombre="verified" class="mt-0.5 text-[16px] text-tertiary-container" />
                 <p class="text-body-sm text-inverse-on-surface/70">
-                  <span class="font-semibold text-white">Regla {r}</span>
+                  <span class="font-semibold text-white">
+                    {t.footer.regla} {r}
+                  </span>
                   {' · '}
                   {r === 'A'
-                    ? `${COMISIONES.A.comisionQBASwing}% para QBASwing`
-                    : `${COMISIONES[r].comisionQBASwing}% de comision`}
+                    ? rellenar(t.footer.comisionA, { n: COMISIONES.A.comisionQBASwing })
+                    : rellenar(t.footer.comisionBC, { n: COMISIONES[r].comisionQBASwing })}
                 </p>
               </li>
             ))
@@ -332,7 +336,9 @@ const anio = new Date().getFullYear()
       telefono de ejemplo es peor que ningun telefono: se puede marcar.
     -->
     <div class="mt-12 border-t border-inverse-on-surface/15 pt-10">
-      <h2 class="font-headline text-title-lg font-semibold text-white">Contacto</h2>
+      <h2 class="font-headline text-title-lg font-semibold text-white">
+        {t.footer.enContacto}
+      </h2>
 
       <ul class="mt-5 flex flex-wrap gap-x-8 gap-y-3">
         {
@@ -361,6 +367,16 @@ const anio = new Date().getFullYear()
             </li>
           )
         }
+        <!--
+          Solo el icono de WhatsApp, sin el numero: el enlace ya lleva el
+          telefono dentro de la direccion, y publicarlo aqui lo dejaria a la
+          vista de todo el que abra la pagina.
+
+          El nombre va en aria-label porque el Icono es decorativo (siempre
+          lleva aria-hidden) y el enlace no tiene texto: sin eso el lector de
+          pantalla diria "enlace" y nada mas. `WhatsApp` no se traduce: es una
+          marca.
+        -->
         {
           contacto.whatsapp && (
             <li>
@@ -368,10 +384,10 @@ const anio = new Date().getFullYear()
                 href={`https://wa.me/${contacto.whatsapp.replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="flex items-center gap-2 text-body-md text-inverse-on-surface/70 transition-colors hover:text-white"
+                aria-label="WhatsApp"
+                class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[24px] text-primary-container transition-colors hover:bg-inverse-on-surface/10 hover:text-white"
               >
-                <Icono nombre="chat" class="text-[16px] text-primary-container" />
-                {contacto.whatsapp}
+                <Icono nombre="whatsapp" />
               </a>
             </li>
           )
@@ -391,8 +407,7 @@ const anio = new Date().getFullYear()
       {
         !contacto.telefono && !contacto.email && !contacto.whatsapp && !contacto.direccion && (
           <p class="mt-5 text-body-sm text-inverse-on-surface/50">
-            El Owner aun no publico datos de contacto. Escribe por Telegram o WhatsApp
-            desde los botones de arriba.
+            {t.footer.sinContacto}
           </p>
         )
       }
@@ -414,12 +429,7 @@ const anio = new Date().getFullYear()
     -->
     <div class="mt-12 border-t border-inverse-on-surface/15 pt-8">
       <p class="max-w-4xl text-body-sm leading-relaxed text-inverse-on-surface/55">
-        QBASwing Marketplace no es una institucion financiera y no custodia fondos. En la
-        Regla A el pago pasa por la pasarela y la plataforma retiene el 5% que fija la
-        regla; en las Reglas B y C el pago va directo al autor y la plataforma no
-        interviene. Los enlaces de descarga de productos digitales duran 5 minutos y solo
-        funcionan para quien compro. Los productos digitales de autores externos se
-        publican despues de que el Owner los apruebe.
+        {t.footer.descargo}
       </p>
     </div>
   </div>
@@ -479,11 +489,13 @@ const anio = new Date().getFullYear()
         <div class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-body-sm text-bandera-dorado/70">
           <p class="flex items-center gap-1.5">
             <Icono nombre="verified" class="text-label-sm text-bandera-dorado" />
-            Patrocinado por <span class="font-semibold text-bandera-dorado">Freeman</span>
+            {t.footer.patrocinadoPor}{' '}
+            <span class="font-semibold text-bandera-dorado">Freeman</span>
           </p>
           <p class="flex items-center gap-1.5">
             <Icono nombre="palette" class="text-label-sm text-bandera-dorado-suave" />
-            Diseñado por <span class="font-semibold text-bandera-dorado">QBASwing Designer y Freeman Impresiones</span>
+            {t.footer.disenadoPor}{' '}
+            <span class="font-semibold text-bandera-dorado">QBASwing Designer y Freeman Impresiones</span>
             <span class="text-bandera-dorado/50">&copy; {anio}</span>
           </p>
         </div>
@@ -495,7 +507,7 @@ const anio = new Date().getFullYear()
           dice la seccion 6 del Documento Maestro.
         -->
         <p class="mt-3 text-body-sm text-bandera-dorado/55">
-          &copy; {anio} QBASwing Marketplace. Todos los derechos reservados.
+          &copy; {anio} QBASwing Marketplace. {t.footer.derechos}.
         </p>
       </div>
 
@@ -508,10 +520,10 @@ const anio = new Date().getFullYear()
       <div class="flex items-center gap-x-4">
         <span
           class="border-r border-inverse-on-surface/20 pr-4 text-label-sm text-inverse-on-surface/70"
-          title={`Idioma: ${idiomaActual.nombre}`}
+          title={`${t.idioma.titulo}: ${idiomaActual.nombre}`}
         >
           {idiomaActual.codigo.slice(0, 2).toUpperCase()}
-          <span class="sr-only">Idioma actual: {idiomaActual.nombre}</span>
+          <span class="sr-only">{t.idioma.actual}: {idiomaActual.nombre}</span>
         </span>
 
         {

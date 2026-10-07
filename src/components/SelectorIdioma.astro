@@ -36,8 +36,10 @@
  */
 import Icono from '../components/Icono.astro'
 import { IDIOMAS } from '../i18n/config'
-import { cambiarIdioma, idiomaCompleto } from '../i18n/diccionario'
+import { cambiarIdioma, diccionarioDe, idiomaCompleto } from '../i18n/diccionario'
 import { infoIdioma } from '../i18n/idiomas'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 
 /**
  * Iniciales de cada idioma: dos letras, como se ven en un selector de pais.
@@ -138,17 +140,17 @@ const entradas = IDIOMAS.map((codigo: string) => ({
 <details class="group relative" id="selector-idioma">
   <summary
     class="flex cursor-pointer list-none items-center gap-1 rounded-lg px-2 py-1.5 text-on-surface-variant/70 transition-colors hover:bg-primary/6 hover:text-primary"
-    aria-label={`Idioma actual: ${nombreActual}. Cambiar idioma`}
+    aria-label={`${t.idioma.actual}: ${nombreActual}. ${t.idioma.cambiar}`}
   >
     <Icono nombre="language" class="text-[18px] leading-none" />
-    <span class="sr-only">Idioma: {nombreActual}</span>
+    <span class="sr-only">{t.idioma.titulo}: {nombreActual}</span>
   </summary>
 
   <div
     class="absolute right-0 z-50 mt-1.5 max-h-[70vh] w-56 overflow-y-auto rounded-xl border border-outline-variant/50 bg-surface-container-high/95 p-1 shadow-xl backdrop-blur-xl"
   >
     <p class="px-2.5 py-1.5 text-[11px] leading-snug text-on-surface-variant/70">
-      Conserva la pagina actual
+      {t.idioma.conservaPagina}
     </p>
     <ul class="space-y-px">
       {
@@ -179,7 +181,19 @@ const entradas = IDIOMAS.map((codigo: string) => ({
               <span class="flex-1 truncate">{e.nombre}</span>
 
               {!e.completo && (
-                <Icono nombre="progress_activity" class="shrink-0 text-[13px] text-on-surface-variant/40" />
+                <>
+                  <Icono
+                    nombre="progress_activity"
+                    class="shrink-0 text-[13px] text-on-surface-variant/40"
+                  />
+                  {/*
+                    El icono de "en proceso" es decorativo (`Icono` lleva
+                    `aria-hidden` fijo), asi que sin este texto el lector de
+                    pantalla anunciaría el idioma igual que los completos y no
+                    habría manera de saber cuál esta a medio traducir.
+                  */}
+                  <span class="sr-only">{t.idioma.sinTraducir}</span>
+                </>
               )}
               {e.activo && (
                 <Icono nombre="check" class="shrink-0 text-[14px] text-primary" />
@@ -193,7 +207,7 @@ const entradas = IDIOMAS.map((codigo: string) => ({
     {
       guardado && (
         <p class="border-t border-outline-variant/40 px-3 py-2 text-label-sm text-on-surface-variant/80">
-          Guardamos tu preferencia para la proxima visita.
+          {t.idioma.guardado}
         </p>
       )
     }

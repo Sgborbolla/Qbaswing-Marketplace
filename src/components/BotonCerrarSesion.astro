@@ -1,5 +1,9 @@
 ---
 import Icono from '../components/Icono.astro'
+import { diccionarioDe } from '../i18n/diccionario'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
+
 /**
  * Boton pequeno de cerrar sesion, con confirmacion.
  *
@@ -51,7 +55,7 @@ import Icono from '../components/Icono.astro'
   data-cerrar-sesion
 >
   <Icono nombre="logout" class="text-label-md" />
-  Salir
+  {t.cuenta.salirCorto}
 </button>
 
 {/*
@@ -66,13 +70,10 @@ import Icono from '../components/Icono.astro'
 >
   <div class="p-6">
     <h2 id="titulo-salir" class="font-headline text-title-lg font-semibold text-on-surface">
-      Salir de tu cuenta
+      {t.cuenta.salirTitulo}
     </h2>
 
-    <p class="mt-2 text-body-md text-on-surface-variant">
-      Vas a tener que entrar otra vez con tu correo y tu contrasena. Esta sesion se
-      cierra aqui, no en los otros dispositivos donde tengas la cuenta abierta.
-    </p>
+    <p class="mt-2 text-body-md text-on-surface-variant">{t.cuenta.salirTexto}</p>
 
     <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
       {/*
@@ -87,16 +88,17 @@ import Icono from '../components/Icono.astro'
         class="inline-flex items-center justify-center gap-2 rounded-full border border-outline-variant px-5 py-2.5 text-body-md font-semibold text-on-surface transition hover:border-primary"
       >
         <Icono nombre="close" class="text-label-md" />
-        Mantener sesion
+        {t.cuenta.mantenerSesion}
       </button>
 
       <button
         type="button"
         data-salir-ya
+        data-saliendo={t.cuenta.saliendo}
         class="inline-flex items-center justify-center gap-2 rounded-full bg-error px-5 py-2.5 text-body-md font-semibold text-on-error transition hover:opacity-90 disabled:opacity-50"
       >
         <Icono nombre="logout" class="text-label-md" />
-        <span data-texto-salir>Salir</span>
+        <span data-texto-salir>{t.cuenta.salirCorto}</span>
       </button>
     </div>
   </div>
@@ -150,13 +152,30 @@ import Icono from '../components/Icono.astro'
 
   botonSalirYa?.addEventListener('click', async () => {
     botonSalirYa.disabled = true
-    if (textoSalir) textoSalir.textContent = 'Saliendo...'
+
+    /*
+      El "Saliendo..." viene del servidor en el atributo `data-saliendo`.
+
+      Este script es un modulo del navegador: no pasa por el compilador de
+      Astro, no ve el frontmatter y no puede llamar a `diccionarioDe`. Si se
+      escribiera la palabra aqui, saldria en espanol dentro de una pagina en
+      japones justo en el momento en que la persona pulsa "salir", que es el
+      ultimo texto que va a ver antes de que se recargue.
+    */
+    const saliendo = botonSalirYa.dataset.saliendo ?? 'Saliendo...'
+    if (textoSalir) textoSalir.textContent = saliendo
 
     await cerrarSesion()
 
     // `replace` y no `assign`: cambia la entrada del historial en vez de anadir
     // una, asi que el boton de atras no vuelve a esta pagina. Ver la nota del
     // archivo de arriba.
-    window.location.replace('/')
+    //
+    // Y vuelve al INICIO DEL IDIOMA, no a `/`. En `/ja/panel`, mandar a `/`
+    // seria cambiarle el idioma a la persona en medio de una salida: entro en
+    // japones, salio, y el sitio le queda en espanol. `document.documentElement.lang`
+    // es el mismo valor que puso `Base.astro`, asi que no hay tabla que mantener.
+    const lang = document.documentElement.lang || 'es'
+    window.location.replace(lang === 'es' ? '/' : `/${lang}`)
   })
 </script>

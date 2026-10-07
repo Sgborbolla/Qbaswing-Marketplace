@@ -20,14 +20,17 @@ import Icono from '../../components/Icono.astro'
 import Logo from '../Logo.astro'
 import SelectorIdioma from '../SelectorIdioma.astro'
 import BotonCerrarSesion from '../BotonCerrarSesion.astro'
+import { diccionarioDe } from '../../i18n/diccionario'
 
-/** Enlaces de navegacion principal. Rutas de referencia: se crean con las 16
- *  paginas del plan. Hoy apuntan a rutas que todavia no existen, y por eso el
- *  sitio entrega un 404 real en vez de un placeholder. */
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
+
+/** Enlaces de navegacion principal. Las etiquetas salen del diccionario, no
+ *  estan escritas aqui: el dia que cambie el texto de la cabecera se cambia en
+ *  un sitio y lo cogen las 22 versiones idiomaticas de las 18 paginas. */
 const NAVEGACION = [
-  { href: '/productos', etiqueta: 'Productos' },
-  { href: '/espacios', etiqueta: 'Espacios' },
-  { href: '/vender', etiqueta: 'Vender' },
+  { href: '/productos', etiqueta: t.nav.productos },
+  { href: '/espacios', etiqueta: t.nav.espacios },
+  { href: '/vender', etiqueta: t.nav.vender },
 ]
 
 /** Rutas con `data-alt` en los mockups y nombre de icono Material equivalente. */
@@ -49,7 +52,7 @@ const ICONO = {
     <a
       href="/"
       class="flex shrink-0 items-center gap-2.5 rounded-md"
-      aria-label="QBASwing Marketplace, ir al inicio"
+      aria-label={t.nav.irInicio}
     >
       <Logo altura={40} />
       {/* El nombre va con los tres tonos de la bandera, igual que en el pie pero
@@ -65,7 +68,7 @@ const ICONO = {
 
     <!-- Navegacion de escritorio. El <nav> lleva aria-label porque hay varios
          bloques de enlaces y un lector de pantalla necesita distinguirlos. -->
-    <nav aria-label="Navegacion principal" class="hidden md:block">
+    <nav aria-label={t.nav.principal} class="hidden md:block">
       <ul class="flex items-center gap-1">
         {
           NAVEGACION.map((item) => (
@@ -92,14 +95,14 @@ const ICONO = {
       role="search"
       class="hidden lg:block"
     >
-      <label for="busqueda" class="sr-only">Buscar productos</label>
+      <label for="busqueda" class="sr-only">{t.nav.buscar}</label>
       <div class="relative">
         <Icono nombre={ICONO.buscar} class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-label-md text-on-surface-variant" />
         <input
           type="search"
           id="busqueda"
           name="q"
-          placeholder="Buscar productos"
+          placeholder={t.nav.buscar}
           autocomplete="off"
           class="w-64 rounded-full border border-outline-variant bg-surface-container-low py-2 pl-10 pr-4 text-body-md text-on-surface placeholder:text-on-surface-variant focus:border-primary"
         />
@@ -132,7 +135,7 @@ const ICONO = {
         href="/iniciar-sesion"
         data-sesion="fuera"
         class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
-        aria-label="Entrar en mi cuenta"
+        aria-label={t.nav.entrar}
       >
         <Icono nombre={ICONO.cuenta} class="text-headline-sm" />
       </a>
@@ -141,7 +144,7 @@ const ICONO = {
         href="/cuenta"
         data-sesion="dentro"
         class="hidden rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
-        aria-label="Mi cuenta"
+        aria-label={t.nav.cuenta}
       >
         <Icono nombre={ICONO.cuenta} class="text-headline-sm" />
       </a>
@@ -153,7 +156,7 @@ const ICONO = {
       <a
         href="/carrito"
         class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
-        aria-label="Carrito de compras"
+        aria-label={t.nav.carritoCompras}
       >
         <Icono nombre={ICONO.carrito} class="text-headline-sm" />
       </a>

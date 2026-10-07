@@ -99,6 +99,7 @@ import Base from '../layouts/Base.astro'
 import { precioONoDisponible } from '../lib/formato'
 import { miniaturaDeCategoria } from '../lib/miniaturas'
 import { COMISIONES } from '../lib/tipos'
+import { TIRA } from '../data/tira'
 
 const { listarProductos, listarPaquetes, listarCategorias } = await import('../lib/api')
 
@@ -194,20 +195,99 @@ const ICONO = {
   archivo: 'download',
   personaVerificada: 'verified_user',
 } as const
+
+/*
+  TIRA DE PRODUCTOS DEL HERO: `src/data/tira.ts`, que es donde estan las
+  ocho tarjetas y de donde sale tambien el verificador de la tira
+  (`scripts/simular-tira.mjs`).
+*/
 ---
 
 <Base title="QBASwing Marketplace">
   <!-- ======================================================================
        HERO
        ====================================================================== -->
-  <section class="relative w-full overflow-hidden pb-space-xl">
+  <section class="relative w-full overflow-hidden pb-[7rem]">
+    <!--
+      FONDO DEL HERO: cuatro fotos de mercados REALES, con producto a la
+      vista, que se sustituyen con fundido cruzado y zoom lento. El texto de
+      encima NO se mueve ni cambia de color; lo que garantiza que siga
+      legible es el velo de abajo.
+
+      Fuentes (Wikimedia Commons, licencia CC0: sin crédito obligatorio, sin
+      terceros en tiempo de ejecucion porque las imagenes estan en
+      `public/imagenes/mercado` y las sirve el propio sitio):
+        fondo-alimentos.jpg  mercado de alimentos, puestos llenos de producto
+        fondo-mercado.jpg    puesto callejero de frutas, vendedora incluida
+        fondo-ropa.jpg       puesto de ropa, Pool Market (Cornwall)
+        fondo-bazar.jpg      pasillo de supermercado
+
+      Las cuatro son apaisadas y se recortan con `object-fit: cover`, asi que
+      el corte central sirve para cualquier relacion. 617 KB entre las cuatro.
+
+      POR QUE EL VELO ES TAN FUERTE (0.94 a la izquierda):
+      el texto esta sobre la foto, no al lado. Con `--color-on-surface-variant`
+      (#424653) hacen falta 7:1 para AAA, y 0.94 de velo sobre un pixel NEGRO
+      de foto da 7.6:1. Bajarlo a 0.8 haria la foto mas visible y dejaria el
+      texto del parrafo en 5:1. La foto se abre a partir de `max(840px, 50% +
+      160px)`, que es siempre despues del ultimo pixel de texto: el contenido
+      esta limitado a `max-w-3xl` (768px) y el contenedor anade 32px, asi que
+      el texto acaba como maximo en 800px, y en pantallas anchas en
+      `50% + 80px`. Las dos comprobaciones caben dentro de ese max().
+    -->
+    <div class="hero-fondo" aria-hidden="true">
+      <img
+        class="hero-foto hero-foto--1"
+        src="/imagenes/mercado/fondo-alimentos.jpg"
+        alt=""
+        width="1120"
+        height="700"
+        fetchpriority="high"
+        decoding="async"
+      />
+      <img
+        class="hero-foto hero-foto--2"
+        src="/imagenes/mercado/fondo-mercado.jpg"
+        alt=""
+        width="1120"
+        height="700"
+        loading="lazy"
+        decoding="async"
+      />
+      <img
+        class="hero-foto hero-foto--3"
+        src="/imagenes/mercado/fondo-ropa.jpg"
+        alt=""
+        width="1120"
+        height="700"
+        loading="lazy"
+        decoding="async"
+      />
+      <img
+        class="hero-foto hero-foto--4"
+        src="/imagenes/mercado/fondo-bazar.jpg"
+        alt=""
+        width="1120"
+        height="700"
+        loading="lazy"
+        decoding="async"
+      />
+      <div class="hero-velo"></div>
+    </div>
+
     <div class="container-page relative z-10 pt-12 md:pt-20">
       <!--
         Las tres etiquetas de arriba. Las dos que hablan de comisiones son las
         reglas reales; la del ecosistema se cambio porque "descentralizado" es
         falso aca: todo corre en una sola cuenta de Cloudflare.
       -->
-      <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+      <!--
+        Todo el contenido del hero va limitado a max-w-3xl (768px). No es un
+        capricho tipografico: es lo que deja libre la derecha para que la foto
+        de fondo se vea, y lo que garantiza que ninguna letra caiga fuera de la
+        zona donde el velo vale 0.94.
+      -->
+      <div class="flex max-w-3xl flex-wrap items-center gap-x-5 gap-y-2">
         <span
           class="inline-flex items-center gap-1.5 rounded-full bg-primary-container/10 px-3 py-1 text-label-sm font-semibold text-primary"
         >
@@ -227,7 +307,7 @@ const ICONO = {
         </span>
       </div>
 
-      <h1 class="mt-6 max-w-4xl font-headline text-headline-lg-mobile text-on-surface md:text-headline-lg">
+      <h1 class="mt-6 max-w-3xl font-headline text-headline-lg-mobile text-on-surface md:text-headline-lg">
         El marketplace creativo y tecnológico de Cuba, con reglas de comisión
         <span class="text-primary">publicadas</span>.
       </h1>
@@ -239,7 +319,7 @@ const ICONO = {
         y quede registrado.
       </p>
 
-      <div class="mt-8 flex flex-wrap gap-3">
+      <div class="mt-8 flex max-w-3xl flex-wrap gap-3">
         <a
           href="/productos"
           class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-body-lg font-semibold text-on-primary transition-all hover:bg-primary-container hover:shadow-e2"
@@ -262,7 +342,7 @@ const ICONO = {
         infraestructura es de Cloudflare. Lo que NO se sostiene es "garantia de
         satisfaccion 100%", asi que no esta.
       -->
-      <ul class="mt-10 flex flex-wrap gap-x-8 gap-y-3">
+      <ul class="mt-10 flex max-w-3xl flex-wrap gap-x-8 gap-y-3">
         <li class="flex items-center gap-2 text-body-md text-on-surface-variant">
           <Icono nombre="done_all" class="text-[18px] text-primary" />
           Activación inmediata
@@ -276,6 +356,54 @@ const ICONO = {
           Descarga solo de lo que compraste
         </li>
       </ul>
+
+      <!--
+        TIRA DE PRODUCTOS AL PIE DEL HERO.
+
+        Ocho tarjetas con doce fotos reales de productos que aqui se venden
+        (ropa, zapatos, panel solar, batería de almacenamiento, mochila, gafas,
+        herramientas, reloj, audio, cámara, café y artesanía), todas CC0 de
+        Wikimedia Commons y recortadas a 400x300. Sin cubiertas dibujadas: si
+        el sitio vende producto real, el hero enseña producto real.
+
+        ENTRADAS Y SALIDAS. Cada tarjeta tiene tres fotos apiladas y las
+        sustituye en un ciclo de 18 s (6 s por foto) con `producto-ciclo`:
+        la que entra sube y se enciende, la que sale sube y se apaga, y las
+        dos cosas duran lo mismo, 0,7 s, de forma que se solapan. El retraso
+        crece 0,4 s por columna, asi que el cambio recorre la fila de
+        izquierda a derecha cada 6 s en vez de saltar todo a la vez. El
+        detalle de por que esos retrasos son esos esta en el frontmatter.
+
+        Van SIN titulo, SIN precio y SIN nombre de vendedor, y el contenedor es
+        `aria-hidden`: son imagenes de lo que se vende aqui, no fichas de
+        productos a la venta. El catalogo esta vacio y no se puede pintar en la
+        portada una venta que no existe; por eso aqui no hay ni un dato que
+        parezca un anuncio. Si algun dia hay catalogo real, esta tira es el sitio
+        natural para las miniaturas que ya devuelve la API.
+
+        El ancho es el del contenedor, no el de la columna de texto: solo hay
+        texto a la izquierda de `max(840px, 50% + 160px)`, y estas imagenes son
+        opacas, asi que no les afecta el velo. Por debajo quedan los 7rem del
+        `pb-[7rem]`, que es la zona donde la mascara deja ver la foto de mercado.
+      -->
+      <div class="tira mt-9 grid grid-cols-4 gap-3 md:grid-cols-8" aria-hidden="true">
+        {TIRA.map((tarjeta) => (
+          <div class="producto">
+            {tarjeta.map((foto) => (
+              <img
+                class="producto-foto"
+                src={foto.src}
+                alt=""
+                width="400"
+                height="300"
+                loading="lazy"
+                decoding="async"
+                style={`animation-delay: ${foto.retraso}s`}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   </section>
 
@@ -859,4 +987,258 @@ const ICONO = {
       </div>
     </div>
   </section>
+
+  <style>
+    /* ======================================================================
+       TIRA DE PRODUCTOS
+
+       Ocho tarjetas, cada una con tres fotos apiladas encima de la otra. La
+       cuadricula pasa de 4 columnas (dos filas) a 8 (una fila) para que nunca
+       quede una fila a medias. El `aspect-ratio` en lugar de un alto fijo es
+       lo que hace que las ocho salgan igual de altas aunque el navegador
+       calcule el ancho distinto en cada pantalla.
+
+       EL CAMBIO DE FOTO. `producto-ciclo` dura 18 s, que son tres fotos de
+       6 s. La foto nueva sube desde 18px y se enciende en los primeros
+       0,7 s (3,889 %). La vieja NO se apaga mientras entra la nueva: se
+       queda al 100 % hasta el 37,222 % (6,7 s), es decir, hasta que la nueva
+       ya esta completamente encendida, y solo entonces sube y se disuelve
+       entre el 37,222 % y el 41,111 %. Con eso la opacidad COMPUESTA de la
+       tarjeta vale 1 en todo instante: si la vieja queda debajo esta opaca y
+       tapa, si queda encima la nueva ya esta opaca debajo y ella se disuelve
+       encima. Con la salida solapada al mismo tiempo que la entrada (ambas de
+       0 a 1 en la misma ventana) la suma seria siempre 1 y la tarjeta
+       tendria solo el 75 % de cobertura a mitad de cada fundido, un destello
+       del fondo azul cada 6 s. Asi no lo hay.
+
+       LA ONDA. El retraso de la tarjeta k es 0,4·k + 6·(k div 4) y el de la
+       foto j se le restan 6·j. Con eso los cambios caen en 0, 0,4 ... 2,8 s,
+       es decir, recorriendo la fila cada 6 s.
+
+       POR QUE EL SALTO DE 6 EN EL SEGUNDO TERCIO. En movil hay cuatro
+       columnas y la pareja (k, k+4) es vertical: comparte exactamente las
+       mismas tres fotos. Si solo mediara el desfase de la onda (1,6 s), las
+       dos enseñarian la misma foto a ratos. Con 7,6 s de diferencia la
+       distancia en MIEMBROS dentro de la ventana de 6 s es siempre 1 o 2 y
+       nunca 0: jamas se ven iguales. Y como 7,6 s ≡ 1,6 s (mod 6 s), el
+       orden visual de la ola sigue siendo creciente.
+       ====================================================================== */
+
+    .producto {
+      position: relative;
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      border-radius: 0.75rem;
+      /* Fondo de respaldo: el mismo azul claro de las miniaturas, por si una
+         foto tarda y se ve el hueco de la tarjeta. */
+      background: #e9f2fd;
+      box-shadow: var(--shadow-e1);
+    }
+
+    .producto-foto {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      /* Valor base: apagada. Solo la que toca esta encendida. */
+      opacity: 0;
+      animation: producto-ciclo 18s linear infinite;
+      will-change: opacity, transform;
+    }
+
+    @keyframes producto-ciclo {
+      0% {
+        opacity: 0;
+        transform: translateY(18px) scale(0.94);
+      }
+      /* 0,7 s: encendida y colocada. */
+      3.889% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      /* 6 s: empieza a subir pero sigue tapando al cien por cien. */
+      33.333% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      /* 6,7 s: la siguiente esta ya del todo encendida, ahora si puede
+         disolverse. */
+      37.222% {
+        opacity: 1;
+        transform: translateY(-12px) scale(1.04);
+      }
+      /* 7,4 s: fuera. */
+      41.111% {
+        opacity: 0;
+        transform: translateY(-18px) scale(1.06);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-18px) scale(1.06);
+      }
+    }
+
+    /* Entrada de la tira completa al cargar: aparece ya montada, sin que las
+       tarjetas salgan de golpe desde abajo una a una. */
+    .tira {
+      animation: tira-entra 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0.3s both;
+    }
+
+    @keyframes tira-entra {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ======================================================================
+       FONDO DEL HERO
+
+       Cuatro fotos que se sustituyen en bucle (28 s: 7 s por foto) con fundido
+       cruzado y zoom lento. Sin librerias y sin terceros: son cuatro JPEG de
+       `public/imagenes/mercado`, 617 KB entre los cuatro.
+
+       EL FUNDIDO CRUZADO DE DOS DIRECCIONES.
+
+       El caso normal es facil: la foto 2 va detras de la 1 en el DOM, asi que
+       basta con que la 2 suba de 0 a 1 mientras la 1 sigue en 1 y luego la 1
+       se apague. Pero en la vuelta del bucle la 1 (ciclo 2) vuelve a estar
+       DETRAS de la 4, y ahi una subida de la 1 no se ve porque la 4 la tapa:
+       al apagarse la 4 habria un corte seco.
+
+       La solucion es que cada foto se apague DESPUES de empezar a aparecer la
+       siguiente y no de golpe: con `opacity` de 0 a 1 en el 3.5% y de 1 a 0
+       entre el 26% y el 33%, la que esta arriba en el DOM o esta subiendo
+       (cubre) o esta bajando (deja ver), en las dos direcciones. Un corte solo
+       se veria si las dos transiciones no se solaparan, y aqui se solapan 1,3 s.
+
+       EL VELO.
+
+       `background-image` es un degradado horizontal con paradas en px reales
+       envueltas en `max()`:
+
+         max(840px, 50% + 160px)   ultima letra posible del contenido
+         max(1140px, ...+460px)    la foto ya se asoma
+         max(1640px, ...+960px)    la foto casi sin velo
+
+       El `max()` es lo que hace que valga en cualquier ancho. En un movil de
+       390px las paradas caen todas fuera de la pantalla y el velo se queda en
+       0.95, que es lo unico que puede ser: el texto ocupa el ancho completo y
+       con una foto detras no hay velo que salve el contraste.
+
+       La mascara de abajo es la otra mitad del diseno: el velo se desvanece en
+       los ultimos 7rem, que es exactamente el `pb-[7rem]` de la seccion, asi
+       que no hay ni un texto en esa zona y la foto sale al descubierto en el
+       borde inferior. Eso es lo que hace que se vea en TODAS las pantallas,
+       tambien en las que el degradado horizontal no llega a abrirse.
+       ====================================================================== */
+
+    .hero-fondo {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      /* Mientras carga la primera foto: casi el mismo tono que la foto velada,
+         para que no haya un parpadeo de aurora a foto. */
+      background: #f4f7ff;
+    }
+
+    .hero-foto {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      opacity: 0;
+      transform: scale(1.03);
+      animation: hero-ciclo 28s linear infinite;
+      will-change: opacity, transform;
+    }
+
+    .hero-foto--1 {
+      animation-delay: 0s;
+    }
+    .hero-foto--2 {
+      animation-delay: 7s;
+    }
+    .hero-foto--3 {
+      animation-delay: 14s;
+    }
+    .hero-foto--4 {
+      animation-delay: 21s;
+    }
+
+    @keyframes hero-ciclo {
+      0% {
+        opacity: 0;
+        transform: scale(1.03);
+      }
+      3.5% {
+        opacity: 1;
+      }
+      26% {
+        opacity: 1;
+      }
+      33% {
+        opacity: 0;
+        transform: scale(1.14);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.14);
+      }
+    }
+
+    .hero-velo {
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(
+        to right,
+        rgba(246, 248, 255, 0.96) 0px,
+        rgba(246, 248, 255, 0.94) max(840px, calc(50% + 160px)),
+        rgba(246, 248, 255, 0.62) max(1140px, calc(50% + 460px)),
+        rgba(246, 248, 255, 0.4) max(1640px, calc(50% + 960px))
+      );
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        #000 0,
+        #000 calc(100% - 7rem),
+        rgba(0, 0, 0, 0.4) 100%
+      );
+      mask-image: linear-gradient(
+        to bottom,
+        #000 0,
+        #000 calc(100% - 7rem),
+        rgba(0, 0, 0, 0.4) 100%
+      );
+    }
+
+    /* Quien pide menos movimiento se queda con la primera foto quieta y con
+       la primera foto de cada tarjeta quieta. Las demas siguen con
+       `opacity: 0`, que es su valor base, asi que no hace falta apagarlas una
+       por una. La tira entra sin desplazamiento. */
+    @media (prefers-reduced-motion: reduce) {
+      .hero-foto {
+        animation: none;
+      }
+      .hero-foto--1 {
+        opacity: 1;
+      }
+      .tira {
+        animation: none;
+      }
+      .producto-foto {
+        animation: none;
+      }
+      .producto-foto:last-child {
+        opacity: 1;
+      }
+    }
+  </style>
 </Base>

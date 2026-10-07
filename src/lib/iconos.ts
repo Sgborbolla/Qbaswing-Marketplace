@@ -4,13 +4,16 @@
  * ============================================================================
  *  GENERADO POR scripts/iconos.mjs — NO EDITAR A MANO
  * ============================================================================
- * Cada `d` es el atributo del SVG que publica Google para ese icono de Material
- * Symbols, copiado tal cual. Para agregar un icono: se escribe en el .astro, se
- * corre `npm run iconos`, y el script falla si el nombre no existe en Google.
+ * Cada `d` es el atributo de un SVG copiado tal cual de quien lo publica: los
+ * 57 de `ICONOS` de Google (Material Symbols) y los 1 de
+ * `ICONOS_MARCA` de Simple Icons (logotipos, que Google no distribuye). Para
+ * agregar un icono: se escribe en el .astro, se corre `npm run iconos`, y el
+ * script falla si el nombre no existe en ninguno de los dos.
  *
- * viewBox de todos: `0 -960 960 960`. No es el habitual `0 0 24 24`: la
+ * viewBox de la fuente: `0 -960 960 960`. No es el habitual `0 0 24 24`: la
  * fuente trabaja con la Y hacia arriba y el SVG con la Y hacia abajo, asi que
- * ese rectangulo es el que recorta el dibujo en su sitio.
+ * ese rectangulo es el que recorta el dibujo en su sitio. Los de marca traen
+ * el suyo junto al trazado, y `Icono.astro` los separa.
  *
  * Se guardan aqui y no como archivos sueltos porque son unos 17 KB en total y
  * docenas de peticiones menos en cada pagina.
@@ -48,7 +51,6 @@ export const ICONOS = {
   forum: 'M880-80 720-240H320q-33 0-56.5-23.5T240-320v-40h440q33 0 56.5-23.5T760-440v-280h40q33 0 56.5 23.5T880-640v560ZM160-473l47-47h393v-280H160v327ZM80-280v-520q0-33 23.5-56.5T160-880h440q33 0 56.5 23.5T680-800v280q0 33-23.5 56.5T600-440H240L80-280Zm80-240v-280 280Z',
   groups: 'M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z',
   history: 'M480-120q-138 0-240.5-91.5T122-440h82q14 104 92.5 172T480-200q117 0 198.5-81.5T760-480q0-117-81.5-198.5T480-760q-69 0-129 32t-101 88h110v80H120v-240h80v94q51-64 124.5-99T480-840q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-480q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-120Zm112-192L440-464v-216h80v184l128 128-56 56Z',
-  image: 'M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm40-80h480L570-480 450-320l-90-120-120 160Zm-40 80v-560 560Z',
   inventory_2: 'M200-80q-33 0-56.5-23.5T120-160v-451q-18-11-29-28.5T80-680v-120q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v120q0 23-11 40.5T840-611v451q0 33-23.5 56.5T760-80H200Zm0-520v440h560v-440H200Zm-40-80h640v-120H160v120Zm200 280h240v-80H360v80Zm120 20Z',
   language: 'M325-111.5q-73-31.5-127.5-86t-86-127.5Q80-398 80-480.5t31.5-155q31.5-72.5 86-127t127.5-86Q398-880 480.5-880t155 31.5q72.5 31.5 127 86t86 127Q880-563 880-480.5T848.5-325q-31.5 73-86 127.5t-127 86Q563-80 480.5-80T325-111.5ZM480-162q26-36 45-75t31-83H404q12 44 31 83t45 75Zm-104-16q-18-33-31.5-68.5T322-320H204q29 50 72.5 87t99.5 55Zm208 0q56-18 99.5-55t72.5-87H638q-9 38-22.5 73.5T584-178ZM170-400h136q-3-20-4.5-39.5T300-480q0-21 1.5-40.5T306-560H170q-5 20-7.5 39.5T160-480q0 21 2.5 40.5T170-400Zm216 0h188q3-20 4.5-39.5T580-480q0-21-1.5-40.5T574-560H386q-3 20-4.5 39.5T380-480q0 21 1.5 40.5T386-400Zm268 0h136q5-20 7.5-39.5T800-480q0-21-2.5-40.5T790-560H654q3 20 4.5 39.5T660-480q0 21-1.5 40.5T654-400Zm-16-240h118q-29-50-72.5-87T584-782q18 33 31.5 68.5T638-640Zm-234 0h152q-12-44-31-83t-45-75q-26 36-45 75t-31 83Zm-200 0h118q9-38 22.5-73.5T376-782q-56 18-99.5 55T204-640Z',
   location_on: 'M536.5-503.5Q560-527 560-560t-23.5-56.5Q513-640 480-640t-56.5 23.5Q400-593 400-560t23.5 56.5Q447-480 480-480t56.5-23.5ZM480-186q122-112 181-203.5T720-552q0-109-69.5-178.5T480-800q-101 0-170.5 69.5T240-552q0 71 59 162.5T480-186Zm0 106Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Zm0-480Z',
@@ -103,17 +105,31 @@ export const ICONOS_RELLENOS: Partial<Record<NombreIcono, string>> = {
   verified_user: 'm438-338 226-226-57-57-169 169-84-84-57 57 141 141Zm42 258q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Z',
 }
 
-export type NombreIcono = keyof typeof ICONOS
+/**
+ * Iconos de MARCA, con su viewBox propio.
+ *
+ * No salen de Google: Material Symbols no trae logotipos, asi que estos vienen
+ * de Simple Icons (CC0) y cada uno guarda su rectangulo, que es el normal
+ * `0 0 24 24` y NO el `0 -960 960 960` de la fuente. `Icono.astro` elige
+ * viewBox segun el mapa al que pertenezca el nombre.
+ *
+ * Un icono que esta aqui NO esta en `ICONOS`: los dos mapas no se solapan.
+ */
+export const ICONOS_MARCA = {
+  whatsapp: { d: 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z', viewBox: '0 0 24 24' },
+} as const
+
+export type NombreIcono = keyof typeof ICONOS | keyof typeof ICONOS_MARCA
 
 /**
- * El viewBox que comparten todos los iconos.
+ * El viewBox que comparten los iconos de Material Symbols.
  *
- * Ojo con las comillas: aqui NO lleva las de acento que envuelven el valor en el
- * comentario de mas arriba. Con ellas el atributo sale del navegador como
- * `` `0 -960 960 960` `` y el parser lo rechaza con
- * `viewBox: Expected number`. Al descartarse el viewBox, el dibujo de 960
- * unidades se pinta sin escalar dentro de una caja de 13 a 26 px, y lo que queda
- * es un trozo de curva suelto o nada: la razon por la que la mitad de los
- * iconos del sitio salian en blanco.
+ * Los de marca no lo usan: traen el suyo en `ICONOS_MARCA`, porque son SVG
+ * normales de `0 0 24 24` y este es el de los glifos de la fuente.
+ *
+ * Sin las comillas de acento del comentario de mas arriba: al ser el valor de un
+ * atributo SVG, unas backticks literales lo hacen invalido y el navegador lo
+ * ignora, con el resultado de que cada icono se pinta a escala 1:1 de 960
+ * unidades dentro de una caja de 13 px y sale en blanco.
  */
 export const VIEWBOX_ICONO = '0 -960 960 960'

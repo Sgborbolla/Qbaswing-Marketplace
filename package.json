@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20.11.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "dev": "astro dev",
@@ -17,7 +17,8 @@
     "validar": "node scripts/validar-schema.mjs",
     "validar:datos": "node scripts/validar-datos.mjs",
     "validar:alfabetos": "node scripts/validar-alfabetos.mjs",
-    "validar:todo": "npm run validar && npm run validar:datos && npm run validar:alfabetos && npm run check && npm run check:worker",
+    "validar:tira": "node scripts/simular-tira.mjs",
+    "validar:todo": "npm run validar && npm run validar:datos && npm run validar:alfabetos && npm run validar:tira && npm run check && npm run check:worker",
     "fuentes": "node scripts/fuentes.mjs",
     "logo": "node scripts/logo.mjs",
     "iconos": "node scripts/iconos.mjs",

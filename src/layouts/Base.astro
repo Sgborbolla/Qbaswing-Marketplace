@@ -13,6 +13,9 @@ import '../styles/global.css'
 import Header from '../components/layout/Header.astro'
 import Footer from '../components/layout/Footer.astro'
 import Icono from '../components/Icono.astro'
+import { cambiarIdioma, diccionarioDe } from '../i18n/diccionario'
+import { infoIdioma, ogLocale } from '../i18n/idiomas'
+import { IDIOMAS } from '../i18n/config'
 
 interface Props {
   title: string
@@ -26,7 +29,7 @@ interface Props {
 const {
   title,
   descripcion = 'QBASwing Marketplace: software, plantillas, menu digitales, artesanias y productos fisicos de Cuba y el mundo.',
-  themeColor = '#f8f9ff',
+  themeColor = '#f6f8ff',
   sinHeader = false,
 } = Astro.props
 
@@ -39,11 +42,57 @@ const {
 // se reconoce.
 const tituloCompleto = title === 'QBASwing Marketplace' ? title : `${title} · QBASwing Marketplace`
 
+/* ===========================================================================
+   El idioma de ESTA peticion
+   ===========================================================================
+   Se lee con `Astro.currentLocale` y NO con `idiomaActual(Astro.url)`.
+
+   La razon es que este sitio usa `fallbackType: 'rewrite'`: no existe ningun
+   archivo `src/pages/fr/...`, sino que Astro rinde el contenido de la pagina en
+   espanol PERO en la URL francesa. En ese reenvio `Astro.url` queda como la
+   URL de destino (`/productos`), mientras que `Astro.currentLocale` conserva la
+   peticion original (`fr`). Se comprobo mirando el HTML ya construido: en
+   `/fr/` el selector de idioma marca `fr` como activo, lo que solo puede salir
+   de `currentLocale`.
+
+   Si se usara `idiomaActual(Astro.url)`, `/fr/` se renderizaria en espanol con
+   `lang="es"`, que es exactamente el fallo que viene a arreglar esta fase.
+*/
+const locale = Astro.currentLocale ?? 'es'
+const info = infoIdioma(locale)
+const t = diccionarioDe(locale)
+
 // Origen absoluto para canonical y Open Graph. `Astro.site` viene de
 // `site:` en astro.config.mjs; sin el, cae al origen de la peticion, que en
 // desarrollo es localhost y en produccion el dominio real.
 const origen = Astro.site ?? Astro.url.origin
-const urlCanonica = new URL(Astro.url.pathname, origen)
+
+/*
+  La canonical tiene que llevar el prefijo del idioma.
+
+  `Astro.url.pathname` viene sin el, asi que sin anadirlo la canonical de
+  `/fr/productos` apuntaria a `/productos`, y un buscador toma eso como
+  "esta pagina es un duplicado de aquella" y se queda con una sola. Peor: la
+  canonical de `/fr/` quedaria en `/`, que es la portada en espanol.
+*/
+const rutaLocalizada =
+  locale === 'es'
+    ? Astro.url.pathname
+    : `/${locale}${Astro.url.pathname === '/' ? '' : Astro.url.pathname}`
+const urlCanonica = new URL(rutaLocalizada, origen)
+
+/*
+  `hreflang`: le dice al buscador que `/`, `/fr`, `/pt-BR`... son la MISMA pagina
+  escritas en idiomas distintos, en vez de 22 paginas que se copian entre si.
+  Sin esto, elegir frances no solo no ayuda al SEO sino que lo perjudica.
+
+  `x-default` es la version para quien no pidio idioma, y va al espanol porque
+  es el idioma del mercado principal.
+*/
+const alternativas = IDIOMAS.map((codigo) => ({
+  codigo,
+  href: new URL(cambiarIdioma(urlCanonica, codigo), origen).href,
+}))
 
 // La imagen de Open Graph es un JPG aparte, no el `.webp` que se ve en la
 // pagina. No es una preferencia: los previsualizadores de WhatsApp, Facebook y
@@ -54,7 +103,20 @@ const urlLogo = new URL('/logo-qbaswing-og.jpg', origen)
 ---
 
 <!doctype html>
-<html lang="es" class="scroll-smooth">
+<!--
+  `lang` y `dir` salen del idioma de la peticion y no estan escritos a mano.
+
+  `lang` decide que voz usa el lector de pantalla, que fuente elige el navegador
+  para los caracteres que el latin no tiene —los kanji no se dibujan con la
+  misma fuente que el castellano— y que reglas de mayusculas aplica. Con
+  `lang="es"` en una pagina japonesa, un japonés que use voz sintetica escucha
+  texto japon pronunciado con fonetica española, que no se entiende.
+
+  `dir` es para el arabe, que es el unico RTL de la lista. Sin el, el texto
+  arabe se pega al margen izquierdo mientras el resto de la pagina esta pegado
+  al derecho, y los iconos de ir y volver quedan apuntando al lado equivocado.
+-->
+<html lang={locale} dir={info.direccion} class="scroll-smooth">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -65,13 +127,21 @@ const urlLogo = new URL('/logo-qbaswing-og.jpg', origen)
     <meta name="description" content={descripcion} />
     <link rel="canonical" href={urlCanonica} />
 
+    <!--
+      Idiomas alternativos. Cada uno apunta a la MISMA pagina en su idioma, y
+      `x-default` al espanol, que es el idioma del mercado. Van aqui y no en el
+      pie porque es informacion para el buscador, no para la persona.
+    -->
+    {alternativas.map((a) => <link rel="alternate" hreflang={a.codigo} href={a.href} />)}
+    <link rel="alternate" hreflang="x-default" href={new URL(cambiarIdioma(urlCanonica, 'es'), origen).href} />
+
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="QBASwing Marketplace" />
     <meta property="og:title" content={tituloCompleto} />
     <meta property="og:description" content={descripcion} />
     <meta property="og:url" content={urlCanonica} />
-    <meta property="og:locale" content="es" />
+    <meta property="og:locale" content={ogLocale(locale)} />
     <meta name="twitter:card" content="summary_large_image" />
 
     <!--
@@ -125,7 +195,7 @@ const urlLogo = new URL('/logo-qbaswing-og.jpg', origen)
       href="#contenido"
       class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-on-primary"
     >
-      Saltar al contenido
+      {t.comun.saltarContenido}
     </a>
 
     {!sinHeader && <Header />}
@@ -153,7 +223,7 @@ const urlLogo = new URL('/logo-qbaswing-og.jpg', origen)
           class="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-label-md font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
         >
           <Icono nombre="arrow_back" class="text-[18px]" />
-          Volver
+          {t.comun.volver}
         </button>
       </div>
 

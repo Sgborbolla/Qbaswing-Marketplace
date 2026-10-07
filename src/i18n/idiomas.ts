@@ -83,3 +83,35 @@ export function infoIdioma(codigo: string): InfoIdioma {
 export function estaTraducido(codigo: string): boolean {
   return IDIOMAS_TRADUCIDOS.has(codigo)
 }
+
+/**
+ * Codigo de idioma en el formato que pide la etiqueta `og:locale`.
+ *
+ * Open Graph no usa el BCP-47 del `<html lang>` sino el par `lenguaje_region`
+ * de la norma ISO 639-1 + 3166-1: `es_ES`, `zh_CN`, `pt_BR`. Poner `zh-CN`
+ * hace que algunos previsualizadores ignoren el campo y muestren el contenido
+ * en el idioma del que comparte el enlace.
+ *
+ * Los codigos sin region (`es`, `en`, `pt`...) necesitan una region por
+ * defecto: `es` se queda en `es_ES` porque el espanol del sitio es el de Cuba y
+ * el espanol sin region no existe en la norma. Las tres inglesas y las dos
+ * francesas ya vienen con su region y pasan tal cual.
+ */
+const REGION_POR_DEFECTO: Record<string, string> = {
+  es: 'ES',
+  en: 'US',
+  pt: 'PT',
+  fr: 'FR',
+  de: 'DE',
+  it: 'IT',
+  ca: 'ES',
+  gl: 'ES',
+  eu: 'ES',
+  ar: 'SA',
+}
+
+export function ogLocale(codigo: string): string {
+  if (codigo.includes('-')) return codigo.replace('-', '_')
+  const region = REGION_POR_DEFECTO[codigo]
+  return region ? `${codigo}_${region}` : codigo
+}
