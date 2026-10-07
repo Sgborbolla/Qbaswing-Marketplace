@@ -49,24 +49,42 @@
   --color-on-tertiary-fixed: #001453;
   --color-on-tertiary-fixed-variant: #173bab;
 
-  /* --- Superficies -------------------------------------------------------- */
-  --color-background: #f8f9ff;
+  /* --- Superficies --------------------------------------------------------
+   * El fondo deja de ser un gris-azul plano y pasa a ser una aurora suave
+   * (ver `body::before`, mas abajo). Los tokens de aqui tienen que convivir con
+   * ella, asi que tres decisiones:
+   *
+   *  1. `background` y `surface` bajan de luminosidad un pelo (`#f6f8ff` en vez
+   *     de `#f8f9ff`) para que las manchas de color no floten sobre un blanco
+   *     sucio, pero siguen estando a mas de 16:1 de `on-surface`.
+   *  2. La escalera de contenedores se corre hacia el lila. Antes era azul puro
+   *     y competia con el azul de la aurora: el mismo tono en dos capas se lee
+   *     como un error de transparencia. Con un matiz violeta los chips y las
+   *     placas quedan en la misma familia que el fondo sin ser el fondo.
+   *  3. `lowest` se queda blanco puro. Es el color de las tarjetas, y contra un
+   *     fondo con color es lo que hace que se vean levantadas: si las tarjetas
+   *     tambien se tienden, todo se funde y no hay pagina, hay mancha.
+   *
+   * El orden de luminosidad se respeta igual que en Material: lowest > low >
+   * container > high > highest. Romperlo haria que un chip pareciera mas
+   * elevado que la tarjeta donde esta. */
+  --color-background: #f6f8ff;
   --color-on-background: #0b1c30;
-  --color-surface: #f8f9ff;
-  --color-surface-dim: #cbdbf5;
-  --color-surface-bright: #f8f9ff;
-  --color-surface-variant: #d3e4fe;
+  --color-surface: #f6f8ff;
+  --color-surface-dim: #c9cff0;
+  --color-surface-bright: #f6f8ff;
+  --color-surface-variant: #d8dfff;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #eff4ff;
-  --color-surface-container: #e5eeff;
-  --color-surface-container-high: #dce9ff;
-  --color-surface-container-highest: #d3e4fe;
+  --color-surface-container-low: #f1f4ff;
+  --color-surface-container: #e8edff;
+  --color-surface-container-high: #e0e6ff;
+  --color-surface-container-highest: #d8dfff;
   --color-on-surface: #0b1c30;
   --color-on-surface-variant: #424653;
   --color-inverse-surface: #213145;
   --color-inverse-on-surface: #eaf1ff;
   --color-outline: #737785;
-  --color-outline-variant: #c2c6d6;
+  --color-outline-variant: #ccd0e8;
   --color-surface-tint: #0458c9;
 
   /* --- Bandera de Cuba ---------------------------------------------------- */
@@ -202,6 +220,65 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  /* ==========================================================================
+     El fondo de todas las paginas
+     ==========================================================================
+     Cuatro manchas de color muy tenues fijas a la ventana, sobre el color de
+     `body`. Es lo unico que cambia el aspecto de TODAS las paginas: no hay una
+     sola ruta que no pase por `Base.astro` y por esta hoja.
+
+     POR QUE UN PSEUDO-ELEMENTO FIJO Y NO `background-image` EN `body`
+     Cuando `html` no tiene fondo, el de `body` se promueve al lienzo y deja de
+     comportarse como el fondo de un elemento: se estira a todo el documento y
+     las posiciones en `rem` o `%` se calculan contra el alto TOTAL de la pagina.
+     En la portada, con 6400 px de alto, un `radial-gradient(... at 6% -10%)`
+     quedaria por encima de donde nadie llega a verlo. Fijado a la ventana con
+     `position: fixed` las coordenadas son siempre del viewport: el mismo cielo
+     arriba, el mismo suelo abajo, en la portada y en la pagina de contacto.
+
+     `z-index: -1` lo mete detras del contenido pero POR DELANTE del color de
+     `body`, que es lo que se necesita para que las manchas se vean. No crea
+     ningun contexto de apilamiento, asi que cualquier elemento con `z-index`
+     normal sigue encima, como debe ser.
+
+     POR QUE ESTOS CUATRO COLORES
+     No son una paleta decorativa elegida aparte: son los cuatro tonos de la
+     bandera y de la marca, claros hasta quedar pastel. Azul del primario arriba
+     a la izquierda, carmin del acento arriba a la derecha, lila del terciario
+     abajo, y el dorado de la estrella como un calorcito en la esquina derecha.
+     A 16-22% de alfa sobre `#f6f8ff` ninguno se impone al texto: `on-surface`
+     baja de 16:1 a 15:1 en el punto mas saturado, que sigue siendo sobrado.
+
+     POR QUE NO EN CADA PAGINA
+     Pintado en un `.astro`, se copiaria 18 veces y la proxima pagina nueva se
+     quedaria sin fondo. Ademas cada pagina lo repetiria con sus propias
+     coordenadas, y dos paginas distintas con el mismo cielo no serian la misma
+     pagina.
+
+     El `pointer-events: none` es obligatorio: sin el, la capa fija se come los
+     clics de todo lo que tenga debajo. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      radial-gradient(58rem 38rem at 4% -10%, rgb(64 132 255 / 0.19), transparent 64%),
+      radial-gradient(50rem 32rem at 106% -4%, rgb(255 122 156 / 0.20), transparent 62%),
+      radial-gradient(64rem 44rem at 52% 116%, rgb(126 140 255 / 0.20), transparent 66%),
+      radial-gradient(40rem 28rem at 100% 74%, rgb(255 200 74 / 0.16), transparent 60%);
+  }
+
+  /* Quien pide menos movimiento o menos transparencia no tiene por que
+     arrastrarse el degradado. Se vuelve al color plano de `body`, que es
+     exactamente como se veia antes de existir esto. */
+  @media (prefers-reduced-transparency: reduce) {
+    body::before {
+      background-image: none;
+    }
   }
 
   h1, h2, h3, h4, h5, h6 {
