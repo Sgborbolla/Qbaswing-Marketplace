@@ -13,6 +13,9 @@ import { miniaturaDeCategoria } from '../../lib/miniaturas'
 
 import { IDIOMAS } from '../../i18n/config'
 import { listarProductos, obtenerMediosPago, obtenerProducto } from '../../lib/api'
+import { diccionarioDe } from '../../i18n/diccionario'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 
 /**
  * ============================================================================
@@ -117,14 +120,14 @@ try {
     producto = await obtenerProducto(slug)
   } else {
     error = true
-    mensaje = 'Falta el identificador del producto.'
+    mensaje = t.ficha.faltaIdentificador
   }
 } catch (e: any) {
   error = true
-  mensaje = e?.message || 'No se pudo cargar el producto.'
+  mensaje = e?.message || t.ficha.cargaFallida
 }
 
-const titulo = producto ? producto.titulo : error ? 'Error al cargar el producto' : 'Producto no encontrado'
+const titulo = producto ? producto.titulo : error ? t.ficha.errorCarga : t.ficha.noEncontrado
 
 // Formas de pago de la plataforma. Se piden solo si hay producto: la ficha
 // vacia no necesita saber como se paga.
@@ -149,22 +152,22 @@ const mediosListos = medios.filter((m) => (m.dato ?? '').trim() !== '')
     <div class="container-page max-w-5xl">
       {error && (
         <div class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
-          <h1 class="font-headline text-headline-sm text-on-surface">No se pudo mostrar este producto</h1>
+          <h1 class="font-headline text-headline-sm text-on-surface">{t.ficha.errorTitulo}</h1>
           <p class="mt-2 text-body-md text-on-surface-variant">{mensaje}</p>
           <a href="/productos" class="mt-4 inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-primary transition hover:border-primary">
-            Volver al catálogo
+            {t.ficha.volverCatalogo}
           </a>
         </div>
       )}
 
       {!error && !producto && (
         <div class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
-          <h1 class="font-headline text-headline-sm text-on-surface">Producto no encontrado</h1>
+          <h1 class="font-headline text-headline-sm text-on-surface">{t.ficha.noEncontrado}</h1>
           <p class="mt-2 text-body-md text-on-surface-variant">
-            El producto que buscaste no existe o no está publicado.
+            {t.ficha.noEncontradoTexto}
           </p>
           <a href="/productos" class="mt-4 inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-primary transition hover:border-primary">
-            Volver al catálogo
+            {t.ficha.volverCatalogo}
           </a>
         </div>
       )}
@@ -200,16 +203,16 @@ const mediosListos = medios.filter((m) => (m.dato ?? '').trim() !== '')
             <div class="mt-6 flex flex-wrap gap-2 text-label-sm text-on-surface-variant">
               <span class="rounded-full bg-surface-container-high px-3 py-1">{producto.tipo}</span>
               <span class="rounded-full bg-surface-container-high px-3 py-1">{producto.categoria}</span>
-              <span class="rounded-full bg-surface-container-high px-3 py-1">Regla {producto.regla}</span>
-              {producto.destacado && <span class="rounded-full bg-primary/10 px-3 py-1 text-primary">Destacado</span>}
+              <span class="rounded-full bg-surface-container-high px-3 py-1">{t.footer.regla} {producto.regla}</span>
+              {producto.destacado && <span class="rounded-full bg-primary/10 px-3 py-1 text-primary">{t.ficha.destacado}</span>}
             </div>
 
             <div class="mt-8 flex flex-wrap gap-3">
               <a href="/carrito" class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-body-lg font-semibold text-on-primary transition hover:bg-primary-container">
-                Añadir al carrito
+                {t.ficha.anadirCarrito}
               </a>
               <a href={`/vendedor/${producto.vendedorSlug}`} class="inline-flex items-center gap-2 rounded-full border border-outline-variant px-6 py-3 text-body-lg font-semibold text-on-surface transition hover:border-primary">
-                Ver vendedor
+                {t.ficha.verVendedor}
               </a>
             </div>
 
@@ -228,7 +231,7 @@ const mediosListos = medios.filter((m) => (m.dato ?? '').trim() !== '')
             */}
             {mediosListos.length > 0 && (
               <section class="mt-10">
-                <h2 class="font-headline text-headline-sm text-on-surface">Cómo pagar</h2>
+                <h2 class="font-headline text-headline-sm text-on-surface">{t.ficha.comoPagar}</h2>
 
                 <div class="mt-4 space-y-3">
                   {mediosListos.map((medio) => (
@@ -255,19 +258,18 @@ const mediosListos = medios.filter((m) => (m.dato ?? '').trim() !== '')
                   cierto en ninguno de los cuatro medios de hoy.
                 */}
                 <p class="mt-4 text-body-sm text-on-surface-variant/80">
-                  Los pagos se confirman a mano. Comprueba que has escrito bien el
-                  número o la dirección antes de enviar, y guarda el comprobante.
+                  {t.ficha.avisoPago}
                 </p>
               </section>
             )}
 
             <dl class="mt-8 grid gap-4 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-4 text-body-sm text-on-surface-variant sm:grid-cols-2">
               <div>
-                <dt class="font-semibold text-on-surface">Publicado</dt>
+                <dt class="font-semibold text-on-surface">{t.ficha.publicado}</dt>
                 <dd>{formatearFecha(producto.fechaPublicacion)}</dd>
               </div>
               <div>
-                <dt class="font-semibold text-on-surface">Actualizado</dt>
+                <dt class="font-semibold text-on-surface">{t.ficha.actualizado}</dt>
                 <dd>{formatearFecha(producto.fechaActualizacion)}</dd>
               </div>
             </dl>

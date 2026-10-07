@@ -37,7 +37,10 @@ import Icono from '../components/Icono.astro'
 import Miniatura from '../components/Miniatura.astro'
 import Layout from '../layouts/Base.astro'
 import Logo from '../components/Logo.astro'
+import { diccionarioDe, rellenar } from '../i18n/diccionario'
 import { backendConfigurado } from '../lib/api'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 
 // Referencia del pago, si vino en la query. Es solo para MOSTRAR: no se usa
 // para decidir nada.
@@ -52,8 +55,8 @@ const ICONO = {
 ---
 
 <Layout
-  title="Pago recibido"
-  descripcion="Confirmacion de pago en QBASwing Marketplace."
+  title={t.exito.titulo}
+  descripcion={t.exito.descripcion}
 >
   <section class="container-page flex min-h-[70vh] items-center justify-center py-16">
     <div class="w-full max-w-lg text-center">
@@ -70,18 +73,16 @@ const ICONO = {
           >
             <Icono nombre={ICONO.error} class="text-headline-lg text-on-surface-variant" />
             <h1 class="mt-4 font-headline text-headline-sm text-on-surface">
-              El pago se recibio, pero no se puede confirmar todavia
+              {t.exito.sinBackendTitulo}
             </h1>
             <p class="mt-3 text-body-md text-on-surface-variant">
-              La pasarela de pago todavia no esta conectada a este sitio. Tu pago
-              no se ha perdido: queda registrado en la pasarela y se acreditara
-              cuando la integracion este activa.
+              {t.exito.sinBackendTexto}
             </p>
             <a
               href="/"
               class="mt-6 inline-flex items-center rounded-full bg-primary px-6 py-3 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
             >
-              Volver al inicio
+              {t.exito.volverInicio}
             </a>
           </div>
         ) : (
@@ -90,19 +91,19 @@ const ICONO = {
                 parametro `estado`. Sin ese parametro, esta en espera. */}
             <h1 class="font-headline text-headline-md text-on-surface">
               {Astro.url.searchParams.get('estado') === 'verificado'
-                ? 'Pago confirmado'
-                : 'Confirmando tu pago'}
+                ? t.pago.verificado
+                : t.exito.confirmando}
             </h1>
 
             <p class="mt-3 text-body-lg text-on-surface-variant">
               {Astro.url.searchParams.get('estado') === 'verificado'
-                ? 'Tu compra ya esta disponible en tu biblioteca.'
-                : 'Esto toma unos segundos. No cierres esta ventana.'}
+                ? t.exito.compraDisponible
+                : t.exito.espera}
             </p>
 
             {ref && (
               <p class="mt-4 inline-block rounded-md bg-surface-container px-3 py-1.5 font-mono text-code text-on-surface-variant">
-                Referencia: {ref}
+                {rellenar(t.exito.referencia, { ref })}
               </p>
             )}
 
@@ -115,7 +116,7 @@ const ICONO = {
               aria-live="polite"
             >
               <Icono nombre={ICONO.reloj} class="text-label-md" />
-              <span>Verificando el pago con la pasarela</span>
+              <span>{t.exito.verificando}</span>
             </div>
 
             <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
@@ -124,13 +125,13 @@ const ICONO = {
                 class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
               >
                 <Icono nombre={ICONO.archivo} class="text-label-md" />
-                Ir a mi biblioteca
+                {t.exito.biblioteca}
               </a>
               <a
                 href="/productos"
                 class="inline-flex items-center justify-center rounded-full border border-outline px-6 py-3 text-label-md font-semibold text-primary transition-colors hover:bg-surface-container"
               >
-                Seguir comprando
+                {t.carrito.seguir}
               </a>
             </div>
 

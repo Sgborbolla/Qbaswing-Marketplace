@@ -21,17 +21,20 @@
 import Icono from '../components/Icono.astro'
 import Miniatura from '../components/Miniatura.astro'
 import Base from '../layouts/Base.astro'
+import { diccionarioDe } from '../i18n/diccionario'
 import { backendConfigurado } from '../lib/identidad-cliente'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 ---
 
-<Base title="Crear cuenta" descripcion="Crea tu cuenta en QBASwing Marketplace.">
+<Base title={t.cuenta.registro} descripcion={t.registro.descripcion}>
   <section class="w-full py-space-xl">
     <div class="container-page max-w-md">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <h1 class="font-headline text-headline-lg text-on-surface">Crear cuenta</h1>
+          <h1 class="font-headline text-headline-lg text-on-surface">{t.cuenta.registro}</h1>
           <p class="mt-2 text-body-md text-on-surface-variant">
-            Tu correo y tu contrasena. Nada mas.
+            {t.registro.subtitulo}
           </p>
         </div>
         <Miniatura nombre="cuenta" ancho={64} />
@@ -42,17 +45,14 @@ import { backendConfigurado } from '../lib/identidad-cliente'
           class="mt-6 rounded-2xl border border-error/40 bg-error-container/40 p-5 text-body-md text-on-error-container"
           role="alert"
         >
-          <p>
-            Este sitio todavia no tiene servidor configurado, asi que no se puede
-            crear una cuenta. Intentalo mas tarde.
-          </p>
+          <p>{t.registro.sinBackend}</p>
         </div>
       )}
 
-      <form id="formulario" class="mt-8 space-y-5" novalidate>
+      <form id="formulario" class="mt-8 space-y-5" novalidate data-campos={t.registro.rellenaTresCampos}>
         <div>
           <label for="nombre" class="block text-label-md font-medium text-on-surface">
-            Nombre
+            {t.cuenta.nombre}
           </label>
           <input
             type="text"
@@ -67,7 +67,7 @@ import { backendConfigurado } from '../lib/identidad-cliente'
 
         <div>
           <label for="email" class="block text-label-md font-medium text-on-surface">
-            Correo
+            {t.cuenta.campoCorreo}
           </label>
           <input
             type="email"
@@ -82,7 +82,7 @@ import { backendConfigurado } from '../lib/identidad-cliente'
 
         <div>
           <label for="contrasena" class="block text-label-md font-medium text-on-surface">
-            Contrasena
+            {t.cuenta.campoContrasena}
           </label>
           <input
             type="password"
@@ -103,13 +103,15 @@ import { backendConfigurado } from '../lib/identidad-cliente'
             type="button"
             id="ver-contrasena"
             aria-pressed="false"
+            data-mostrar-contrasena={t.cuenta.mostrarContrasena}
+            data-ocultar-contrasena={t.cuenta.ocultarContrasena}
             class="mt-2 inline-flex items-center gap-1.5 text-label-md text-on-surface-variant transition hover:text-primary"
           >
             <Icono nombre="visibility" class="text-label-md" />
-            <span id="ver-contrasena-texto">Mostrar contrasena</span>
+            <span id="ver-contrasena-texto">{t.cuenta.mostrarContrasena}</span>
           </button>
           <p class="mt-2 text-label-sm text-on-surface-variant">
-            Al menos 8 caracteres. No puede ser solo espacios ni contener tu correo.
+            {t.registro.ayudaContrasena}
           </p>
         </div>
 
@@ -135,15 +137,17 @@ import { backendConfigurado } from '../lib/identidad-cliente'
         <button
           type="submit"
           id="enviar"
+          data-creando={t.registro.creandoCuenta}
+          data-crear={t.cuenta.registro}
           class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-body-md font-semibold text-on-primary transition hover:bg-primary-container disabled:opacity-50"
         >
-          <span id="enviar-texto">Crear cuenta</span>
+          <span id="enviar-texto">{t.cuenta.registro}</span>
         </button>
       </form>
 
       <p class="mt-6 text-center text-body-md text-on-surface-variant">
-        Ya tienes cuenta?
-        <a href="/iniciar-sesion" class="font-semibold text-primary hover:underline">Entra aqui</a>
+        {t.registro.yaTienesCuenta}
+        <a href="/iniciar-sesion" class="font-semibold text-primary hover:underline">{t.registro.entraAqui}</a>
       </p>
     </div>
   </section>
@@ -180,7 +184,11 @@ import { backendConfigurado } from '../lib/identidad-cliente'
     const mostrando = campo.type === 'password'
     campo.type = mostrando ? 'text' : 'password'
     verContrasena.setAttribute('aria-pressed', String(mostrando))
-    if (textoVer) textoVer.textContent = mostrando ? 'Ocultar contrasena' : 'Mostrar contrasena'
+    if (textoVer) {
+      textoVer.textContent = mostrando
+        ? (verContrasena.dataset.ocultarContrasena ?? 'Ocultar contrasena')
+        : (verContrasena.dataset.mostrarContrasena ?? 'Mostrar contrasena')
+    }
   })
 
   formulario?.addEventListener('submit', async (evento) => {
@@ -198,17 +206,17 @@ import { backendConfigurado } from '../lib/identidad-cliente'
     // dos reglas de contrasena en dos sitios divergen, y el navegador acaba
     // aceptando algo que el servidor rechaza.
     if (!nombre || !email || !contrasena) {
-      avisar('Rellena los tres campos.')
+      avisar(formulario.dataset.campos ?? 'Rellena los tres campos.')
       return
     }
 
     boton.disabled = true
-    if (textoBoton) textoBoton.textContent = 'Creando cuenta...'
+    if (textoBoton) textoBoton.textContent = boton.dataset.creando ?? 'Creando cuenta...'
 
     const resultado = await registrar({ email, nombre, contrasena })
 
     boton.disabled = false
-    if (textoBoton) textoBoton.textContent = 'Crear cuenta'
+    if (textoBoton) textoBoton.textContent = boton.dataset.crear ?? 'Crear cuenta'
 
     if (!resultado.ok) {
       avisar(resultado.mensaje)
@@ -232,8 +240,7 @@ import { backendConfigurado } from '../lib/identidad-cliente'
 <noscript>
   <div class="container-page max-w-md py-8">
     <p class="rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 text-body-md text-on-surface-variant">
-      Para crear una cuenta hace falta JavaScript: el sitio es estatico y no tiene
-      servidor donde mandar el formulario. Activalo y vuelve a cargar esta pagina.
+      {t.registro.sinJavaScript}
     </p>
   </div>
 </noscript>

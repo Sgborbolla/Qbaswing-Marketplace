@@ -144,6 +144,105 @@ export const ES = {
     titulo: 'Reglas de Oro',
   },
 
+  /* --- Portada (index.astro) --- */
+  inicio: {
+    lanzamiento: 'LANZAMIENTO OFICIAL 2026',
+    comisionFisicos: '{n}% COMISIÓN EN FÍSICOS Y PROPIOS',
+    tasaFija: '{n}% TASA FIJA EN DIGITALES EXTERNOS',
+    tituloHero: 'El marketplace creativo y tecnológico de Cuba, con reglas de comisión',
+    tituloHeroDestacado: 'publicadas',
+    heroParrafo:
+      'Comercializa o adquiere software, plantillas profesionales, artesanía y productos físicos en Cuba y el mundo. Las tres reglas de comisión están escritas antes que el catálogo, y no cambian sin que el Owner lo decida y quede registrado.',
+    explorarCatalogo: 'Explorar el catálogo',
+    abrirTienda: 'Abrir mi tienda',
+    activacionInmediata: 'Activación inmediata',
+    sinTarjetas: 'Sin tarjetas foráneas',
+    descargaCompra: 'Descarga solo de lo que compraste',
+    economiaClara: 'Economía clara',
+    reglasTitulo: 'Las 3 Reglas de Oro de QBASwing',
+    reglasIntro:
+      'Tres reglas, escritas antes que el catálogo. Cada producto del marketplace pertenece a una de ellas, y de ahí sale su comisión. No hay una cuarta regla ni una comisión que se aplique "según el caso".',
+    reglaATitulo: 'Regla A: digitales externos',
+    reglaA: 'Regla A',
+    paraAutor: '{n}% para el autor',
+    reglaANombre: 'Digitales externos',
+    reglaALista1: 'El pago pasa por la plataforma',
+    reglaALista2: 'Se publica tras aprobación del Owner',
+    sinLimite: 'Sin límite de publicaciones',
+    reglaBTitulo: 'Regla B: digitales propios',
+    reglaB: 'Regla B',
+    deComision: 'de comisión',
+    reglaBNombre: 'Digitales propios',
+    reglaBLista1: 'Publicación directa, sin esperar aprobación',
+    reglaCTitulo: 'Regla C: productos físicos',
+    reglaC: 'Regla C',
+    paraVendedor: '{n}% para el vendedor',
+    reglaCNombre: 'Productos físicos',
+    reglaCLista1: 'Publicación directa',
+    reglaCLista2: 'Paquete de 60 días por categoría',
+    reglaCLista3: 'Los espacios se reutilizan al vender',
+    paraQuienEs: 'Para quién es',
+    quePuedesHacer: 'Qué puedes hacer aquí',
+    quePuedesIntro:
+      'Seis cosas que el marketplace permite hacer con las reglas que están publicadas. Ninguna es una promesa: es lo que el sistema hace cuando alguien publica, alguien compra y alguien cobra.',
+    verFaq: 'Ver las preguntas frecuentes',
+    usoSoftwareTitulo: 'Publica tu software y paga el 5%',
+    usoSoftware:
+      'Plugins, plantillas, UI kits y fuentes de autores externos. Pagas el 5% por transacción procesada y te llevas el 95%. Sin límite de publicaciones y sin pagar un paquete.',
+    usoRopaTitulo: 'Vende ropa, calzado y productos físicos',
+    usoRopa:
+      'Cero comisión por venta. Pagas un paquete de 60 días por categoría, y cuando vendes, el espacio queda libre para subir lo siguiente sin pagar nada más.',
+    usoCobroTitulo: 'Cobra en CUP, USD o cripto',
+    usoCobro:
+      'Cada producto tiene su precio en la moneda que elijas. En la Regla A el pago pasa por la plataforma, que es lo que hace cumplible el 5%.',
+    usoEntregaTitulo: 'Entrega digital con enlace de 5 minutos',
+    usoEntrega:
+      'Quien compró puede volver a bajar su archivo desde su cuenta mientras la licencia siga vigente. El enlace por correo dura 5 minutos: no es una dirección permanente del archivo.',
+    usoTiendaTitulo: 'Abre tu tienda sin tarjeta',
+    usoTienda:
+      'No hace falta tarjeta bancaria de ningún país para registrarte ni para publicar. Ningún paso del alta la pide.',
+    usoDescargaTitulo: 'Solo descarga quien compró',
+    usoDescarga:
+      'La descarga se valida contra tu cuenta, no contra un enlace que se pueda reenviar. Si no compraste, no hay enlace que valga.',
+    paquetesLabel: 'Publicar en el catálogo',
+    paquetesTitulo: 'Paquetes de espacios físicos',
+    paquetesIntro: 'Un paquete no limita cuántas ventas haces: limita cuántos productos tienes',
+    paquetesIntroFuerte: 'publicados a la vez',
+    /* OJO: empieza con coma porque en el HTML cuelga directamente de
+       `</strong>` en la misma linea. */
+    paquetesIntroResto:
+      ', y dura 60 días. Cada vez que vendes uno, el espacio vuelve a quedar libre y subes otro sin pagar nada más.',
+    paquetesError: 'No se pudieron cargar los precios de los paquetes en este momento.',
+    paquetesErrorAyuda: 'Vuelve a cargar la página. Si sigue igual, escríbenos por Telegram.',
+    espacio: 'espacio',
+    espacios: 'espacios',
+    dias: 'días',
+    verPaquete: 'Ver el paquete',
+    cicloTitulo: 'Cómo funciona el ciclo del espacio',
+    ciclo1Titulo: 'Publicas tu producto',
+    ciclo1Texto: 'Ocupa 1 de tus espacios activos durante los 60 días del paquete.',
+    ciclo2Titulo: 'Se vende',
+    ciclo2Texto:
+      'El comprador paga en la moneda del producto. QBASwing no descuenta comisión en la Regla C.',
+    ciclo3Titulo: 'El espacio vuelve a quedar libre',
+    ciclo3Texto:
+      'Subes lo siguiente de inmediato. No hay que pagar otro paquete mientras el vigente no expire.',
+    destacadosLabel: 'Del catálogo',
+    verCatalogo: 'Ver todo el catálogo',
+    catalogoVacio:
+      'El catálogo está vacío porque nadie ha publicado todavía, no porque algo falle. El primer producto que se publique aparecerá aquí.',
+    sinDestacados:
+      'No hay productos destacados en este momento. El catálogo completo sí tiene.',
+    publicarPrimero: 'Publicar el primero',
+    explora: 'Explora',
+    cierreTitulo: 'Abre tu tienda o',
+    cierreDestacado: 'adquiere lo mejor del talento cubano',
+    cierreTexto:
+      'Las comisiones están publicadas, los espacios se reutilizan y no hace falta ninguna tarjeta extranjera. Lo único que no hay todavía son productos: el catálogo empieza contigo.',
+    crearVendedor: 'Crear cuenta de vendedor',
+    explorarSinRegistro: 'Explorar sin registrarse',
+  },
+
   /* --- Productos --- */
   producto: {
     comprar: 'Comprar',
@@ -170,10 +269,139 @@ export const ES = {
     noEncontrado: 'Ese producto no existe o dejó de estar disponible',
   },
 
+  /* --- Paginas de productos: listado y ficha --- */
+  productos: {
+    sinProductos: 'Aún no hay productos publicados.',
+    totalUno: '{n} producto en total.',
+    totalVarios: '{n} productos en total.',
+    buscar: 'Buscar',
+    placeholderBusqueda: 'Buscar por título o descripción...',
+    todas: 'Todas',
+    todos: 'Todos',
+    digital: 'Digital',
+    fisico: 'Físico',
+    servicio: 'Servicio',
+    ordenar: 'Ordenar',
+    masRecientes: 'Más recientes',
+    precioMenorAMayor: 'Precio: menor a mayor',
+    precioMayorAMenor: 'Precio: mayor a menor',
+    filtrar: 'Filtrar',
+    errorCatalogo:
+      'No se pudo cargar el catálogo en este momento. Inténtalo de nuevo más tarde.',
+    vacioAyuda: 'El catálogo está vacío. El primer producto que se publique aparecerá aquí.',
+    publicarPrimero: 'Publicar el primero',
+    paginasCatalogo: 'Paginas del catalogo',
+    /* "Pagina {n} de {m}" se pinta con las palabras sueltas porque los dos
+       numeros llevan <span> de resaltado que no se puede tocar. */
+    pagina: 'Pagina',
+    de: 'de',
+  },
+
+  ficha: {
+    errorTitulo: 'No se pudo mostrar este producto',
+    errorCarga: 'Error al cargar el producto',
+    noEncontrado: 'Producto no encontrado',
+    noEncontradoTexto: 'El producto que buscaste no existe o no está publicado.',
+    faltaIdentificador: 'Falta el identificador del producto.',
+    cargaFallida: 'No se pudo cargar el producto.',
+    volverCatalogo: 'Volver al catálogo',
+    destacado: 'Destacado',
+    anadirCarrito: 'Añadir al carrito',
+    verVendedor: 'Ver vendedor',
+    comoPagar: 'Cómo pagar',
+    avisoPago:
+      'Los pagos se confirman a mano. Comprueba que has escrito bien el número o la dirección antes de enviar, y guarda el comprobante.',
+    publicado: 'Publicado',
+    actualizado: 'Actualizado',
+  },
+
+  /* --- Como vender (vender.astro) --- */
+  vender: {
+    metaDescripcion: 'Como vender tus productos en QBASwing Marketplace.',
+    titulo: 'Vender aqui',
+    subtitulo: 'Que se necesita, en el orden en que se necesita.',
+    paso1Titulo: 'Crea tu cuenta',
+    paso1Texto:
+      'Correo y contrasena. Con eso ya tienes cuenta y un espacio propio para empezar a preparar tu tienda.',
+    paso2Titulo: 'Cuenta con el Owner',
+    paso2Texto:
+      'Se revisa quien eres y que vendes. Es una conversacion, no un formulario automatico. Es el paso unico que no se puede automatizar.',
+    paso3Titulo: 'Publicas tus productos',
+    paso3Texto:
+      'Digitales, fisicos o servicios. Tu tienda tiene su propia pagina y sus ventas se registran solas.',
+    paso4Titulo: 'Te llega el dinero',
+    paso4Texto:
+      'Cuando el comprador recibe lo que compro. El pago pasa por la plataforma y la parte del vendedor se entrega despues de la entrega verificada.',
+    espaciosTitulo: 'Espacios para tu tienda',
+    espaciosSubtitulo: 'Cada paquete mete tu tienda en mas sitios del marketplace.',
+    espaciosError: 'No se pudieron cargar los precios de los paquetes.',
+    espaciosVacio:
+      'Todavia no hay paquetes de espacios a la venta. Cuando los haya, estan aqui con su precio.',
+    espacio: 'espacio',
+    espacios: 'espacios',
+    durante: 'durante',
+    dias: 'dias',
+    pesos: 'Pesos',
+    dolares: 'Dolares',
+    euros: 'Euros',
+    sinPrecio: 'Todavia no tiene precio asignado.',
+    leerTerminos: 'Leer los terminos',
+  },
+
+  /* --- Pagina publica de un vendedor (vendedor.astro) --- */
+  vendedor: {
+    errorTitulo: 'No se pudo mostrar este vendedor',
+    noEncontrado: 'Vendedor no encontrado',
+    noEncontradoTexto: 'Este vendedor no existe o no tiene productos visibles.',
+    sinDescripcion: 'Este vendedor aún no tiene descripción.',
+    producto: 'producto',
+    productos: 'productos',
+    verificado: 'Verificado',
+    sinProductos: 'Este vendedor todavía no tiene productos visibles.',
+    faltaIdentificador: 'Falta el identificador del vendedor.',
+    cargaFallida: 'No se pudo cargar el vendedor.',
+  },
+
+  /* --- Espacios y paquetes (espacios.astro) --- */
+  espacios: {
+    intro:
+      'Un paquete no limita cuántas ventas haces: limita cuántos productos tienes publicados a la vez, dura 60 días y los espacios se reutilizan al vender.',
+    errorCarga: 'No se pudieron cargar los paquetes en este momento.',
+    vacio: 'Aún no hay paquetes configurados.',
+    espacio: 'espacio',
+    espacios: 'espacios',
+    dias: 'días',
+  },
+
   /* --- Carrito y checkout --- */
   carrito: {
     titulo: 'Carrito',
     vacio: 'Tu carrito está vacío',
+    descripcion: 'Lo que has anadido en QBASwing Marketplace.',
+    sinBackend:
+      'Este sitio todavia no tiene servidor configurado, asi que el carrito no puede funcionar. Intentalo mas tarde.',
+    cargando: 'Cargando tu carrito...',
+    tituloVacio: 'Tu carrito esta vacio',
+    vacioAyuda: 'Puedes anadir productos sin crear cuenta. Se guardan en este navegador.',
+    verProductos: 'Ver productos',
+    antesDePagar: 'Antes de pagar',
+    retiradoUno: '{n} producto ya no disponible. Quitalos para poder pagar.',
+    retiradoVarios: '{n} productos ya no disponibles. Quitalos para poder pagar.',
+    precioCambiado: 'El precio cambio desde que lo anadiste. Revisa las lineas marcadas.',
+    variante: 'Variante: {variante}',
+    vendidoPor: 'Vendido por {vendedor}',
+    noDisponible: 'Este producto ya no esta disponible.',
+    antesAhora: 'Antes {precio}. Ahora ',
+    seCobra: '. Se cobra el nuevo.',
+    lineaPrecio: '{cantidad} x {precio}',
+    quitarUnidad: 'Quitar una unidad de {titulo}',
+    anadirUnidad: 'Anadir una unidad de {titulo}',
+    quitar: 'Quitar',
+    totalUno: '{n} producto en {moneda}',
+    totalVarios: '{n} productos en {moneda}',
+    comisionPendiente:
+      'La comision de la plataforma todavia no se anade: no hay pasarela de pago conectada.',
+    irAPagar: 'Ir a pagar',
     subtotal: 'Subtotal',
     comision: 'Comisión de QBASwing',
     total: 'Total',
@@ -200,6 +428,73 @@ export const ES = {
     tiempoManual: 'Lo confirma una persona',
   },
 
+  /* --- Exito al pagar (success.astro) --- */
+  exito: {
+    titulo: 'Pago recibido',
+    descripcion: 'Confirmacion de pago en QBASwing Marketplace.',
+    sinBackendTitulo: 'El pago se recibio, pero no se puede confirmar todavia',
+    sinBackendTexto:
+      'La pasarela de pago todavia no esta conectada a este sitio. Tu pago no se ha perdido: queda registrado en la pasarela y se acreditara cuando la integracion este activa.',
+    volverInicio: 'Volver al inicio',
+    confirmando: 'Confirmando tu pago',
+    compraDisponible: 'Tu compra ya esta disponible en tu biblioteca.',
+    espera: 'Esto toma unos segundos. No cierres esta ventana.',
+    referencia: 'Referencia: {ref}',
+    verificando: 'Verificando el pago con la pasarela',
+    biblioteca: 'Ir a mi biblioteca',
+  },
+
+  /* --- Pago cancelado (cancel.astro) --- */
+  fallo: {
+    titulo: 'Pago cancelado',
+    descripcion: 'El pago no se completo en QBASwing Marketplace.',
+    noSeCompleto: 'El pago no se completó',
+    motivoSaldo: 'Tu cuenta en la pasarela no tiene saldo suficiente para completar el pago.',
+    motivoRechazo: 'La pasarela rechazó la operación. No se realizó ningún cargo.',
+    motivoTimeout: 'La operación tardó demasiado y se canceló para proteger tu dinero.',
+    motivoUsuario: 'Cancelaste el pago antes de completarlo.',
+    motivoCambio: 'El tipo de cambio no estaba disponible en el momento del intento.',
+    sinMotivo: 'El pago no se completó.',
+    referencia: 'Referencia: {ref}',
+    avisoCarrera:
+      'Si ya habías completado el pago en tu banco o en la pasarela y ves esto, puede ser un retraso en la confirmación. Revisá tu cuenta en unos minutos antes de volver a intentar: no se te cobrará dos veces.',
+    intentarDeNuevo: 'Intentar de nuevo',
+    volverCatalogo: 'Volver al catálogo',
+    necesitasAyuda: '¿Necesitás ayuda?',
+    escribinos: 'Escribinos',
+  },
+
+  /* --- Registro (registro.astro) --- */
+  registro: {
+    descripcion: 'Crea tu cuenta en QBASwing Marketplace.',
+    subtitulo: 'Tu correo y tu contrasena. Nada mas.',
+    sinBackend:
+      'Este sitio todavia no tiene servidor configurado, asi que no se puede crear una cuenta. Intentalo mas tarde.',
+    ayudaContrasena:
+      'Al menos 8 caracteres. No puede ser solo espacios ni contener tu correo.',
+    creandoCuenta: 'Creando cuenta...',
+    rellenaTresCampos: 'Rellena los tres campos.',
+    yaTienesCuenta: 'Ya tienes cuenta?',
+    entraAqui: 'Entra aqui',
+    sinJavaScript:
+      'Para crear una cuenta hace falta JavaScript: el sitio es estatico y no tiene servidor donde mandar el formulario. Activalo y vuelve a cargar esta pagina.',
+  },
+
+  /* --- Iniciar sesion (iniciar-sesion.astro) --- */
+  entrar: {
+    titulo: 'Entrar',
+    descripcion: 'Entra en tu cuenta de QBASwing Marketplace.',
+    subtitulo: 'Con el correo con el que te registraste.',
+    sinBackend:
+      'Este sitio todavia no tiene servidor configurado, asi que no se puede entrar. Intentalo mas tarde.',
+    sinCuentaPregunta: 'No tienes cuenta?',
+    crearAqui: 'Crear una aqui',
+    escribeCorreoContrasena: 'Escribe tu correo y tu contrasena.',
+    entrando: 'Entrando...',
+    sinJavaScript:
+      'Para entrar hace falta JavaScript: el sitio es estatico y no tiene servidor donde mandar el formulario. Activalo y vuelve a cargar esta pagina.',
+  },
+
   /* --- Cuenta --- */
   cuenta: {
     entrar: 'Iniciar sesión',
@@ -215,6 +510,14 @@ export const ES = {
     miCuenta: 'Mi cuenta',
     biblioteca: 'Mis compras',
     perfil: 'Mi perfil',
+    descripcion: 'Tu cuenta en QBASwing Marketplace.',
+    registrado: 'Lo que tienes aqui, tal cual esta registrado.',
+    /* Etiquetas de campos y textos del ojo de "ver contrasena" de las paginas
+       de registro y de entrada. Sin tilde: asi estan escritas en las paginas. */
+    campoCorreo: 'Correo',
+    campoContrasena: 'Contrasena',
+    mostrarContrasena: 'Mostrar contrasena',
+    ocultarContrasena: 'Ocultar contrasena',
     /* Dialogo de salida, que es el sitio donde el Owner pidio que salir solo
        se pueda hacer con dos opciones a la vista. */
     salirTitulo: 'Salir de tu cuenta',
@@ -230,6 +533,9 @@ export const ES = {
   /* --- Panel del vendedor --- */
   panel: {
     titulo: 'Panel del vendedor',
+    miPanel: 'Mi panel',
+    descripcion: 'Tu panel de vendedor en QBASwing Marketplace.',
+    resumen: 'Tu tienda, tu porcentaje y tus sesiones.',
     productos: 'Productos',
     ventas: 'Ventas',
     espacios: 'Espacios',
@@ -249,6 +555,9 @@ export const ES = {
   /* --- Panel de administracion --- */
   owner: {
     titulo: 'Administración',
+    administracion: 'Administracion',
+    descripcion: 'Administracion de QBASwing Marketplace.',
+    permiso: 'Tu cuenta y lo que tienes permiso sobre el sitio.',
     resumen: 'Resumen',
     ingresos: 'Ingresos',
     pagosPendientes: 'Pagos por confirmar',
@@ -292,6 +601,36 @@ export const ES = {
     redPlataforma: 'Plataforma',
     redUsuario: 'Usuario',
     mostrar: 'Mostrar en mi perfil',
+  },
+
+  /* --- Nosotros (nosotros.astro) --- */
+  nosotros: {
+    titulo: 'Acerca de nosotros',
+    intro:
+      'QBASwing Marketplace es una plataforma para comprar y vender productos digitales, físicos y servicios, con las reglas de comisión publicadas antes que el catálogo.',
+    mision: 'Misión',
+    misionTexto:
+      'Ofrecer un espacio donde el autor sabe qué porcentaje retiene la plataforma, dónde se publican las reglas y dónde nada cambia sin quedar registrado.',
+    principios: 'Principios',
+    principiosTexto:
+      'Reglas escritas, no cambiantes. Estados vacíos reales, no ejemplos inventados. La descarga solo para quien compró, con enlace que caduca a los 5 minutos.',
+    tresReglas: 'Las tres reglas que guían este proyecto',
+    reglasTexto:
+      'En la Regla A, los productos digitales de autores externos pasan por la plataforma y QBASwing retiene el 5%, dejando el 95% para el autor. En la Regla B, los productos digitales propios no tienen comisión. En la Regla C, los productos físicos no tienen comisión y utilizan el sistema de paquetes de 60 días, con espacios que se reutilizan al vender.',
+    garantias:
+      'Este sitio no ofrece garantías que no estén escritas. Todo lo que se publica como promesa está, también, escrito en estas páginas.',
+  },
+
+  /* --- Contacto (contacto.astro) --- */
+  contacto: {
+    titulo: 'Contacto',
+    intro:
+      'Si tienes una pregunta sobre compras, ventas o sobre cómo funcionan las reglas, puedes escribirnos a través de los canales que aparecen en el pie de página.',
+    comoContactar: 'Cómo contactar',
+    gestion:
+      'Los datos de contacto se gestionan desde el panel del Owner. Mientras no estén configurados, esta sección queda vacía intencionalmente, sin poner datos de ejemplo.',
+    verFaq: 'Ver preguntas frecuentes',
+    aviso: 'No solicitamos datos bancarios por correo. Nunca pedimos contraseñas.',
   },
 
   /* --- Formularios de publicacion --- */
@@ -359,6 +698,61 @@ export const ES = {
     derechos: 'Todos los derechos reservados',
     descargo:
       'QBASwing Marketplace no es una institución financiera y no custodia fondos. En la Regla A el pago pasa por la pasarela y la plataforma retiene el 5% que fija la regla; en las Reglas B y C el pago va directo al autor y la plataforma no interviene. Los enlaces de descarga de productos digitales duran 5 minutos y solo funcionan para quien compró. Los productos digitales de autores externos se publican después de que el Owner los apruebe.',
+  },
+
+  /* --- Terminos y condiciones (terminos.astro) --- */
+  terminos: {
+    titulo: 'Términos y condiciones',
+    ultimaActualizacion: 'Última actualización:',
+    aceptacion: '1. Aceptación de los términos',
+    aceptacionTexto:
+      'Al usar QBASwing Marketplace aceptas estos términos. Si no estás de acuerdo, no uses la plataforma.',
+    reglasComision: '2. Reglas de comisión',
+    reglasComisionTexto:
+      'Las tres Reglas de Oro son públicas: Regla A (digitales externos): 5% para QBASwing, 95% para el autor. Regla B (digitales propios): 0% de comisión. Regla C (productos físicos): 0% de comisión, con paquete de 60 días y espacios reutilizables.',
+    comprasDescargas: '3. Compras y descargas',
+    comprasDescargasTexto:
+      'Solo quien ha comprado un producto digital puede descargarlo. El enlace de descarga enviado por correo electrónico caduca a los 5 minutos y no es una dirección pública permanente. Las licencias son las que indica el vendedor para ese producto.',
+    publicacionModeracion: '4. Publicación y moderación',
+    publicacionModeracionTexto:
+      'Los productos sujetos a la Regla A se publican tras aprobación del Owner. Los productos de las Reglas B y C pueden publicarse según el estado de sus espacios. El Owner puede retirar un producto que incumpla lo declarado en su ficha.',
+    pagos: '5. Pagos',
+    pagosTexto:
+      'Los pagos se procesan a través de las pasarelas declaradas. La plataforma no custodia fondos del comprador cuando no es necesario para el reparto. Las liquidaciones a vendedores siguen el ciclo definido en el panel.',
+    responsabilidad: '6. Responsabilidad',
+    responsabilidadTexto:
+      'QBASwing Marketplace no es responsable del contenido publicado por vendedores, pero se reserva el derecho a moderarlo. No se ofrecen garantías implícitas que no estén expresamente escritas aquí.',
+  },
+
+  /* --- Politica de privacidad (privacidad.astro) --- */
+  privacidad: {
+    titulo: 'Política de privacidad',
+    ultimaActualizacion: 'Última actualización:',
+    queRecopilamos: '1. Datos que recopilamos',
+    queRecopilamosTexto:
+      'Solo recopilamos lo necesario para el funcionamiento: datos de cuenta (nombre y correo electrónico), información necesaria para procesar compras y los registros mínimos para prevenir abusos.',
+    usoDatos: '2. Uso de los datos',
+    usoDatosTexto:
+      'Usamos tus datos únicamente para prestar el servicio: autenticar, entregar lo que compraste, enviar notificaciones relacionadas con tu compra o con tu cuenta, y cumplir con lo que exigen las pasarelas de pago.',
+    cookies: '3. Cookies',
+    cookiesTexto:
+      'Usamos cookies estrictamente necesarias. La cookie de identidad del Owner está firmada con HMAC y no se guarda información sensible en el navegador.',
+    comparticion: '4. Compartición de datos',
+    comparticionTexto:
+      'No vendemos ni alquilamos tus datos. Solo los compartimos con las pasarelas de pago cuando es necesario para completar una transacción, y siempre con el mínimo necesario.',
+    seguridad: '5. Seguridad',
+    seguridadTexto:
+      'Los enlaces de descarga son opacos, caducan a los 5 minutos y se validan contra tu cuenta. No exponemos rutas públicas para archivos comprados.',
+    derechos: '6. Tus derechos',
+    derechosTexto:
+      'Puedes solicitar acceso, corrección o eliminación de tus datos relacionados con tu cuenta, siempre que no interfieran con registros necesarios para transacciones ya completadas.',
+  },
+
+  /* --- Preguntas frecuentes (faq.astro) --- */
+  faq: {
+    subtitulo: 'Respuestas claras, sin promesas inventadas.',
+    error: 'No se pudieron cargar las preguntas frecuentes.',
+    sinPreguntas: 'Aún no hay preguntas frecuentes publicadas.',
   },
 
   /* --- Selector de idioma --- */

@@ -26,23 +26,26 @@
  * subtotal por moneda.
  */
 import Base from '../layouts/Base.astro'
+import { diccionarioDe } from '../i18n/diccionario'
 import { backendConfigurado } from '../lib/carrito-cliente'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 ---
 
 <Base
-  title="Carrito"
-  descripcion="Lo que has anadido en QBASwing Marketplace."
+  title={t.carrito.titulo}
+  descripcion={t.carrito.descripcion}
 >
   <section class="w-full py-space-xl">
     <div class="container-page max-w-4xl">
       <div class="flex flex-wrap items-baseline justify-between gap-3">
-        <h1 class="font-headline text-headline-lg text-on-surface">Carrito</h1>
+        <h1 class="font-headline text-headline-lg text-on-surface">{t.carrito.titulo}</h1>
         <button
           type="button"
           data-vaciar
           class="hidden text-label-md font-medium text-on-surface-variant transition hover:text-error"
         >
-          Vaciar carrito
+          {t.carrito.vaciar}
         </button>
       </div>
 
@@ -51,10 +54,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
           class="mt-6 rounded-2xl border border-error/40 bg-error-container/40 p-5 text-body-md text-on-error-container"
           role="alert"
         >
-          <p>
-            Este sitio todavia no tiene servidor configurado, asi que el carrito no
-            puede funcionar. Intentalo mas tarde.
-          </p>
+          <p>{t.carrito.sinBackend}</p>
         </div>
       )}
 
@@ -62,10 +62,35 @@ import { backendConfigurado } from '../lib/carrito-cliente'
         data-cargando
         class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-body-md text-on-surface-variant"
       >
-        Cargando tu carrito...
+        {t.carrito.cargando}
       </p>
 
-      <div data-zona class="mt-6 space-y-4" aria-busy="true"></div>
+      <div
+        data-zona
+        data-txt-titulo-vacio={t.carrito.tituloVacio}
+        data-txt-vacio-ayuda={t.carrito.vacioAyuda}
+        data-txt-ver-productos={t.carrito.verProductos}
+        data-txt-antes-de-pagar={t.carrito.antesDePagar}
+        data-txt-retirado-uno={t.carrito.retiradoUno}
+        data-txt-retirado-varios={t.carrito.retiradoVarios}
+        data-txt-precio-cambiado={t.carrito.precioCambiado}
+        data-txt-variante={t.carrito.variante}
+        data-txt-vendido-por={t.carrito.vendidoPor}
+        data-txt-no-disponible={t.carrito.noDisponible}
+        data-txt-antes-ahora={t.carrito.antesAhora}
+        data-txt-se-cobra={t.carrito.seCobra}
+        data-txt-linea-precio={t.carrito.lineaPrecio}
+        data-txt-quitar-unidad={t.carrito.quitarUnidad}
+        data-txt-anadir-unidad={t.carrito.anadirUnidad}
+        data-txt-quitar={t.carrito.quitar}
+        data-txt-total-uno={t.carrito.totalUno}
+        data-txt-total-varios={t.carrito.totalVarios}
+        data-txt-comision-pendiente={t.carrito.comisionPendiente}
+        data-txt-ir-a-pagar={t.carrito.irAPagar}
+        data-txt-reintentar={t.error.reintentar}
+        class="mt-6 space-y-4"
+        aria-busy="true"
+      ></div>
 
       <p
         data-aviso
@@ -88,6 +113,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     type ContenidoCarrito,
     type LineaCarrito,
   } from '../lib/carrito-cliente'
+  import { rellenar } from '../i18n/diccionario'
   import { crearIcono } from '../lib/icono-dom'
   import type { NombreIcono } from '../lib/iconos'
 
@@ -95,6 +121,38 @@ import { backendConfigurado } from '../lib/carrito-cliente'
   const cargando = document.querySelector('[data-cargando]') as HTMLElement | null
   const aviso = document.querySelector('[data-aviso]') as HTMLElement | null
   const botonVaciar = document.querySelector('[data-vaciar]') as HTMLButtonElement | null
+
+  /**
+   * Los textos del carrito.
+   *
+   * Este script es un modulo del navegador: no ve el frontmatter y no puede
+   * llamar a `diccionarioDe`. Los textos llegan en los `data-txt-*` del HTML y
+   * aqui no debe quedar escrita ninguna cadena a mano.
+   */
+  const textos: DOMStringMap = zona?.dataset ?? {}
+  const {
+    txtTituloVacio = '',
+    txtVacioAyuda = '',
+    txtVerProductos = '',
+    txtAntesDePagar = '',
+    txtRetiradoUno = '',
+    txtRetiradoVarios = '',
+    txtPrecioCambiado = '',
+    txtVariante = '',
+    txtVendidoPor = '',
+    txtNoDisponible = '',
+    txtAntesAhora = '',
+    txtSeCobra = '',
+    txtLineaPrecio = '',
+    txtQuitarUnidad = '',
+    txtAnadirUnidad = '',
+    txtQuitar = '',
+    txtTotalUno = '',
+    txtTotalVarios = '',
+    txtComisionPendiente = '',
+    txtIrAPagar = '',
+    txtReintentar = '',
+  } = textos
 
   /** Crea un nodo con clase y texto. Nunca `innerHTML`, para no interpretar
    *  como HTML un titulo que traiga un signo menor. */
@@ -155,18 +213,18 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     simboloGrande.loading = 'lazy'
     simboloGrande.className = 'mx-auto block'
 
-    const titulo = el('p', 'mt-3 font-headline text-title-md font-semibold text-on-surface', 'Tu carrito esta vacio')
+    const titulo = el('p', 'mt-3 font-headline text-title-md font-semibold text-on-surface', txtTituloVacio)
     const ayuda = el(
       'p',
       'mt-2 text-body-md text-on-surface-variant',
-      'Puedes anadir productos sin crear cuenta. Se guardan en este navegador.',
+      txtVacioAyuda,
     )
 
     const acciones = el('div', 'mt-6 flex flex-wrap justify-center gap-3')
     const ver = el(
       'a',
       'inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
-      'Ver productos',
+      txtVerProductos,
     )
     ver.href = '/productos'
     acciones.append(ver)
@@ -187,7 +245,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
       'rounded-2xl border border-outline/60 bg-surface-container-high p-5',
     )
     caja.append(
-      el('p', 'font-headline text-title-md font-semibold text-on-surface', 'Antes de pagar'),
+      el('p', 'font-headline text-title-md font-semibold text-on-surface', txtAntesDePagar),
     )
 
     if (retirados.length > 0) {
@@ -195,9 +253,10 @@ import { backendConfigurado } from '../lib/carrito-cliente'
         el(
           'p',
           'mt-2 text-body-md text-on-surface-variant',
-          `${retirados.length} producto${retirados.length === 1 ? '' : 's'} ya no${
-            retirados.length === 1 ? '' : 'n'
-          } disponible${retirados.length === 1 ? '' : 's'}. Quitalos para poder pagar.`,
+          rellenar(
+            retirados.length === 1 ? txtRetiradoUno : txtRetiradoVarios,
+            { n: retirados.length },
+          ),
         ),
       )
     }
@@ -207,7 +266,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
         el(
           'p',
           'mt-2 text-body-md text-on-surface-variant',
-          'El precio cambio desde que lo anadiste. Revisa las lineas marcadas.',
+          txtPrecioCambiado,
         ),
       )
     }
@@ -235,13 +294,13 @@ import { backendConfigurado } from '../lib/carrito-cliente'
 
     if (linea.producto.variante) {
       izquierda.append(
-        el('p', 'mt-0.5 text-label-md text-on-surface-variant', `Variante: ${linea.producto.variante}`),
+        el('p', 'mt-0.5 text-label-md text-on-surface-variant', rellenar(txtVariante, { variante: linea.producto.variante })),
       )
     }
     if (linea.producto.vendedorSlug) {
       const tienda = el('a', 'text-label-md text-on-surface-variant hover:text-primary')
       tienda.href = `/vendedor/${encodeURIComponent(linea.producto.vendedorSlug)}`
-      tienda.textContent = `Vendido por ${linea.producto.vendedorSlug}`
+      tienda.textContent = rellenar(txtVendidoPor, { vendedor: linea.producto.vendedorSlug })
       izquierda.append(tienda)
     }
 
@@ -250,14 +309,14 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     // saber cual de los productos es el que ha cambiado.
     if (!linea.producto.disponible) {
       izquierda.append(
-        el('p', 'mt-2 text-label-md font-semibold text-error', 'Este producto ya no esta disponible.'),
+        el('p', 'mt-2 text-label-md font-semibold text-error', txtNoDisponible),
       )
     } else if (linea.producto.precioCambiado) {
       const avisoPrecio = el('p', 'mt-2 text-label-md font-semibold text-outline')
       avisoPrecio.append(
-        el('span', '', `Antes ${dinero(linea.precioUnitario, linea.moneda)}. Ahora `),
+        el('span', '', rellenar(txtAntesAhora, { precio: dinero(linea.precioUnitario, linea.moneda) })),
         el('span', '', dinero(linea.producto.precioActual, linea.moneda)),
-        el('span', '', '. Se cobra el nuevo.'),
+        el('span', '', txtSeCobra),
       )
       izquierda.append(avisoPrecio)
     }
@@ -267,7 +326,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
       el('p', 'text-body-md font-semibold text-on-surface', dinero(linea.subtotal, linea.moneda)),
     )
     derecha.append(
-      el('p', 'text-label-sm text-on-surface-variant', `${linea.cantidad} x ${dinero(linea.precioUnitario, linea.moneda)}`),
+      el('p', 'text-label-sm text-on-surface-variant', rellenar(txtLineaPrecio, { cantidad: linea.cantidad, precio: dinero(linea.precioUnitario, linea.moneda) })),
     )
 
     fila.append(izquierda, derecha)
@@ -284,7 +343,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
       'flex size-9 items-center justify-center rounded-full border border-outline-variant text-on-surface transition hover:border-primary',
     )
     menos.type = 'button'
-    menos.setAttribute('aria-label', `Quitar una unidad de ${linea.producto.titulo}`)
+    menos.setAttribute('aria-label', rellenar(txtQuitarUnidad, { titulo: linea.producto.titulo }))
     menos.append(simbolo('remove', 'text-label-md'))
     menos.dataset.cantidad = String(linea.cantidad - 1)
     menos.dataset.producto = String(linea.producto.id)
@@ -296,7 +355,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
       'flex size-9 items-center justify-center rounded-full border border-outline-variant text-on-surface transition hover:border-primary',
     )
     mas.type = 'button'
-    mas.setAttribute('aria-label', `Anadir una unidad de ${linea.producto.titulo}`)
+    mas.setAttribute('aria-label', rellenar(txtAnadirUnidad, { titulo: linea.producto.titulo }))
     mas.append(simbolo('add', 'text-label-md'))
     mas.dataset.cantidad = String(linea.cantidad + 1)
     mas.dataset.producto = String(linea.producto.id)
@@ -310,7 +369,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     quitarBoton.type = 'button'
     quitarBoton.dataset.quitar = String(linea.id)
     quitarBoton.append(simbolo('delete', 'text-label-md'))
-    quitarBoton.append(el('span', '', 'Quitar'))
+    quitarBoton.append(el('span', '', txtQuitar))
 
     pie.append(grupo, quitarBoton)
     tarjetaLinea.append(pie)
@@ -326,7 +385,14 @@ import { backendConfigurado } from '../lib/carrito-cliente'
       const fila = el('div', 'flex items-baseline justify-between gap-4')
       const etiqueta = el('dt', 'text-body-md text-on-surface-variant')
       etiqueta.append(
-        el('span', '', `${total.unidades} producto${total.unidades === 1 ? '' : 's'} en ${total.moneda}`),
+        el(
+          'span',
+          '',
+          rellenar(total.unidades === 1 ? txtTotalUno : txtTotalVarios, {
+            n: total.unidades,
+            moneda: total.moneda,
+          }),
+        ),
       )
       const valor = el('dd', 'text-body-md font-semibold text-on-surface', dinero(total.subtotal, total.moneda))
       fila.append(etiqueta, valor)
@@ -344,7 +410,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
       el(
         'p',
         'mt-3 text-label-md text-on-surface-variant',
-        'La comision de la plataforma todavia no se anade: no hay pasarela de pago conectada.',
+        txtComisionPendiente,
       ),
     )
 
@@ -354,7 +420,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     )
     boton.href = '/pagar'
     boton.append(simbolo('lock', 'text-label-md'))
-    boton.append(el('span', '', 'Ir a pagar'))
+    boton.append(el('span', '', txtIrAPagar))
     caja.append(boton)
 
     return caja
@@ -403,7 +469,7 @@ import { backendConfigurado } from '../lib/carrito-cliente'
     reintentar.type = 'button'
     reintentar.dataset.reintentar = ''
     reintentar.append(simbolo('refresh', 'text-label-md'))
-    reintentar.append(el('span', '', 'Reintentar'))
+    reintentar.append(el('span', '', txtReintentar))
     caja.append(reintentar)
 
     zona.replaceChildren(caja)

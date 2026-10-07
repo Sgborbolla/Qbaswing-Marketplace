@@ -11,6 +11,9 @@ import Base from '../layouts/Base.astro'
 import { formatearPrecio, recortar } from '../lib/formato'
 import { miniaturaDeCategoria } from '../lib/miniaturas'
 import type { FiltrosCatalogo, ProductoResumen } from '../lib/api'
+import { diccionarioDe, rellenar } from '../i18n/diccionario'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 
 const { listarProductos, listarCategorias } = await import('../lib/api')
 
@@ -67,16 +70,16 @@ const urlDePagina = (n: number): string => {
 }
 ---
 
-<Base title="Catálogo">
+<Base title={t.owner.catalogo}>
   <section class="w-full py-space-xl">
     <div class="container-page">
       <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 class="font-headline text-headline-lg text-on-surface">Catálogo</h1>
+          <h1 class="font-headline text-headline-lg text-on-surface">{t.owner.catalogo}</h1>
           <p class="mt-2 text-body-md text-on-surface-variant">
             {total === 0
-              ? 'Aún no hay productos publicados.'
-              : `${total} producto${total === 1 ? '' : 's'} en total.`}
+              ? t.productos.sinProductos
+              : rellenar(total === 1 ? t.productos.totalUno : t.productos.totalVarios, { n: total })}
           </p>
         </div>
 
@@ -96,24 +99,24 @@ const urlDePagina = (n: number): string => {
       <!-- Filtros -->
       <form method="GET" class="mt-6 grid gap-3 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-4 shadow-e1 sm:grid-cols-2 lg:grid-cols-5">
         <div class="lg:col-span-2">
-          <label class="text-label-sm text-on-surface-variant" for="q">Buscar</label>
+          <label class="text-label-sm text-on-surface-variant" for="q">{t.productos.buscar}</label>
           <input
             id="q"
             name="q"
             value={filtros.busqueda || ''}
-            placeholder="Buscar por título o descripción..."
+            placeholder={t.productos.placeholderBusqueda}
             class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-body-md text-on-surface outline-none ring-primary transition focus:border-primary focus:ring-2"
           />
         </div>
 
         <div>
-          <label class="text-label-sm text-on-surface-variant" for="categoria">Categoría</label>
+          <label class="text-label-sm text-on-surface-variant" for="categoria">{t.producto.categoria}</label>
           <select
             id="categoria"
             name="categoria"
             class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-body-md text-on-surface outline-none focus:border-primary focus:ring-2"
           >
-            <option value="">Todas</option>
+            <option value="">{t.productos.todas}</option>
             {categorias.map((c) => (
               <option value={c.nombre} selected={c.nombre === filtros.categoria}>{c.nombre}</option>
             ))}
@@ -121,22 +124,22 @@ const urlDePagina = (n: number): string => {
         </div>
 
         <div>
-          <label class="text-label-sm text-on-surface-variant" for="tipo">Tipo</label>
+          <label class="text-label-sm text-on-surface-variant" for="tipo">{t.form.tipo}</label>
           <select id="tipo" name="tipo" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-body-md text-on-surface outline-none focus:border-primary focus:ring-2">
-            <option value="">Todos</option>
-            <option value="digital" selected={filtros.tipo === 'digital'}>Digital</option>
-            <option value="fisico" selected={filtros.tipo === 'fisico'}>Físico</option>
-            <option value="servicio" selected={filtros.tipo === 'servicio'}>Servicio</option>
+            <option value="">{t.productos.todos}</option>
+            <option value="digital" selected={filtros.tipo === 'digital'}>{t.productos.digital}</option>
+            <option value="fisico" selected={filtros.tipo === 'fisico'}>{t.productos.fisico}</option>
+            <option value="servicio" selected={filtros.tipo === 'servicio'}>{t.productos.servicio}</option>
           </select>
         </div>
 
         <div>
-          <label class="text-label-sm text-on-surface-variant" for="orden">Ordenar</label>
+          <label class="text-label-sm text-on-surface-variant" for="orden">{t.productos.ordenar}</label>
           <select id="orden" name="orden" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-body-md text-on-surface outline-none focus:border-primary focus:ring-2">
-            <option value="destacados" selected={filtros.orden === 'destacados'}>Destacados</option>
-            <option value="nuevo" selected={filtros.orden === 'nuevo'}>Más recientes</option>
-            <option value="precio_asc" selected={filtros.orden === 'precio_asc'}>Precio: menor a mayor</option>
-            <option value="precio_desc" selected={filtros.orden === 'precio_desc'}>Precio: mayor a menor</option>
+            <option value="destacados" selected={filtros.orden === 'destacados'}>{t.footer.enDestacados}</option>
+            <option value="nuevo" selected={filtros.orden === 'nuevo'}>{t.productos.masRecientes}</option>
+            <option value="precio_asc" selected={filtros.orden === 'precio_asc'}>{t.productos.precioMenorAMayor}</option>
+            <option value="precio_desc" selected={filtros.orden === 'precio_desc'}>{t.productos.precioMayorAMenor}</option>
           </select>
         </div>
 
@@ -145,14 +148,14 @@ const urlDePagina = (n: number): string => {
             type="submit"
             class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-body-md font-semibold text-on-primary transition hover:bg-primary-container"
           >
-            Filtrar
+            {t.productos.filtrar}
           </button>
           {tieneFiltros && (
             <a
               href="/productos"
               class="inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-on-surface transition hover:border-primary"
             >
-              Limpiar filtros
+              {t.producto.limpiar}
             </a>
           )}
         </div>
@@ -161,7 +164,7 @@ const urlDePagina = (n: number): string => {
       {error && (
         <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">
           <p class="text-body-md text-on-surface-variant">
-            No se pudo cargar el catálogo en este momento. Inténtalo de nuevo más tarde.
+            {t.productos.errorCatalogo}
           </p>
         </div>
       )}
@@ -177,16 +180,16 @@ const urlDePagina = (n: number): string => {
             <Miniatura nombre="curso" ancho={64} />
           </div>
           <p class="mt-6 font-headline text-title-lg font-semibold text-on-surface">
-            Todavía no hay productos publicados
+            {t.vacio.sinProductos}
           </p>
           <p class="mx-auto mt-2 max-w-xl text-body-md text-on-surface-variant">
-            El catálogo está vacío. El primer producto que se publique aparecerá aquí.
+            {t.productos.vacioAyuda}
           </p>
           <a
             href="/registro"
             class="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-md font-semibold text-on-primary transition hover:bg-primary-container"
           >
-            Publicar el primero
+            {t.productos.publicarPrimero}
           </a>
         </div>
       )}
@@ -245,7 +248,7 @@ const urlDePagina = (n: number): string => {
       */}
       {paginas > 1 && (
         <nav
-          aria-label="Paginas del catalogo"
+          aria-label={t.productos.paginasCatalogo}
           class="mt-10 flex items-center justify-center gap-2 border-t border-outline-variant/50 pt-6"
         >
           <a
@@ -258,12 +261,12 @@ const urlDePagina = (n: number): string => {
             ]}
           >
             <Icono nombre="chevron_left" class="text-label-md" />
-            Anterior
+            {t.comun.anterior}
           </a>
 
           <p class="px-4 text-body-md text-on-surface-variant">
-            Pagina <span class="font-semibold text-on-surface">{filtros.pagina}</span> de{' '}
-            <span class="font-semibold text-on-surface">{paginas}</span>
+            {t.productos.pagina} <span class="font-semibold text-on-surface">{filtros.pagina}</span>{' '}
+            {t.productos.de} <span class="font-semibold text-on-surface">{paginas}</span>
           </p>
 
           <a
@@ -275,7 +278,7 @@ const urlDePagina = (n: number): string => {
                 : 'text-on-surface hover:border-primary hover:text-primary',
             ]}
           >
-            Siguiente
+            {t.comun.siguiente}
             <Icono nombre="chevron_right" class="text-label-md" />
           </a>
         </nav>

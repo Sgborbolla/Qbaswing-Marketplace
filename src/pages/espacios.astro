@@ -7,6 +7,9 @@
 import Base from '../layouts/Base.astro'
 import Miniatura from '../components/Miniatura.astro'
 import { miniaturaDeCategoria } from '../lib/miniaturas'
+import { diccionarioDe } from '../i18n/diccionario'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 
 const { listarPaquetes } = await import('../lib/api')
 const { precioONoDisponible } = await import('../lib/formato')
@@ -21,19 +24,18 @@ try {
 }
 ---
 
-<Base title="Espacios y paquetes">
+<Base title={t.footer.enEspacios}>
   <section class="w-full py-space-xl">
     <div class="container-page">
-      <h1 class="font-headline text-headline-lg text-on-surface">Espacios y paquetes</h1>
+      <h1 class="font-headline text-headline-lg text-on-surface">{t.footer.enEspacios}</h1>
       <p class="mt-4 max-w-3xl text-body-lg text-on-surface-variant">
-        Un paquete no limita cuántas ventas haces: limita cuántos productos tienes
-        publicados a la vez, dura 60 días y los espacios se reutilizan al vender.
+        {t.espacios.intro}
       </p>
 
       {error && (
         <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">
           <p class="text-body-md text-on-surface-variant">
-            No se pudieron cargar los paquetes en este momento.
+            {t.espacios.errorCarga}
           </p>
         </div>
       )}
@@ -41,7 +43,7 @@ try {
       {!error && paquetes.length === 0 && (
         <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">
           <p class="text-body-md text-on-surface-variant">
-            Aún no hay paquetes configurados.
+            {t.espacios.vacio}
           </p>
         </div>
       )}
@@ -53,7 +55,7 @@ try {
               <Miniatura nombre={miniaturaDeCategoria(p.categoria)} ancho={56} clase="mb-4" />
               <h2 class="font-headline text-title-md font-semibold text-on-surface">{p.nombre}</h2>
               <p class="mt-1 text-body-sm text-on-surface-variant">
-                {p.slots} {p.slots === 1 ? 'espacio' : 'espacios'} · {p.vigenciaDias} días
+                {p.slots} {p.slots === 1 ? t.espacios.espacio : t.espacios.espacios} · {p.vigenciaDias} {t.espacios.dias}
               </p>
               <div class="mt-4 space-y-1">
                 {(['CUP', 'USD', 'EUR'] as const).map((m) => {

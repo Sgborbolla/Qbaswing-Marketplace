@@ -25,16 +25,19 @@
 import Base from '../layouts/Base.astro'
 import Miniatura from '../components/Miniatura.astro'
 import PanelCuenta from '../components/PanelCuenta.astro'
+import { diccionarioDe } from '../i18n/diccionario'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 ---
 
-<Base title="Administracion" descripcion="Administracion de QBASwing Marketplace.">
+<Base title={t.owner.administracion} descripcion={t.owner.descripcion}>
   <section class="w-full py-space-xl">
     <div class="container-page max-w-3xl">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <h1 class="font-headline text-headline-lg text-on-surface">Administracion</h1>
+          <h1 class="font-headline text-headline-lg text-on-surface">{t.owner.administracion}</h1>
           <p class="mt-2 text-body-md text-on-surface-variant">
-            Tu cuenta y lo que tienes permiso sobre el sitio.
+            {t.owner.permiso}
           </p>
         </div>
         <Miniatura nombre="dinero" ancho={64} />

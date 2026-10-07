@@ -7,6 +7,9 @@
 import Icono from '../components/Icono.astro'
 import Miniatura from '../components/Miniatura.astro'
 import Base from '../layouts/Base.astro'
+import { diccionarioDe } from '../i18n/diccionario'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 
 const { listarFAQ } = await import('../lib/api-plataforma')
 
@@ -22,14 +25,14 @@ try {
 faqs = faqs.filter((f) => f.activa && f.respuesta.trim()).sort((a, b) => a.orden - b.orden)
 ---
 
-<Base title="Preguntas frecuentes">
+<Base title={t.footer.enFaq}>
   <section class="w-full py-space-xl">
     <div class="container-page max-w-4xl">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <h1 class="font-headline text-headline-lg text-on-surface">Preguntas frecuentes</h1>
+          <h1 class="font-headline text-headline-lg text-on-surface">{t.footer.enFaq}</h1>
           <p class="mt-2 text-body-md text-on-surface-variant">
-            Respuestas claras, sin promesas inventadas.
+            {t.faq.subtitulo}
           </p>
         </div>
         <Miniatura nombre="servicio" ancho={64} />
@@ -38,7 +41,7 @@ faqs = faqs.filter((f) => f.activa && f.respuesta.trim()).sort((a, b) => a.orden
       {error && (
         <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">
           <p class="text-body-md text-on-surface-variant">
-            No se pudieron cargar las preguntas frecuentes.
+            {t.faq.error}
           </p>
         </div>
       )}
@@ -46,7 +49,7 @@ faqs = faqs.filter((f) => f.activa && f.respuesta.trim()).sort((a, b) => a.orden
       {!error && faqs.length === 0 && (
         <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">
           <p class="text-body-md text-on-surface-variant">
-            Aún no hay preguntas frecuentes publicadas.
+            {t.faq.sinPreguntas}
           </p>
         </div>
       )}

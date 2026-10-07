@@ -9,6 +9,9 @@ import { miniaturaDeCategoria } from '../../lib/miniaturas'
 
 import { IDIOMAS } from '../../i18n/config'
 import { listarVendedores, obtenerVendedor } from '../../lib/api'
+import { diccionarioDe } from '../../i18n/diccionario'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 
 /**
  * Imports estaticos, por la misma razon que en la ficha de producto: Astro
@@ -69,14 +72,14 @@ try {
     vendedor = await obtenerVendedor(slug)
   } else {
     error = true
-    mensaje = 'Falta el identificador del vendedor.'
+    mensaje = t.vendedor.faltaIdentificador
   }
 } catch (e: any) {
   error = true
-  mensaje = e?.message || 'No se pudo cargar el vendedor.'
+  mensaje = e?.message || t.vendedor.cargaFallida
 }
 
-const titulo = vendedor ? vendedor.nombreComercial || vendedor.nombre : 'Vendedor'
+const titulo = vendedor ? vendedor.nombreComercial || vendedor.nombre : t.producto.vendedor
 ---
 
 <Base title={titulo}>
@@ -84,20 +87,20 @@ const titulo = vendedor ? vendedor.nombreComercial || vendedor.nombre : 'Vendedo
     <div class="container-page max-w-5xl">
       {error && (
         <div class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
-          <h1 class="font-headline text-headline-sm text-on-surface">No se pudo mostrar este vendedor</h1>
+          <h1 class="font-headline text-headline-sm text-on-surface">{t.vendedor.errorTitulo}</h1>
           <p class="mt-2 text-body-md text-on-surface-variant">{mensaje}</p>
           <a href="/productos" class="mt-4 inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-primary transition hover:border-primary">
-            Volver al catálogo
+            {t.ficha.volverCatalogo}
           </a>
         </div>
       )}
 
       {!error && !vendedor && (
         <div class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
-          <h1 class="font-headline text-headline-sm text-on-surface">Vendedor no encontrado</h1>
-          <p class="mt-2 text-body-md text-on-surface-variant">Este vendedor no existe o no tiene productos visibles.</p>
+          <h1 class="font-headline text-headline-sm text-on-surface">{t.vendedor.noEncontrado}</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">{t.vendedor.noEncontradoTexto}</p>
           <a href="/productos" class="mt-4 inline-flex items-center gap-2 rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-primary transition hover:border-primary">
-            Volver al catálogo
+            {t.ficha.volverCatalogo}
           </a>
         </div>
       )}
@@ -111,23 +114,23 @@ const titulo = vendedor ? vendedor.nombreComercial || vendedor.nombre : 'Vendedo
                   {vendedor.nombreComercial || vendedor.nombre}
                 </h1>
                 <p class="mt-2 max-w-2xl text-body-md text-on-surface-variant whitespace-pre-line">
-                  {vendedor.descripcion || 'Este vendedor aún no tiene descripción.'}
+                  {vendedor.descripcion || t.vendedor.sinDescripcion}
                 </p>
                 <div class="mt-4 flex flex-wrap gap-3 text-label-sm text-on-surface-variant">
                   <span class="rounded-full bg-surface-container-high px-3 py-1">
-                    {vendedor.productosPublicados} producto{vendedor.productosPublicados === 1 ? '' : 's'}
+                    {vendedor.productosPublicados} {vendedor.productosPublicados === 1 ? t.vendedor.producto : t.vendedor.productos}
                   </span>
                   {vendedor.ubicacion && <span class="rounded-full bg-surface-container-high px-3 py-1">{vendedor.ubicacion}</span>}
-                  {vendedor.verificado && <span class="rounded-full bg-primary/10 px-3 py-1 text-primary">Verificado</span>}
+                  {vendedor.verificado && <span class="rounded-full bg-primary/10 px-3 py-1 text-primary">{t.vendedor.verificado}</span>}
                 </div>
               </div>
             </div>
           </header>
 
           <section class="mt-8">
-            <h2 class="font-headline text-title-lg font-semibold text-on-surface">Productos</h2>
+            <h2 class="font-headline text-title-lg font-semibold text-on-surface">{t.perfil.misProductos}</h2>
             {vendedor.productos.length === 0 ? (
-              <p class="mt-2 text-body-md text-on-surface-variant">Este vendedor todavía no tiene productos visibles.</p>
+              <p class="mt-2 text-body-md text-on-surface-variant">{t.vendedor.sinProductos}</p>
             ) : (
               <div class="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {vendedor.productos.map((p) => (

@@ -29,7 +29,10 @@ import Icono from '../components/Icono.astro'
 import Miniatura from '../components/Miniatura.astro'
 import Layout from '../layouts/Base.astro'
 import Logo from '../components/Logo.astro'
+import { diccionarioDe, rellenar } from '../i18n/diccionario'
 import { backendConfigurado } from '../lib/api'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
 
 const ref = Astro.url.searchParams.get('ref') ?? ''
 const motivo = Astro.url.searchParams.get('motivo') ?? ''
@@ -40,14 +43,14 @@ const motivo = Astro.url.searchParams.get('motivo') ?? ''
  * no explicarlo.
  */
 const MOTIVOS: Record<string, string> = {
-  saldo: 'Tu cuenta en la pasarela no tiene saldo suficiente para completar el pago.',
-  rechazo: 'La pasarela rechazó la operación. No se realizó ningún cargo.',
-  timeout: 'La operación tardó demasiado y se canceló para proteger tu dinero.',
-  usuario: 'Cancelaste el pago antes de completarlo.',
-  cambio: 'El tipo de cambio no estaba disponible en el momento del intento.',
+  saldo: t.fallo.motivoSaldo,
+  rechazo: t.fallo.motivoRechazo,
+  timeout: t.fallo.motivoTimeout,
+  usuario: t.fallo.motivoUsuario,
+  cambio: t.fallo.motivoCambio,
 }
 
-const explicacion = MOTIVOS[motivo] ?? 'El pago no se completó.'
+const explicacion = MOTIVOS[motivo] ?? t.fallo.sinMotivo
 
 const ICONO = {
   cerrar: 'cancel',
@@ -57,8 +60,8 @@ const ICONO = {
 ---
 
 <Layout
-  title="Pago cancelado"
-  descripcion="El pago no se completo en QBASwing Marketplace."
+  title={t.fallo.titulo}
+  descripcion={t.fallo.descripcion}
 >
   <section class="container-page flex min-h-[70vh] items-center justify-center py-16">
     <div class="w-full max-w-lg text-center">
@@ -67,7 +70,7 @@ const ICONO = {
       </div>
 
       <h1 class="mt-6 font-headline text-headline-md text-on-surface">
-        El pago no se completó
+        {t.fallo.noSeCompleto}
       </h1>
 
       <p class="mt-3 text-body-lg text-on-surface-variant">{explicacion}</p>
@@ -75,7 +78,7 @@ const ICONO = {
       {
         ref && (
           <p class="mt-4 inline-block rounded-md bg-surface-container px-3 py-1.5 font-mono text-code text-on-surface-variant">
-            Referencia: {ref}
+            {rellenar(t.fallo.referencia, { ref })}
           </p>
         )
       }
@@ -89,9 +92,7 @@ const ICONO = {
         class="mt-6 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-left text-body-sm text-on-surface-variant"
         role="note"
       >
-        Si ya habías completado el pago en tu banco o en la pasarela y ves esto,
-        puede ser un retraso en la confirmación. Revisá tu cuenta en unos
-        minutos antes de volver a intentar: no se te cobrará dos veces.
+        {t.fallo.avisoCarrera}
       </p>
 
       <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
@@ -100,14 +101,14 @@ const ICONO = {
           class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
         >
           <Icono nombre={ICONO.reintentar} class="text-label-md" />
-          Intentar de nuevo
+          {t.fallo.intentarDeNuevo}
         </a>
         <a
           href="/productos"
           class="inline-flex items-center justify-center gap-2 rounded-full border border-outline px-6 py-3 text-label-md font-semibold text-primary transition-colors hover:bg-surface-container"
         >
           <Icono nombre={ICONO.volver} class="text-label-md" />
-          Volver al catálogo
+          {t.fallo.volverCatalogo}
         </a>
       </div>
 
@@ -118,9 +119,9 @@ const ICONO = {
       {
         backendConfigurado && (
           <p class="mt-8 text-body-sm text-on-surface-variant">
-            ¿Necesitás ayuda?{' '}
+            {t.fallo.necesitasAyuda}{' '}
             <a href="/contacto" class="font-semibold text-primary underline">
-              Escribinos
+              {t.fallo.escribinos}
             </a>
           </p>
         )
