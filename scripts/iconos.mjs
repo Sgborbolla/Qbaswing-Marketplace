@@ -342,8 +342,15 @@ ${lineasRelleno.join('\n')}
 
 export type NombreIcono = keyof typeof ICONOS
 
-/** El viewBox que comparten todos los iconos. */
-export const VIEWBOX_ICONO = '\`${[...viewBoxes][0]}\`'
+/**
+ * El viewBox que comparten todos los iconos.
+ *
+ * Sin las comillas de acento del comentario de mas arriba: al ser el valor de un
+ * atributo SVG, unas backticks literales lo hacen invalido y el navegador lo
+ * ignora, con el resultado de que cada icono se pinta a escala 1:1 de 960
+ * unidades dentro de una caja de 13 px y sale en blanco.
+ */
+export const VIEWBOX_ICONO = '${[...viewBoxes][0]}'
 `
   await writeFile(DESTINO, contenido, 'utf8')
 

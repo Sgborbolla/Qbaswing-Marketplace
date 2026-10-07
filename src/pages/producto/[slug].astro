@@ -5,10 +5,11 @@
  * Página dinámica: `/producto/[slug].astro`. Lee desde la API por slug.
  * Estados vacíos reales si no existe o falla la carga.
  */
-import Icono from '../../components/Icono.astro'
+import Miniatura from '../../components/Miniatura.astro'
 import Base from '../../layouts/Base.astro'
 import QrCuenta from '../../components/QrCuenta.astro'
 import { formatearFecha, formatearPrecio } from '../../lib/formato'
+import { miniaturaDeCategoria } from '../../lib/miniaturas'
 
 import { IDIOMAS } from '../../i18n/config'
 import { listarProductos, obtenerMediosPago, obtenerProducto } from '../../lib/api'
@@ -176,7 +177,7 @@ const mediosListos = medios.filter((m) => (m.dato ?? '').trim() !== '')
                 <img src={producto.imagen} alt={producto.titulo} class="h-full w-full object-cover" />
               ) : (
                 <div class="flex h-full w-full items-center justify-center">
-                  <Icono nombre="image" class="text-[48px] text-on-surface-variant/30" />
+                  <Miniatura nombre={miniaturaDeCategoria(producto.categoria)} ancho={132} />
                 </div>
               )}
             </div>

@@ -9,18 +9,27 @@
  * publicadas, sin custodia de fondos, con entrega digital de cinco minutos.
  */
 import Base from '../layouts/Base.astro'
+import Miniatura from '../components/Miniatura.astro'
 ---
 
 <Base title="Acerca de nosotros">
   <section class="w-full py-space-xl">
     <div class="container-page">
-      <h1 class="font-headline text-headline-lg text-on-surface">Acerca de nosotros</h1>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="font-headline text-headline-lg text-on-surface">Acerca de nosotros</h1>
 
-      <p class="mt-4 max-w-3xl text-body-lg text-on-surface-variant">
-        QBASwing Marketplace es una plataforma para comprar y vender productos
-        digitales, físicos y servicios, con las reglas de comisión publicadas
-        antes que el catálogo.
-      </p>
+          <p class="mt-4 max-w-3xl text-body-lg text-on-surface-variant">
+            QBASwing Marketplace es una plataforma para comprar y vender productos
+            digitales, físicos y servicios, con las reglas de comisión publicadas
+            antes que el catálogo.
+          </p>
+        </div>
+        <div class="hidden shrink-0 flex-col gap-2 sm:flex" aria-hidden="true">
+          <Miniatura nombre="software" ancho={56} />
+          <Miniatura nombre="ropa" ancho={56} />
+        </div>
+      </div>
 
       <div class="mt-8 grid gap-8 md:grid-cols-2">
         <article class="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1">

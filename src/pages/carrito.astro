@@ -142,7 +142,18 @@ import { backendConfigurado } from '../lib/carrito-cliente'
 
   function vacio(): HTMLElement {
     const caja = tarjeta('rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-8 text-center')
-    const simboloGrande = simbolo('shopping_cart', 'text-headline-lg text-on-surface-variant/50')
+
+    // El dibujo del carrito y no un icono suelto: a este tamano un glifo de 24
+    // px escalado se ve borroso, y la miniatura trae su propio fondo pastel,
+    // que es lo que hace que el bloque no parezca un error de carga.
+    const simboloGrande = document.createElement('img')
+    simboloGrande.src = '/imagenes/carrito.svg'
+    simboloGrande.alt = ''
+    simboloGrande.setAttribute('aria-hidden', 'true')
+    simboloGrande.width = 76
+    simboloGrande.height = 76
+    simboloGrande.loading = 'lazy'
+    simboloGrande.className = 'mx-auto block'
 
     const titulo = el('p', 'mt-3 font-headline text-title-md font-semibold text-on-surface', 'Tu carrito esta vacio')
     const ayuda = el(

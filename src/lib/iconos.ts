@@ -105,5 +105,15 @@ export const ICONOS_RELLENOS: Partial<Record<NombreIcono, string>> = {
 
 export type NombreIcono = keyof typeof ICONOS
 
-/** El viewBox que comparten todos los iconos. */
-export const VIEWBOX_ICONO = '`0 -960 960 960`'
+/**
+ * El viewBox que comparten todos los iconos.
+ *
+ * Ojo con las comillas: aqui NO lleva las de acento que envuelven el valor en el
+ * comentario de mas arriba. Con ellas el atributo sale del navegador como
+ * `` `0 -960 960 960` `` y el parser lo rechaza con
+ * `viewBox: Expected number`. Al descartarse el viewBox, el dibujo de 960
+ * unidades se pinta sin escalar dentro de una caja de 13 a 26 px, y lo que queda
+ * es un trozo de curva suelto o nada: la razon por la que la mitad de los
+ * iconos del sitio salian en blanco.
+ */
+export const VIEWBOX_ICONO = '0 -960 960 960'

@@ -26,6 +26,7 @@
  * de afirmar que no se cobró nada.
  */
 import Icono from '../components/Icono.astro'
+import Miniatura from '../components/Miniatura.astro'
 import Layout from '../layouts/Base.astro'
 import Logo from '../components/Logo.astro'
 import { backendConfigurado } from '../lib/api'
@@ -124,6 +125,12 @@ const ICONO = {
           </p>
         )
       }
+
+      <div class="mt-10 flex items-center justify-center gap-3" aria-hidden="true">
+        <Miniatura nombre="ropa" ancho={44} />
+        <Miniatura nombre="software" ancho={44} />
+        <Miniatura nombre="calzado" ancho={44} />
+      </div>
     </div>
   </section>
 </Layout>

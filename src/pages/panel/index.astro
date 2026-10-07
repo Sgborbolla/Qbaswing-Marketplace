@@ -17,16 +17,22 @@
  * acepte un `id` por la URL.
  */
 import Base from '../../layouts/Base.astro'
+import Miniatura from '../../components/Miniatura.astro'
 import PanelCuenta from '../../components/PanelCuenta.astro'
 ---
 
 <Base title="Mi panel" descripcion="Tu panel de vendedor en QBASwing Marketplace.">
   <section class="w-full py-space-xl">
     <div class="container-page max-w-3xl">
-      <h1 class="font-headline text-headline-lg text-on-surface">Mi panel</h1>
-      <p class="mt-2 text-body-md text-on-surface-variant">
-        Tu tienda, tu porcentaje y tus sesiones.
-      </p>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="font-headline text-headline-lg text-on-surface">Mi panel</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            Tu tienda, tu porcentaje y tus sesiones.
+          </p>
+        </div>
+        <Miniatura nombre="paquete" ancho={64} />
+      </div>
 
       <div class="mt-8">
         <PanelCuenta variante="panel" />

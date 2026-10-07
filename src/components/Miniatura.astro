@@ -1,0 +1,69 @@
+---
+/**
+ * Miniatura de producto o de categoria.
+ *
+ * ============================================================================
+ *  QUE PINTA
+ * ============================================================================
+ * Uno de los 22 SVG de `public/imagenes/`: una camiseta, un portatil, una caja.
+ * Dibuja una CATEGORIA, no un producto concreto. Eso es lo que permite poner
+ * imagenes en el sitio mientras el catalogo este vacio sin inventar una sola
+ * venta: ver una camiseta al lado de "Ropa & Moda" es cierto, ver una foto de
+ * una camiseta concreta seria un anuncio de algo que nadie ha publicado.
+ *
+ * ============================================================================
+ *  POR QUE <img> Y NO SVG EN LINEA
+ * ============================================================================
+ * Las mismas miniaturas se repiten (los diez paquetes aparecen en la portada y
+ * otra vez en `/espacios`). En linea serian diez copias del mismo dibujo en el
+ * HTML de cada pagina; como `<img>` son una peticion que el navegador cachea y
+ * no vuelve a bajar. Ademas la pagina pesa lo mismo si hay una miniatura o
+ * veinte.
+ *
+ * El SVG trae el rectangulo de fondo ya redondeado, asi que el componente no
+ * añade `rounded-*`: poner las dos redondeos encima deja cuatro esquinitas del
+ * color de la tarjeta asomando por dentro.
+ *
+ * ============================================================================
+ *  SIEMPRE DECORATIVA
+ * ============================================================================
+ * No acepta `alt`. Todas las miniaturas estan junto a un titulo o a una frase
+ * que ya dice lo que es, y una imagen decorativa con texto alternativo se lee
+ * dos veces seguidas. Como en `Icono.astro`, el nombre va en el texto de al
+ * lado, no aqui.
+ *
+ * ============================================================================
+ *  EL TAMANO
+ * ============================================================================
+ * Se dice en px con `ancho`, y va tambien a los atributos `width` y `height`
+ * para que el navegador reserve el hueco antes de bajar el archivo. Sin eso,
+ * diez miniaturas que llegan tarde reordenan la rejilla de paquetes justo
+ * mientras alguien esta leyendo los precios.
+ */
+import { rutaMiniatura, type NombreMiniatura } from '../lib/miniaturas'
+
+interface Props {
+  /** Que dibujo es. Un nombre que no existe no compila. */
+  nombre: NombreMiniatura
+  /** Lado del cuadrado, en px. El SVG escala sin perder nitidez. */
+  ancho?: number
+  /** Clases de Tailwind, para el hueco de la tarjeta. */
+  clase?: string
+  /** `loading="eager"` para lo que se ve sin hacer scroll. */
+  prioridad?: boolean
+}
+
+const { nombre, ancho = 72, clase = '', prioridad = false } = Astro.props
+---
+
+<img
+  src={rutaMiniatura(nombre)}
+  alt=""
+  aria-hidden="true"
+  width={ancho}
+  height={ancho}
+  loading={prioridad ? 'eager' : 'lazy'}
+  decoding="async"
+  class={`block shrink-0 ${clase}`}
+  style={`width:${ancho}px;height:${ancho}px`}
+/>

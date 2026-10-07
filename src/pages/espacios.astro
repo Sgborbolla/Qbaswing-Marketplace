@@ -5,6 +5,8 @@
  * Muestra los 10 paquetes que devuelve la API. No hay datos ficticios.
  */
 import Base from '../layouts/Base.astro'
+import Miniatura from '../components/Miniatura.astro'
+import { miniaturaDeCategoria } from '../lib/miniaturas'
 
 const { listarPaquetes } = await import('../lib/api')
 const { precioONoDisponible } = await import('../lib/formato')
@@ -48,6 +50,7 @@ try {
         <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
           {paquetes.map((p) => (
             <article class="flex flex-col rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-e1">
+              <Miniatura nombre={miniaturaDeCategoria(p.categoria)} ancho={56} clase="mb-4" />
               <h2 class="font-headline text-title-md font-semibold text-on-surface">{p.nombre}</h2>
               <p class="mt-1 text-body-sm text-on-surface-variant">
                 {p.slots} {p.slots === 1 ? 'espacio' : 'espacios'} · {p.vigenciaDias} días
@@ -67,9 +70,6 @@ try {
                   )
                 })}
               </div>
-              {p.precioConfigurable && (
-                <p class="mt-3 text-label-sm text-tertiary">Precio editable por el Owner</p>
-              )}
               <ul class="mt-4 space-y-1 text-body-sm text-on-surface-variant">
                 {p.caracteristicas.map((c) => (
                   <li>• {c}</li>

@@ -7,19 +7,25 @@
  * aparece nada: ese es el estado vacío real.
  */
 import Icono from '../components/Icono.astro'
+import Miniatura from '../components/Miniatura.astro'
 import Base from '../layouts/Base.astro'
 ---
 
 <Base title="Contacto">
   <section class="w-full py-space-xl">
     <div class="container-page max-w-3xl">
-      <h1 class="font-headline text-headline-lg text-on-surface">Contacto</h1>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="font-headline text-headline-lg text-on-surface">Contacto</h1>
 
-      <p class="mt-4 text-body-lg text-on-surface-variant">
-        Si tienes una pregunta sobre compras, ventas o sobre cómo funcionan las
-        reglas, puedes escribirnos a través de los canales que aparecen en el
-        pie de página.
-      </p>
+          <p class="mt-4 text-body-lg text-on-surface-variant">
+            Si tienes una pregunta sobre compras, ventas o sobre cómo funcionan las
+            reglas, puedes escribirnos a través de los canales que aparecen en el
+            pie de página.
+          </p>
+        </div>
+        <Miniatura nombre="servicio" ancho={64} />
+      </div>
 
       <article class="mt-8 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1">
         <h2 class="font-headline text-title-md font-semibold text-on-surface">

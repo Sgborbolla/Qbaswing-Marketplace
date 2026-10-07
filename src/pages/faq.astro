@@ -5,6 +5,7 @@
  * Lee de la API de plataforma. Si no hay datos, muestra estado vacío real.
  */
 import Icono from '../components/Icono.astro'
+import Miniatura from '../components/Miniatura.astro'
 import Base from '../layouts/Base.astro'
 
 const { listarFAQ } = await import('../lib/api-plataforma')
@@ -24,10 +25,15 @@ faqs = faqs.filter((f) => f.activa && f.respuesta.trim()).sort((a, b) => a.orden
 <Base title="Preguntas frecuentes">
   <section class="w-full py-space-xl">
     <div class="container-page max-w-4xl">
-      <h1 class="font-headline text-headline-lg text-on-surface">Preguntas frecuentes</h1>
-      <p class="mt-2 text-body-md text-on-surface-variant">
-        Respuestas claras, sin promesas inventadas.
-      </p>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="font-headline text-headline-lg text-on-surface">Preguntas frecuentes</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            Respuestas claras, sin promesas inventadas.
+          </p>
+        </div>
+        <Miniatura nombre="servicio" ancho={64} />
+      </div>
 
       {error && (
         <div class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center">

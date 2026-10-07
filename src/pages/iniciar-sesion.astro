@@ -7,6 +7,7 @@
  * guarda en la sesion lo decide el Worker, nunca esta pagina.
  */
 import Icono from '../components/Icono.astro'
+import Miniatura from '../components/Miniatura.astro'
 import Base from '../layouts/Base.astro'
 import { backendConfigurado } from '../lib/identidad-cliente'
 ---
@@ -14,10 +15,15 @@ import { backendConfigurado } from '../lib/identidad-cliente'
 <Base title="Entrar" descripcion="Entra en tu cuenta de QBASwing Marketplace.">
   <section class="w-full py-space-xl">
     <div class="container-page max-w-md">
-      <h1 class="font-headline text-headline-lg text-on-surface">Entrar</h1>
-      <p class="mt-2 text-body-md text-on-surface-variant">
-        Con el correo con el que te registraste.
-      </p>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="font-headline text-headline-lg text-on-surface">Entrar</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            Con el correo con el que te registraste.
+          </p>
+        </div>
+        <Miniatura nombre="cuenta" ancho={64} />
+      </div>
 
       {!backendConfigurado && (
         <div

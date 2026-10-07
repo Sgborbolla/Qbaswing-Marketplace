@@ -6,8 +6,10 @@
  * resultados, muestra estados vacíos reales, nunca datos de ejemplo.
  */
 import Icono from '../components/Icono.astro'
+import Miniatura from '../components/Miniatura.astro'
 import Base from '../layouts/Base.astro'
 import { formatearPrecio, recortar } from '../lib/formato'
+import { miniaturaDeCategoria } from '../lib/miniaturas'
 import type { FiltrosCatalogo, ProductoResumen } from '../lib/api'
 
 const { listarProductos, listarCategorias } = await import('../lib/api')
@@ -76,6 +78,18 @@ const urlDePagina = (n: number): string => {
               ? 'Aún no hay productos publicados.'
               : `${total} producto${total === 1 ? '' : 's'} en total.`}
           </p>
+        </div>
+
+        <!--
+          Muestrario de lo que por aqui se publica: digitales y fisicos juntos.
+          Decorativo y oculto en movil, donde el h1 ya ocupa la linea entera.
+        -->
+        <div class="hidden items-center gap-2 sm:flex" aria-hidden="true">
+          <Miniatura nombre="ropa" ancho={44} />
+          <Miniatura nombre="software" ancho={44} />
+          <Miniatura nombre="informatica" ancho={44} />
+          <Miniatura nombre="ebook" ancho={44} />
+          <Miniatura nombre="belleza" ancho={44} />
         </div>
       </div>
 
@@ -154,7 +168,15 @@ const urlDePagina = (n: number): string => {
 
       {productos.length === 0 && !error && (
         <div class="mt-8 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-10 text-center">
-          <p class="font-headline text-title-lg font-semibold text-on-surface">
+          <div class="flex flex-wrap items-center justify-center gap-3" aria-hidden="true">
+            <Miniatura nombre="ropa" ancho={64} />
+            <Miniatura nombre="software" ancho={64} />
+            <Miniatura nombre="calzado" ancho={64} />
+            <Miniatura nombre="plantilla" ancho={64} />
+            <Miniatura nombre="hogar" ancho={64} />
+            <Miniatura nombre="curso" ancho={64} />
+          </div>
+          <p class="mt-6 font-headline text-title-lg font-semibold text-on-surface">
             Todavía no hay productos publicados
           </p>
           <p class="mx-auto mt-2 max-w-xl text-body-md text-on-surface-variant">
@@ -188,7 +210,7 @@ const urlDePagina = (n: number): string => {
                   />
                 ) : (
                   <div class="flex h-full w-full items-center justify-center">
-                    <Icono nombre="image" class="text-[36px] text-on-surface-variant/30" />
+                    <Miniatura nombre={miniaturaDeCategoria(p.categoria)} ancho={84} />
                   </div>
                 )}
               </div>

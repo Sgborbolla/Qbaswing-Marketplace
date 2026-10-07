@@ -94,7 +94,10 @@
  * "no hay nada" sin explicacion parece una pagina rota.
  */
 import Icono from '../components/Icono.astro'
+import Miniatura from '../components/Miniatura.astro'
 import Base from '../layouts/Base.astro'
+import { precioONoDisponible } from '../lib/formato'
+import { miniaturaDeCategoria } from '../lib/miniaturas'
 import { COMISIONES } from '../lib/tipos'
 
 const { listarProductos, listarPaquetes, listarCategorias } = await import('../lib/api')
@@ -141,11 +144,14 @@ const sinPrecios = !paquetes || totalPaquetes === 0
  * aqui no hay nada que decidir: se pinta el que hay. Un paquete con un precio en
  * cero se muestra como "no disponible" y no como "0 CUP", porque 0 CUP es un
  * regalo y no hay ninguno.
+ *
+ * Se pintan las tres, igual que en `/espacios` y en `/vender`. Estar en tres
+ * sitios distintos es lo que permitio que aqui siguiera saliendo el precio en
+ * centavos crudos (`1,000 USD` en vez de `10.00 USD`): cada pagina formateaba a
+ * su manera. Por eso el formateo no se reimplementa, se llama a
+ * `precioONoDisponible`, que es la misma que usan las otras dos.
  */
-const MONEDAS = [
-  { clave: 'CUP', simbolo: 'CUP' },
-  { clave: 'USD', simbolo: 'USD' },
-] as const
+const MONEDAS = ['CUP', 'USD', 'EUR'] as const
 
 /**
  * Los iconos de la pagina, en un solo sitio.
@@ -468,9 +474,12 @@ const ICONO = {
         <article
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
-          <span class="tile-icono tile-icono--primario" aria-hidden="true">
-            <Icono nombre={ICONO.codigo} relleno class="text-[26px]" />
-          </span>
+          <div class="flex items-start justify-between gap-3">
+            <span class="tile-icono tile-icono--primario" aria-hidden="true">
+              <Icono nombre={ICONO.codigo} relleno class="text-[26px]" />
+            </span>
+            <Miniatura nombre="software" ancho={44} />
+          </div>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Publica tu software y paga el 5%
           </h3>
@@ -484,9 +493,12 @@ const ICONO = {
         <article
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
-          <span class="tile-icono tile-icono--secundario" aria-hidden="true">
-            <Icono nombre={ICONO.perchero} relleno class="text-[26px]" />
-          </span>
+          <div class="flex items-start justify-between gap-3">
+            <span class="tile-icono tile-icono--secundario" aria-hidden="true">
+              <Icono nombre={ICONO.perchero} relleno class="text-[26px]" />
+            </span>
+            <Miniatura nombre="ropa" ancho={44} />
+          </div>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Vende ropa, calzado y productos físicos
           </h3>
@@ -500,9 +512,12 @@ const ICONO = {
         <article
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
-          <span class="tile-icono tile-icono--primario" aria-hidden="true">
-            <Icono nombre={ICONO.cobro} relleno class="text-[26px]" />
-          </span>
+          <div class="flex items-start justify-between gap-3">
+            <span class="tile-icono tile-icono--primario" aria-hidden="true">
+              <Icono nombre={ICONO.cobro} relleno class="text-[26px]" />
+            </span>
+            <Miniatura nombre="dinero" ancho={44} />
+          </div>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Cobra en CUP, USD o cripto
           </h3>
@@ -515,9 +530,12 @@ const ICONO = {
         <article
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
-          <span class="tile-icono tile-icono--terciario" aria-hidden="true">
-            <Icono nombre={ICONO.reloj} relleno class="text-[26px]" />
-          </span>
+          <div class="flex items-start justify-between gap-3">
+            <span class="tile-icono tile-icono--terciario" aria-hidden="true">
+              <Icono nombre={ICONO.reloj} relleno class="text-[26px]" />
+            </span>
+            <Miniatura nombre="paquete" ancho={44} />
+          </div>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Entrega digital con enlace de 5 minutos
           </h3>
@@ -531,9 +549,12 @@ const ICONO = {
         <article
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
-          <span class="tile-icono tile-icono--secundario" aria-hidden="true">
-            <Icono nombre={ICONO.tienda} relleno class="text-[26px]" />
-          </span>
+          <div class="flex items-start justify-between gap-3">
+            <span class="tile-icono tile-icono--secundario" aria-hidden="true">
+              <Icono nombre={ICONO.tienda} relleno class="text-[26px]" />
+            </span>
+            <Miniatura nombre="cuenta" ancho={44} />
+          </div>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Abre tu tienda sin tarjeta
           </h3>
@@ -546,9 +567,12 @@ const ICONO = {
         <article
           class="group rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-e1 transition-shadow duration-300 hover:shadow-e2"
         >
-          <span class="tile-icono tile-icono--primario" aria-hidden="true">
-            <Icono nombre={ICONO.personaVerificada} relleno class="text-[26px]" />
-          </span>
+          <div class="flex items-start justify-between gap-3">
+            <span class="tile-icono tile-icono--primario" aria-hidden="true">
+              <Icono nombre={ICONO.personaVerificada} relleno class="text-[26px]" />
+            </span>
+            <Miniatura nombre="ebook" ancho={44} />
+          </div>
           <h3 class="mt-5 font-headline text-title-md font-semibold text-on-surface">
             Solo descarga quien compró
           </h3>
@@ -593,6 +617,7 @@ const ICONO = {
           <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
             {paquetes.map((p) => (
               <article class="flex flex-col rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-e1 transition-shadow hover:shadow-e2">
+                <Miniatura nombre={miniaturaDeCategoria(p.categoria)} ancho={56} clase="mb-4" />
                 <h3 class="font-headline text-title-md font-semibold text-on-surface">
                   {p.nombre}
                 </h3>
@@ -602,29 +627,23 @@ const ICONO = {
 
                 <div class="mt-4 space-y-1">
                   {MONEDAS.map((m) => {
-                    const v = p.precios[m.clave]
+                    const info = precioONoDisponible(p.precios[m], m)
                     return (
                       <p class="flex items-baseline justify-between gap-2">
-                        <span class="text-body-sm text-on-surface-variant">{m.clave}</span>
-                        {v > 0 ? (
-                          <span class="font-headline text-title-md font-semibold text-primary">
-                            {v.toLocaleString('es-CU')} {m.simbolo}
-                          </span>
-                        ) : (
-                          <span class="text-body-sm text-on-surface-variant/60">
-                            no disponible
-                          </span>
-                        )}
+                        <span class="text-body-sm text-on-surface-variant">{m}</span>
+                        <span
+                          class={
+                            info.hay
+                              ? 'font-headline text-title-md font-semibold text-primary'
+                              : 'text-body-sm text-on-surface-variant/60'
+                          }
+                        >
+                          {info.texto}
+                        </span>
                       </p>
                     )
                   })}
                 </div>
-
-                {p.precioConfigurable && (
-                  <p class="mt-3 text-label-sm text-tertiary">
-                    Precio editable por el Owner
-                  </p>
-                )}
 
                 <a
                   href="/espacios"
@@ -706,7 +725,14 @@ const ICONO = {
         destacados.length === 0 ? (
           <div class="mt-8 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-8 md:p-12">
             <div class="flex flex-col items-center gap-4 text-center">
-              <Icono nombre="inventory_2" class="text-[40px] text-on-surface-variant/40" />
+              <div class="flex flex-wrap items-center justify-center gap-3" aria-hidden="true">
+                <Miniatura nombre="ropa" ancho={56} />
+                <Miniatura nombre="software" ancho={56} />
+                <Miniatura nombre="joyeria" ancho={56} />
+                <Miniatura nombre="grafico" ancho={56} />
+                <Miniatura nombre="electronica" ancho={56} />
+                <Miniatura nombre="audio" ancho={56} />
+              </div>
               <div>
                 <p class="font-headline text-title-lg font-semibold text-on-surface">
                   Todavía no hay productos publicados
@@ -745,7 +771,7 @@ const ICONO = {
                     />
                   ) : (
                     <div class="flex h-full w-full items-center justify-center">
-                      <Icono nombre="image" class="text-[36px] text-on-surface-variant/30" />
+                      <Miniatura nombre={miniaturaDeCategoria(p.categoria)} ancho={84} />
                     </div>
                   )}
                 </div>
