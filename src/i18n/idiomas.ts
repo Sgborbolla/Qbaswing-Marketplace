@@ -1,19 +1,30 @@
 /**
- * Idiomas del marketplace.
+ * Idiomas del marketplace: como se presentan cada uno de ellos.
  *
  * ============================================================================
- *  POR QUE ESTA ESTRUCTURA
+ *  QUIEN ES EL DUENO DE LA LISTA
  * ============================================================================
  *
- * Astro genera las 20+ rutas solo (ver i18n.fallback en astro.config.mjs).
- * Este modulo define COMO se resuelve el texto dentro de cada pagina.
+ * Los 22 CODIGOS viven en `i18n/config.ts`, que es el unico modulo que importa
+ * `astro.config.mjs` para montar `i18n.locales`. Aqui estan, claveados por
+ * codigo, el nombre de cada idioma en su propio idioma y su direccion de
+ * escritura.
  *
- * El principio: nunca se escribe el texto de la interfaz directo en el .astro.
- * Se escribe `t('nav.catalogo')`. Cuando falte una traduccion, `t()` devuelve
- * el texto en espanol y la pagina sigue funcionando. Cuando se traduzca,
- * cambia una linea y todas las paginas la toman.
+ * No se copian las 22 entradas en los dos lados. `METADATOS` esta tipado como
+ * `Record<Idioma, ...>`, y eso obliga a que las dos partes avancen juntas:
  *
- * Que NO se traduce (y por que):
+ *   - codigo nuevo en `config.ts` sin metadato  -> `Property 'xx' is missing`
+ *   - metadato sobrante en este archivo         -> `Object literal may only
+ *                                                  specify known properties`
+ *
+ * Ambos salen al compilar, no en produccion con una bandera al lado de
+ * `undefined`. Antes las dos listas estaban escritas a mano una al lado de la
+ * otra, que es exactamente como se desincronizan: se anade un idioma en un
+ * sitio, el otro sigue mirando la lista vieja y nadie se entera.
+ *
+ * ============================================================================
+ *  QUE NO SE TRADUCE (Y POR QUE)
+ * ============================================================================
  *
  * - Slugs de URL (`/productos/nova-saas-engine`): son identificadores. Traducirlos
  *   rompe los enlaces guardados y el SEO. El titulo visible si se traduce.
@@ -23,65 +34,76 @@
  *   traduce quien los publica, no esta tabla.
  *
  * ============================================================================
- *  ESTADO DE TRADUCCION
+ *  QUIEN DICE QUE UN IDIOMA ESTA TRADUCIDO
  * ============================================================================
  *
- * `traducidas` marca los idiomas con cobertura. Se usa para mostrar en el
- * selector cuantos idiomas estan completos, y para saber cuando una pagina
- * esta mostrando español bajo una bandera que promete otra cosa.
+ * No este archivo. La fuente es `DICCIONARIOS`, en `i18n/diccionario.ts`: un
+ * idioma esta completo cuando tiene TODAS las claves, y `idiomaCompleto()` lo
+ * dice. El selector de idioma consulta esa funcion.
+ *
+ * Aqui existia una `IDIOMAS_TRADUCIDOS` escrita a mano con `es` dentro. Dos
+ * formas de decir lo mismo, una de ellas sin nada que la actualizara: en cuanto
+ * se anadio la segunda traduccion al diccionario, el selector dejaria de
+ * marcarla como completa. Se borro; el conjunto que hay que mirar es uno solo.
  */
+
+import { IDIOMAS as CODIGOS, IDIOMA_POR_DEFECTO, type Idioma } from './config'
 
 export interface InfoIdioma {
   /** Codigo BCP-47. Debe coincidir con `i18n.locales` de astro.config.mjs. */
   codigo: string
   /** Nombre del idioma en su propio idioma. Nunca se traduce. */
   nombre: string
-  /** Bandera en codigo regional, para el <img> de spritesheet. */
-  bandera: string
   /** Direccion de escritura. RTL necesita estilos espejo. */
   direccion: 'ltr' | 'rtl'
 }
 
-export const IDIOMAS: InfoIdioma[] = [
-  { codigo: 'es', nombre: 'Español', bandera: 'es', direccion: 'ltr' },
-  { codigo: 'en', nombre: 'English', bandera: 'gb', direccion: 'ltr' },
-  { codigo: 'pt', nombre: 'Português', bandera: 'pt', direccion: 'ltr' },
-  { codigo: 'pt-BR', nombre: 'Português (Brasil)', bandera: 'br', direccion: 'ltr' },
-  { codigo: 'fr', nombre: 'Français', bandera: 'fr', direccion: 'ltr' },
-  { codigo: 'fr-CA', nombre: 'Français (Canada)', bandera: 'ca', direccion: 'ltr' },
-  { codigo: 'de', nombre: 'Deutsch', bandera: 'de', direccion: 'ltr' },
-  { codigo: 'it', nombre: 'Italiano', bandera: 'it', direccion: 'ltr' },
-  { codigo: 'ca', nombre: 'Català', bandera: 'es', direccion: 'ltr' },
-  { codigo: 'gl', nombre: 'Galego', bandera: 'es', direccion: 'ltr' },
-  { codigo: 'eu', nombre: 'Euskara', bandera: 'es', direccion: 'ltr' },
-  { codigo: 'en-GB', nombre: 'English (UK)', bandera: 'gb', direccion: 'ltr' },
-  { codigo: 'en-US', nombre: 'English (US)', bandera: 'us', direccion: 'ltr' },
-  { codigo: 'es-MX', nombre: 'Español (México)', bandera: 'mx', direccion: 'ltr' },
-  { codigo: 'es-AR', nombre: 'Español (Argentina)', bandera: 'ar', direccion: 'ltr' },
-  { codigo: 'es-CO', nombre: 'Español (Colombia)', bandera: 'co', direccion: 'ltr' },
-  { codigo: 'zh-CN', nombre: '简体中文', bandera: 'cn', direccion: 'ltr' },
-  { codigo: 'zh-TW', nombre: '繁體中文', bandera: 'tw', direccion: 'ltr' },
-  { codigo: 'ja', nombre: '日本語', bandera: 'jp', direccion: 'ltr' },
-  { codigo: 'ko', nombre: '한국어', bandera: 'kr', direccion: 'ltr' },
-  { codigo: 'ru', nombre: 'Русский', bandera: 'ru', direccion: 'ltr' },
-  { codigo: 'ar', nombre: 'العربية', bandera: 'sa', direccion: 'rtl' },
-]
+/**
+ * Nombre y direccion de escritura de cada codigo de `config.ts`.
+ *
+ * El orden del menu es el de `config.ts`, no este: aca solo se busca por clave.
+ *
+ * AQUI ANTES HABIA TAMBIEN UN CODIGO DE BANDERA POR IDIOMA. No lo ponia nadie:
+ * el selector muestra iniciales y no imagenes, y el unico comentario que lo
+ * justificaba hablaba de un spritesheet que nunca existio. Datos que nadie lee
+ * son datos que se quedan desactualizados en silencio.
+ */
+const METADATOS: Record<Idioma, Omit<InfoIdioma, 'codigo'>> = {
+  es: { nombre: 'Español', direccion: 'ltr' },
+  en: { nombre: 'English', direccion: 'ltr' },
+  pt: { nombre: 'Português', direccion: 'ltr' },
+  'pt-BR': { nombre: 'Português (Brasil)', direccion: 'ltr' },
+  fr: { nombre: 'Français', direccion: 'ltr' },
+  'fr-CA': { nombre: 'Français (Canada)', direccion: 'ltr' },
+  de: { nombre: 'Deutsch', direccion: 'ltr' },
+  it: { nombre: 'Italiano', direccion: 'ltr' },
+  ca: { nombre: 'Català', direccion: 'ltr' },
+  gl: { nombre: 'Galego', direccion: 'ltr' },
+  eu: { nombre: 'Euskara', direccion: 'ltr' },
+  'en-GB': { nombre: 'English (UK)', direccion: 'ltr' },
+  'en-US': { nombre: 'English (US)', direccion: 'ltr' },
+  'es-MX': { nombre: 'Español (México)', direccion: 'ltr' },
+  'es-AR': { nombre: 'Español (Argentina)', direccion: 'ltr' },
+  'es-CO': { nombre: 'Español (Colombia)', direccion: 'ltr' },
+  'zh-CN': { nombre: '简体中文', direccion: 'ltr' },
+  'zh-TW': { nombre: '繁體中文', direccion: 'ltr' },
+  ja: { nombre: '日本語', direccion: 'ltr' },
+  ko: { nombre: '한국어', direccion: 'ltr' },
+  ru: { nombre: 'Русский', direccion: 'ltr' },
+  ar: { nombre: 'العربية', direccion: 'rtl' },
+}
 
-export const IDIOMA_POR_DEFECTO = 'es'
-
-/** Idiomas con traduccion completa. Al principio solo el espanol. */
-export const IDIOMAS_TRADUCIDOS = new Set(['es'])
+/** Los 22 idiomas, en el orden en que aparecen en el selector. */
+export const IDIOMAS: InfoIdioma[] = CODIGOS.map((codigo) => ({
+  codigo,
+  ...METADATOS[codigo],
+}))
 
 export function infoIdioma(codigo: string): InfoIdioma {
   return (
     IDIOMAS.find((i) => i.codigo === codigo) ??
     IDIOMAS.find((i) => i.codigo === IDIOMA_POR_DEFECTO)!
   )
-}
-
-/** `true` si el idioma pedido tiene traduccion propia. */
-export function estaTraducido(codigo: string): boolean {
-  return IDIOMAS_TRADUCIDOS.has(codigo)
 }
 
 /**

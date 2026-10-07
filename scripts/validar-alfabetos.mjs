@@ -31,16 +31,40 @@
  * aqui. Este archivo no lleva registro de los intrusos: lleva la regla.
  *
  * ============================================================================
- * POR QUE HAY UNA LISTA BLANCA
+ * TRES NIVELES DE PERMISO, DE MAS A MENOS AMPLIO
  * ============================================================================
- * Los NOMBRES DE LOS IDIOMAS tienen que estar en su alfabeto. El chino
- * simplificado en `idiomas.ts` no es un intruso: es el nombre correcto del
- * idioma, y ponerlo en latin seria un error. Lo mismo con los codigos de dos
- * letras del selector.
  *
- * Asi que la lista blanca es explicita y por ARCHIVO, no por rango global: si
- * manana hace falta japones en otro lado, hay que anadir el archivo a proposito
- * y no relajar la comprobacion entera.
+ *   1. `PERMITIDOS`: archivos donde CUALQUIER caracter no latino es legitimo.
+ *      Los nombres de los 22 idiomas tienen que estar en su alfabeto: el chino
+ *      simplificado en `idiomas.ts` no es un intruso, es el nombre correcto del
+ *      idioma, y ponerlo en latin seria un error.
+ *
+ *   2. `BLOQUES`: archivos donde el alfabeto permitido depende del trozo de
+ *      codigo en el que se esta. `diccionario.ts` guarda todas las traducciones
+ *      juntas: dentro del bloque `RU` (una traduccion al ruso) un cirilico es el
+ *      contenido, y en el bloque `EN` es una letra que se ha colado en un texto
+ *      en ingles. Lo que no se puede es fuera de cualquier bloque, donde estan
+ *      los comentarios y las cadenas en espanol.
+ *
+ *   3. Todo lo demas: solo alfabeto latino.
+ *
+ * El motivo de cada permiso va en el propio objeto: una lista blanca sin razon
+ * es una lista blanca que se va a ampliar sin pensar. Si manana hace falta
+ * japones en otro sitio, hay que anadir el archivo o el bloque a proposito y no
+ * relajar la comprobacion entera.
+ *
+ * La regla de oro, en una linea: texto traducido intencional si, en su bloque;
+ * caracteres corruptos fuera de las claves de traduccion, cero.
+ *
+ * ============================================================================
+ * COMO SE MIDE (Y POR QUE UNA SOLA EXPRESION REGULAR)
+ * ============================================================================
+ * El primer borrador recorria linea a linea y letra a letra de cada rango:
+ * unos 21.000 sondeos por linea de codigo. Con el repo actual tardaba 43
+ * segundos, y con las 14 traducciones anadidas al diccionario se iria por
+ * encima del minuto en cada guardado. Ahora hay UNA sola expresion con los 18
+ * rangos, el motor de regex hace una pasada por linea, y solo cuando hay un
+ * caracter no latino se mira de que rango viene.
  *
  * Uso:  npm run validar:alfabetos
  * Sale con codigo 1 si algo no esta permitido.
@@ -65,8 +89,53 @@ const PERMITIDOS = {
     'los 22 idiomas se nombran en su propio alfabeto: chino simplificado y tradicional, japones, coreano, cirilico y arabe',
   'src/components/SelectorIdioma.astro':
     'codigos de dos letras y nombres de idioma en su alfabeto, para que el selector los muestre bien',
-  'src/i18n/diccionario.ts':
-    'solo espanol por ahora; si se traduce, las claves estrangeas van con la misma regla que idiomas.ts',
+}
+
+/**
+ * Alfabetos que cada idioma puede usar dentro de su propio bloque de
+ * traduccion. Un idioma que no este aqui (es, en, pt, fr, de, it, ca, gl, eu)
+ * no tiene alfabetos propios: lo no latino que aparezca en su bloque es un
+ * intruso, y lo que este fuera de cualquier bloque tambien lo es.
+ */
+const CHINO = [
+  'CJK radicals',
+  'puntuacion CJK',
+  'CJK extension A',
+  'ideogramas CJK (chino)',
+  'CJK compatibilidad',
+  'ancho completo CJK',
+]
+const JAPONES = ['kana (japones)', ...CHINO]
+const COREANO = ['hangul jamo', 'hangul (coreano)']
+
+/**
+ * Archivos donde el alfabeto depende del bloque y no del archivo entero.
+ *
+ * `cabecera` reconoce la linea que abre cada traduccion
+ * (`const RU: Diccionario = {`) y el cierre de llave a la columna cero la
+ * vuelve a cerrar: lo que queda entre medias pertenece al idioma de esa
+ * traduccion, y lo que queda fuera, a los comentarios del archivo.
+ *
+ * OJO: si se anade un idioma cambiando la forma en que se declara —por meter
+ * el objeto directo dentro de `DICCIONARIOS`, por ejemplo— `cabecera` deja de
+ * reconocerlo y el bloque se toma como espanol. El efecto es el que se quiere:
+ * el texto del idioma nuevo saldria marcado como intruso, que es visible en la
+ * primera ejecucion y no en produccion.
+ */
+const BLOQUES = {
+  'src/i18n/diccionario.ts': {
+    motivo:
+      'las 22 traducciones viven aqui: cada bloque admite su alfabeto (ruso, arabe, chino, japones, coreano) y los comentarios, en espanol, no admiten ninguno',
+    cabecera: /^(?:export\s+)?const\s+([A-Z]{2}(?:_[A-Z]{2})?):\s*Diccionario\b/,
+    alfabetos: {
+      RU: ['cirilico (ruso)'],
+      AR: ['arabe', 'arabe extendido'],
+      ZH_CN: CHINO,
+      ZH_TW: CHINO,
+      JA: JAPONES,
+      KO: COREANO,
+    },
+  },
 }
 
 const IGNORAR_DIRECTORIOS = new Set([
@@ -103,7 +172,19 @@ const RANGOS = [
   [0xfffd, 0xfffd, 'caracter de reemplazo U+FFFD'],
 ]
 
+/** Los 18 rangos de arriba en una sola expresion, con la bandera global. */
+const RE_NO_LATINO = new RegExp(
+  `[${RANGOS.map(([i, f]) => `\\u{${i.toString(16)}}-\\u{${f.toString(16)}}`).join('')}]`,
+  'gu',
+)
+
+function nombreDeRango(puntoDeCodigo) {
+  const rango = RANGOS.find(([inicio, fin]) => puntoDeCodigo >= inicio && puntoDeCodigo <= fin)
+  return rango ? rango[2] : 'desconocido'
+}
+
 const intrusos = []
+const vistos = new Set()
 
 function revisarArchivo(ruta) {
   const rel = relative(raiz, ruta).replace(/\\/g, '/')
@@ -116,15 +197,28 @@ function revisarArchivo(ruta) {
     return
   }
 
+  const config = Object.hasOwn(BLOQUES, rel) ? BLOQUES[rel] : null
+  /** Alfabetos que admite el bloque actual, o `null` si no estamos en uno. */
+  let admitidos = null
+
   texto.split(/\r?\n/).forEach((linea, i) => {
-    for (const [inicio, fin, nombre] of RANGOS) {
-      for (let c = inicio; c <= fin; c++) {
-        const caracter = String.fromCodePoint(c)
-        if (linea.includes(caracter)) {
-          intrusos.push({ archivo: rel, linea: i + 1, alfabeto: nombre, texto: linea.trim() })
-          break
-        }
-      }
+    if (config) {
+      const cabecera = linea.match(config.cabecera)
+      if (cabecera) admitidos = config.alfabetos[cabecera[1]] ?? null
+      // Cierre de objeto a la columna cero: se acaba el bloque de traduccion.
+      else if (/^\}\s*$/.test(linea)) admitidos = null
+    }
+
+    for (const coincidencia of linea.matchAll(RE_NO_LATINO)) {
+      const nombre = nombreDeRango(coincidencia[0].codePointAt(0))
+      if (admitidos && admitidos.includes(nombre)) continue
+
+      // Un intruso por linea y alfabeto: la misma linea no se dos veces.
+      const clave = `${rel}|${i + 1}|${nombre}`
+      if (vistos.has(clave)) continue
+      vistos.add(clave)
+
+      intrusos.push({ archivo: rel, linea: i + 1, alfabeto: nombre, texto: linea.trim() })
     }
   })
 }
@@ -159,6 +253,9 @@ console.log('Alfabetos revisionados.\n')
 
 for (const [archivo, motivo] of Object.entries(PERMITIDOS)) {
   console.log(`  permitido  ${archivo}\n             ${motivo}\n`)
+}
+for (const [archivo, config] of Object.entries(BLOQUES)) {
+  console.log(`  por bloque ${archivo}\n             ${config.motivo}\n`)
 }
 
 if (intrusos.length === 0) {

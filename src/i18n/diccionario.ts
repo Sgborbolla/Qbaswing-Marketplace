@@ -407,13 +407,8 @@ export type Diccionario = {
  * `Diccionario`: si le falta una clave, no compila. No hay forma de que este
  * archivo compile con un idioma al 60%.
  *
- * LAS VARIANTES COMPARTEN EL DICCIONARIO BASE. `en-GB` y `en-US` apuntan hoy a
- * `en`, `pt-BR` a `pt`, `fr-CA` a `fr` y las tres variantes de espanol a `es`.
- * No es un atajo: son el mismo idioma y el texto es correcto en las dos
- * variantes. La localizacion de verdad —`colour` frente a `color`, el voseo
- * argentino, el `você` brasileño— es una capa aparte que se anade encima, y el
- * dia que se anade no hay que tocar nada de lo que hay aqui: se crea la
- * variante con sus propias claves y se le apunta a ella.
+ * De las variantes regionales (`pt-BR`, `en-GB`, `es-MX`...) se ocupa
+ * `VARIANTES`, un poco mas abajo.
  *
  * Lo que NO va a hacer este archivo: guardar traducciones a medias. Un idioma
  * con el 60% traducido es peor que un idioma ausente, porque el visitante ve
@@ -424,9 +419,44 @@ export const DICCIONARIOS: Partial<Record<string, Diccionario>> = {
   es: ES,
 }
 
+/**
+ * Las variantes que comparten diccionario con su idioma base.
+ *
+ * `en-GB` no tiene texto propio: es el mismo idioma que `en`, y el texto es
+ * correcto en las dos regiones. Sin este mapa, `/pt-BR/` pediria
+ * `DICCIONARIOS['pt-BR']`, que no existe, y caeria al espanol aunque `pt`
+ * este completo.
+ *
+ * La localizacion de verdad —`colour` frente a `color`, el voseo argentino,
+ * el `você` brasileño— entra creando la variante con sus propias claves. Esa
+ * entrada gana a la base: la comprobacion es primero la clave exacta y luego
+ * el mapa de abajo.
+ */
+const VARIANTES: Record<string, string> = {
+  'en-GB': 'en',
+  'en-US': 'en',
+  'pt-BR': 'pt',
+  'fr-CA': 'fr',
+  'es-MX': 'es',
+  'es-AR': 'es',
+  'es-CO': 'es',
+}
+
+/**
+ * El diccionario completo de un idioma, o `undefined` si no lo hay.
+ *
+ * Primero la clave tal cual (`en-GB` con texto propio), despues la base de la
+ * variante (`pt-BR` -> `pt`). Asi una variante se puede traducir sola mas
+ * adelante sin tocar ni el mapa ni a las demas.
+ */
+function entradaCompleta(idioma: string): Diccionario | undefined {
+  const base = VARIANTES[idioma]
+  return DICCIONARIOS[idioma] ?? (base ? DICCIONARIOS[base] : undefined)
+}
+
 /** Devuelve el diccionario de un idioma, o el de español si no esta completo. */
 export function diccionarioDe(idioma: string): Diccionario {
-  return DICCIONARIOS[idioma] ?? ES
+  return entradaCompleta(idioma) ?? ES
 }
 
 /**
@@ -437,7 +467,7 @@ export function diccionarioDe(idioma: string): Diccionario {
  * pagina donde la mitad esta en otro idioma.
  */
 export function idiomaCompleto(idioma: string): boolean {
-  return DICCIONARIOS[idioma] !== undefined
+  return entradaCompleta(idioma) !== undefined
 }
 
 /**

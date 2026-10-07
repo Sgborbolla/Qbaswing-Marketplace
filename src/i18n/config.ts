@@ -10,10 +10,16 @@
  * files". Por eso la lista vive aca, en un modulo de verdad, y el config solo
  * la importa.
  *
- * Ademas hay una razon que no es tecnica: el selector de idioma necesita la
- * lista con el nombre de cada idioma en su propio idioma y su bandera, datos
- * que no tienen nada que ver con la configuracion de Astro. Tenerlo duplicado en
- * dos archivos es garantizar que se desincronicen.
+ * ============================================================================
+ *  ESTE ARCHIVO ES EL UNICO LUGAR DONDE SE ESCRIBEN LOS CODIGOS
+ * ============================================================================
+ * El selector de idioma y el layout necesitan ademas el nombre de cada idioma
+ * en su propio idioma y su direccion de escritura, que no tienen nada que ver
+ * con la configuracion de Astro. Esos datos viven en
+ * `i18n/idiomas.ts`, NO como una segunda lista sino como un mapa por clave
+ * (`Record<Idioma, ...>`) del que cuelga `IDIOMAS`: si aqui se anade un codigo
+ * sin metadato, o en alli sobra uno, TypeScript no compila. Las dos mitades
+ * solo pueden cambiar juntas.
  *
  * ============================================================================
  *  `es` NO LLEVA PREFIJO
