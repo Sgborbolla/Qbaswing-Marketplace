@@ -144,11 +144,19 @@ function parchear() {
 function subir(intento) {
   return new Promise((resolver) => {
     console.log(`\n=== intento ${intento} de ${INTENTOS}  ${new Date().toLocaleTimeString()} ===\n`)
-    const hijo = spawn('npx', ['wrangler', 'pages', 'deploy', 'dist', '--commit-dirty=true'], {
-      cwd: raiz,
-      stdio: 'inherit',
-      shell: true,
-    })
+    const hijo = spawn(
+      'npx',
+      [
+        'wrangler', 'pages', 'deploy', 'dist',
+        '--project-name', 'qbaswing-marketplace',
+        '--commit-dirty=true',
+      ],
+      {
+        cwd: raiz,
+        stdio: 'inherit',
+        shell: true,
+      },
+    )
     hijo.on('exit', (codigo) => resolver(codigo ?? 1))
     hijo.on('error', (error) => {
       console.error(`No pude arrancar wrangler: ${error.message}`)

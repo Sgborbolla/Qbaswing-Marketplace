@@ -34,7 +34,7 @@ import { numero, type Env } from '../entorno'
  * Secretos que el Worker necesita para funcionar completo.
  *
  * El valor `true`/`false` es la unica informacion que sale de aca. El `nombre` es
- * el nombre del binding, que ya esta en `wrangler.api.toml` y en el repositorio:
+ * el nombre del binding, que ya esta en `wrangler.toml` y en el repositorio:
  * publicarlo no revela nada.
  */
 const SECRETOS_REQUERIDOS = [

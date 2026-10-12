@@ -18,21 +18,21 @@
  *   secrets     -> cifradas. NO van en ningun archivo.
  *
  * Por eso `QBASWING_SECRETO_FIRMA` es `string` pero no esta en
- * `wrangler.api.toml`: se carga con `wrangler secret put`. Si estuviera en
+ * `wrangler.toml`: se carga con `wrangler secret put`. Si estuviera en
  * `[vars]`, quedaria escrito en un archivo del repositorio y cualquiera con
  * lectura del repo tendria la clave con la que se firman los enlaces de
  * descarga.
  */
 
 export interface Env {
-  /** Binding de D1. El nombre lo declara `wrangler.api.toml`. */
+  /** Binding de D1. El nombre lo declara `wrangler.toml`. */
   DB: D1Database
 
   /**
    * Binding de Workers KV, donde viven los archivos.
    *
    * Se llama ARCHIVOS y no KV a proposito: cuando haya tarjeta y se migre a R2,
-   * se cambia la linea de `wrangler.api.toml` y este codigo no se toca, porque
+   * se cambia la linea de `wrangler.toml` y este codigo no se toca, porque
    * todo el acceso pasa por `src/lib/almacenamiento.ts`.
    */
   ARCHIVOS: KVNamespace

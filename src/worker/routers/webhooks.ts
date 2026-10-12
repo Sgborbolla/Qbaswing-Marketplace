@@ -80,7 +80,7 @@ export async function responderWebhooks(
         codigo: 'pasarela_sin_configurar',
         mensaje: `${pasarela} todavia no esta configurada en este Worker.`,
         // El nombre del secreto que falta. Es el mismo dato que ya esta escrito
-        // en `wrangler.api.toml`, asi que no revela nada nuevo, y sin el
+        // en `wrangler.toml`, asi que no revela nada nuevo, y sin el
         // operador tendria que adivinar el nombre del comando.
         falta_configurar: credenciales.falta,
         // Se devuelve el cuerpo como lo recibio, en texto. Sirve para

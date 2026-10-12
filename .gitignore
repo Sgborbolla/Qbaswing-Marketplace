@@ -2,6 +2,10 @@ node_modules/
 dist/
 .astro/
 
+# Bundle del Worker generado en la raiz (artifact de build, no versionar).
+# El git build de Cloudflare lo regenera; subirlo solo mete ruido en el repo.
+dist-worker-index.js
+
 # ---------------------------------------------------------------------------
 # Credenciales
 # ---------------------------------------------------------------------------

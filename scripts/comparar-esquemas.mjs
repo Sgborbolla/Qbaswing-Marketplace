@@ -29,7 +29,7 @@ const BASE = 'C:\\qbaswing-marketplace'
  */
 function consultar(destino, sql) {
   const salida = execSync(
-    `npx wrangler d1 execute qbaswing_marketplace -c wrangler.api.toml ${destino} --json --command "${sql}"`,
+    `npx wrangler d1 execute qbaswing_marketplace ${destino} --json --command "${sql}"`,
     { cwd: BASE, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] },
   )
   return JSON.parse(salida)[0]?.results?.[0]?.r

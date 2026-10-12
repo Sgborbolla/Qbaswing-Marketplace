@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 /** Base del Worker local. Nunca se cambia a produccion desde aqui. */
 export const BASE = 'http://127.0.0.1:8787'
 
-/** Nombre de la base en `wrangler.api.toml`. */
+/** Nombre de la base en `wrangler.toml`. */
 const NOMBRE_BASE = 'qbaswing_marketplace'
 
 /**
@@ -62,8 +62,6 @@ function ejecutar(sql) {
       'd1',
       'execute',
       NOMBRE_BASE,
-      '-c',
-      'wrangler.api.toml',
       '--command',
       `"${sql}"`,
     ],

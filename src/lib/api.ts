@@ -33,7 +33,7 @@
  * distingue los dos casos y lanza en el segundo.
  *
  * Variables de entorno (ver .env.example):
- *   PUBLIC_API_BASE       -> base del Worker, ver `wrangler.api.toml`
+ *   PUBLIC_API_BASE       -> base del Worker, ver `wrangler.toml`
  *   PUBLIC_CF_WORKER_URL  -> URL del Worker, si aplica
  *
  * `PUBLIC_` es intencional: Astro las expone al cliente. Si alguna vez el

@@ -43,7 +43,7 @@ const CONSULTA = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY nam
  * eso sobrevive.
  */
 const salida = execSync(
-  `npx wrangler d1 execute qbaswing_marketplace -c wrangler.api.toml --remote --command "${CONSULTA}"`,
+  `npx wrangler d1 execute qbaswing_marketplace --remote --command "${CONSULTA}"`,
   {
     cwd: BASE,
     encoding: 'utf8',

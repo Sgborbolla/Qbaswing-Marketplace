@@ -93,7 +93,6 @@ function sql(instruccion) {
     'npx',
     [
       'wrangler', 'd1', 'execute', 'qbaswing_marketplace',
-      '-c', 'wrangler.api.toml',
       '--command', `"${instruccion}"`,
     ],
     { cwd: process.cwd(), encoding: 'utf8', shell: true, stdio: ['ignore', 'pipe', 'pipe'] },

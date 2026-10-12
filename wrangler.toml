@@ -1,85 +1,123 @@
 #:schema node_modules/wrangler/config-schema.json
 # =============================================================================
-# CONFIGURACION DEL SITIO (Cloudflare Pages)
+# CONFIGURACION UNIFICADA: SITIO (Cloudflare Pages) + API (Cloudflare Worker)
 # =============================================================================
 #
-# QUE HAY EN ESTE ARCHIVO Y QUE NO
+# Un MISMO wrangler.toml en la raiz es el config de los dos despliegues que
+# Cloudflare Builds ejecuta desde git:
 #
-# Aqui va SOLO lo del frontend. La API va en `wrangler.api.toml`. Estaban juntos
-# en un solo archivo y Wrangler lo senalaba con "Unexpected fields found in
-# top-level field: database_id, database_name": un archivo de Pages no admite
-# `database_id` en la raiz porque no tiene un Worker al que asociarle una base.
+#   Worker (qbaswing-api) -> `npx wrangler deploy`  (lee name + main + bindings)
+#   Pages (qbaswing-marketplace) -> `npm run build` (lee pages_build_output_dir)
 #
-# Se separan por una razon que no es de estilo: los dos se despliegan con
-# comandos distintos y en momentos distintos. El sitio se sube con
-# `wrangler pages deploy`, la API con `wrangler deploy -c wrangler.api.toml`.
-# Si compartieran archivo, cambiar la API obligaria a redesplegar el sitio, y
-# cada redespliegue del sitio es una ventana donde la web puede caerse.
+# Se unificaron porque el git build del Worker corre `npx wrangler deploy` SIN
+# `-c`, o sea leyendo siempre este archivo. Mientras name fuera
+# "qbaswing-marketplace" el build del Worker desplegaba con el nombre equivocado
+# (o fallaba) y Cloudflare lo avisaba con: "Actualiza wrangler.toml ... para
+# mantener una configuracion coherente".
+#
+# QUE VIVE AQUI
+#   name + main  -> identidad del Worker de API
+#   d1_databases -> binding DB (la API es el unico que toca la base)
+#   kv_namespaces -> binding ARCHIVOS
+#   [vars]        -> variables no secretas del Worker y del frontend (PUBLIC_)
+#   pages_build_output_dir -> donde Pages publica el sitio estatico
+#   [observability]        -> logs del sitio y del Worker
+#
+# QUE NO VIVE AQUI (jamas)
+#   secrets -> van con `wrangler secret put`. Un secreto en `[vars]` queda en
+#              texto plano, en este archivo, y se sube al repositorio. Los
+#              app-secret de QvaPay y TropiPay no van aqui nunca.
 #
 # -----------------------------------------------------------------------------
-# QUE ES ESTO Y QUE NO ES ESTO
+# EL NOMBRE ES LA URL DEL WORKER
 # -----------------------------------------------------------------------------
-# PAGES sirve el HTML. WORKERS sirve la API. No son el mismo despliegue ni el
-# mismo proceso:
-#
-#   Pages   -> los .astro ya renderizados. No hay Node, no hay base de datos,
-#              no hay secretos. Es el archivo estatico y ya esta.
-#   Worker  -> la logica de negocio: verificar compras, firmar enlaces de
-#              descarga, validar webhooks de QvaPay y TropiPay.
-#
-# El sitio NO lee la base de datos jamas. Si lo hiciera, cada pagina publica
-# tendria que ser server-rendered y perderia el CDN gratis de Pages. Esa es la
-# razon de que exista un Worker: la logica que necesita credenciales vive alla,
-# y el sitio publico no las tiene.
+# Cloudflare publica el Worker en `qbaswing-api.sgborbolla.workers.dev`. Esa
+# direccion es la que va en el panel de QvaPay como URL de notificacion.
+# Renombrar el Worker cambia la URL y obliga a corregir el panel de la pasarela,
+# asi que el nombre no se toca nunca mas.
 # -----------------------------------------------------------------------------
-
-name = "qbaswing-marketplace"
-compatibility_date = "2026-09-30"
+name = "qbaswing-api"
+main = "src/worker/index.ts"
+compatibility_date = "2026-10-01"
+# `nodejs_compat` habilita `node:crypto`. Sin el, el HMAC-SHA256 de los enlaces
+# de descarga no se puede calcular en el Worker y habria que implementarlo a mano.
 compatibility_flags = ["nodejs_compat"]
 
-# Cloudflare Pages ignora `main`: el frontend se despliega con
-# `wrangler pages deploy dist`, que lee este campo.
+# -----------------------------------------------------------------------------
+# Pagina publiica (Cloudflare Pages)
+# -----------------------------------------------------------------------------
+# Pages sirve el HTML (los .astro ya renderizados): no hay Node, no hay base,
+# no hay secretos; es archivo estatico cacheado por el CDN. El build de Pages
+# ignora `main` (es un campo de Worker) y usa `pages_build_output_dir`.
 pages_build_output_dir = "./dist"
 
 # -----------------------------------------------------------------------------
-# Variables del frontend
+# D1
 # -----------------------------------------------------------------------------
-# `PUBLIC_` es intencional: Astro las expone al navegador. Cualquier cosa que
-# NO deba salir al cliente va sin ese prefijo, y entonces solo es legible en el
-# servidor con `import.meta.env`.
-#
+# El binding se llama `DB` porque asi lo pide el codigo: `env.DB.prepare(...)`.
+d1_databases = [
+  { binding = "DB", database_name = "qbaswing_marketplace", database_id = "636aa765-631e-494f-a6f1-7e9a545bd583" },
+]
+
 # -----------------------------------------------------------------------------
-# API
+# Workers KV: los archivos de los productos
 # -----------------------------------------------------------------------------
-# Esta es la URL del Worker de API, en `wrangler.api.toml`. Si cambia el nombre
-# del Worker, hay que cambiarla tambien aca, o el sitio llamara a un dominio
-# inexistente y cada pagina mostrara el estado de error.
+# D1  -> tope de 2 MB por fila; un ZIP grande no entra.
+# KV  -> 25 MiB por valor, 1 GB gratis, SIN tarjeta. Alcanza para arrancar.
+# R2  -> descartado por ahora (exige metodo de pago).
 #
-# EL SUFIJO ES PARTE DE LA URL. Cloudflare publica en `<nombre>.<cuenta>.workers.dev`,
-# no en `<nombre>.workers.dev`: la primera version de este valor omitia el
-# `sgborbolla` y apuntaba a un dominio que no existe. El error se ve como "el
-# catalogo no carga" y no dice nada del dominio, porque el error lo produce el
-# navegador, no la pagina.
+# El binding es `ARCHIVOS` y no `KV` a proposito: cuando haya tarjeta se cambia
+# esta linea a `r2_buckets` y el codigo no se toca (todo pasa por
+# `src/lib/almacenamiento.ts`).
+kv_namespaces = [
+  { binding = "ARCHIVOS", id = "d17446bd79644534baad1a185830ad6e" }
+]
+
+# -----------------------------------------------------------------------------
+# Migraciones
+# -----------------------------------------------------------------------------
+# D1 busca las migraciones en `migrations/` y NO hay forma de cambiarlo desde
+# el `.toml` (Wrangler rechaza `migrations_dir` como campo de nivel superior).
+# Hay UN archivo por version y cada uno se aplica una sola vez. NUNCA se aplica
+# el esquema con `wrangler d1 execute --command ".read ..."` en produccion:
+# deja sin registro de que se aplico.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Variables NO secretas
+# -----------------------------------------------------------------------------
+# `PUBLIC_` es intencional: Astro las expone al navegador. Lo que NO deba salir
+# al cliente va sin ese prefijo (solo legible con `import.meta.env`).
 #
-# La URL exacta se lee del panel o del resultado de `wrangler deploy`.
+# `PUBLIC_API_BASE` es la URL del Worker. EL SUFIJO ES PARTE DE LA URL:
+# Cloudflare publica en `<nombre>.<cuenta>.workers.dev`, no en `<nombre>.workers.dev`.
 [vars]
 PUBLIC_API_BASE = "https://qbaswing-api.sgborbolla.workers.dev"
+# Origenes permitidos del Worker, separados por coma (proteccion contra llamadas
+# desde paginas ajenas). Incluye localhost y 127.0.0.1 (puertos incluidos) para
+# desarrollo local.
+ALLOWED_ORIGIN = "https://qbaswing-marketplace.pages.dev,http://localhost:4321,http://localhost:4322,http://127.0.0.1:4321"
+# Vida del enlace de descarga, en segundos. Es un permiso temporal, no una URL permanente.
+EXPIRACION_ENLACE_SEG = "300"
+# Ventana de tolerancia del timestamp de los webhooks, en segundos (mitiga replays).
+VENTANA_TIMESTAMP_SEG = "300"
 
 # -----------------------------------------------------------------------------
 # Observabilidad
 # -----------------------------------------------------------------------------
-# Registra las peticiones al sitio. Es lo que permite ver un 500 desde el panel
-# en vez de enterarse porque un cliente aviso.
+# Registra las peticiones al sitio y al Worker. Es lo que permite ver un 500
+# desde el panel en vez de enterarse porque un cliente aviso.
 [observability]
 enabled = true
 
 # -----------------------------------------------------------------------------
-# QUE NO VA EN ESTE ARCHIVO
+# SECRETOS: van FUERA de este archivo
 # -----------------------------------------------------------------------------
-#   database_id, d1_databases  -> en wrangler.api.toml (solo el Worker tiene base)
-#   kv_namespaces             -> en wrangler.api.toml
-#   secrets                   -> NUNCA. Van con `wrangler secret put`, que los
-#                                escribe cifrados en el Secret Store.
+# Estos NO se escriben aca. Se ponen con:
 #
-# Un secreto en `[vars]` queda en texto plano, en este archivo, y se sube al
-# repositorio. Los `app-secret` de QvaPay y TropiPay no van aqui nunca.
+#   npx wrangler secret put QBASWING_SECRETO_FIRMA
+#   npx wrangler secret put QVAPAY_APP_SECRET
+#   npx wrangler secret put TROPIPAY_CLIENT_ID
+#   npx wrangler secret put TROPIPAY_CLIENT_SECRET
+#
+# `secret put` abre un prompt sin eco y guarda cifrado en el Secret Store.
