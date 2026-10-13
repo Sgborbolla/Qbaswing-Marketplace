@@ -69,7 +69,7 @@ export interface EntregaArchivo {
    * `modo === 'externo'`, o sirve los bytes si es KV.
    */
   url: string
-  modo: 'kv' | 'fraccionado' | 'externo'
+  modo: 'kv' | 'fraccionado' | 'externo' | 'r2' | 'drive' | 'pixeldrain' | 'gofile'
   /** Segundos que le quedan al enlace. */
   expiraEn: number
   /** Hash que el comprador puede verificar tras descargar. */
@@ -248,6 +248,11 @@ export async function verificarEnlace(
   return diferencia === 0
 }
 
+function escaparNombreArchivo(nombre: string): string {
+  return nombre.replace(/["\\]/g, '\\$&').replace(/\r?\n/g, ' ')
+}
+
+
 /* ===========================================================================
  * Rota de descarga (contrato del Worker)
  * ======================================================================== */
@@ -296,4 +301,149 @@ export function headersDeDescarga(entrega: EntregaArchivo): Headers {
     'Cache-Control': 'private, no-store',
     [HEADER_FIRMA]: entrega.hash,
   })
+}
+
+interface ServiceAccount {
+  type: string
+  project_id: string
+  private_key_id: string
+  private_key: string
+  client_email: string
+  client_id: string
+  auth_uri: string
+  token_uri: string
+  auth_provider_x509_cert_url: string
+  client_x509_cert_url: string
+}
+
+function base64UrlEncode(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf)
+  let str = ''
+  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i])
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const b64 = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/\s+/g, '')
+  const binary = atob(b64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes.buffer
+}
+
+async function obtenerTokenDrive(env: Env): Promise<string> {
+  if (!env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    throw new ErrorEntrega('archivo-no-disponible', 'Google Drive no está configurado (falta GOOGLE_SERVICE_ACCOUNT_JSON)')
+  }
+  let sa: ServiceAccount
+  try {
+    sa = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON)
+  } catch {
+    throw new ErrorEntrega('archivo-no-disponible', 'GOOGLE_SERVICE_ACCOUNT_JSON inválido')
+  }
+  const now = Math.floor(Date.now() / 1000)
+  const enc = new TextEncoder()
+  const header = { alg: 'RS256', typ: 'JWT' }
+  const payload = {
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/drive.readonly',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+  }
+  const h64 = base64UrlEncode(enc.encode(JSON.stringify(header)).buffer)
+  const p64 = base64UrlEncode(enc.encode(JSON.stringify(payload)).buffer)
+  const toSign = enc.encode(`${h64}.${p64}`)
+  const keyData = pemToArrayBuffer(sa.private_key)
+  const ck = await crypto.subtle.importKey('pkcs8', keyData, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'])
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', ck, toSign)
+  const jwt = `${h64}.${p64}.${base64UrlEncode(sig)}`
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }),
+  })
+  if (!res.ok) throw new ErrorEntrega('archivo-no-disponible', 'No se pudo obtener token de Google Drive')
+  const j = (await res.json()) as { access_token?: string }
+  if (!j.access_token) throw new ErrorEntrega('archivo-no-disponible', 'Token de Drive inválido')
+  return j.access_token
+}
+
+export async function obtenerArchivoMaestro(productoId: number, db: D1Database): Promise<ArchivoProducto | null> {
+  const f = await db.prepare(`SELECT id, producto_id, almacen, clave, nombre_descarga, content_type, bytes, hash_sha256, creado_at, actualizado_at FROM archivos_producto WHERE producto_id = ?`).bind(productoId).first<ArchivoProducto>()
+  return f ?? null
+}
+
+function headersCliente(maestro: ArchivoProducto, extra?: Headers): Headers {
+  const h = new Headers({
+    'Content-Type': maestro.content_type || 'application/octet-stream',
+    'Content-Disposition': `attachment; filename="${escaparNombreArchivo(maestro.nombre_descarga)}"`,
+    'Cache-Control': 'no-store, no-cache, private, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'X-Content-Type-Options': 'nosniff',
+  })
+  if (extra) {
+    for (const [k, v] of extra) {
+      const kl = k.toLowerCase()
+      if (kl === 'content-disposition' || kl === 'content-type' || kl === 'content-length' || kl === 'cache-control' || kl === 'pragma' || kl === 'expires') continue
+      h.set(k, v)
+    }
+  }
+  return h
+}
+
+export async function servirDesdeMaestro(maestro: ArchivoProducto, env: Env): Promise<Response> {
+  const almacen = maestro.almacen as AlmacenMaestro
+  if (almacen === 'drive') {
+    const token = await obtenerTokenDrive(env)
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(maestro.clave)}?alt=media`, { headers: { Authorization: `Bearer ${token}` }, redirect: 'follow' })
+    if (!res.ok || !res.body) throw new ErrorEntrega('archivo-no-disponible', `Drive respondió ${res.status}`)
+    return new Response(res.body, { status: 200, headers: headersCliente(maestro, res.headers) })
+  }
+  if (almacen === 'pixeldrain') {
+    const url = `https://pixeldrain.com/api/file/${encodeURIComponent(maestro.clave)}`
+    const headersInit: Record<string,string> = {}
+    if (env.PIXELDRAIN_API_KEY) headersInit.Authorization = `Basic ${btoa(`${env.PIXELDRAIN_API_KEY}:`)}`
+    const res = await fetch(url, { headers: headersInit, redirect: 'follow' })
+    if (!res.ok || !res.body) throw new ErrorEntrega('archivo-no-disponible', `Pixeldrain respondió ${res.status}`)
+    return new Response(res.body, { status: 200, headers: headersCliente(maestro, res.headers) })
+  }
+  if (almacen === 'gofile') {
+    const token = env.GOFILE_API_TOKEN
+    if (!token) throw new ErrorEntrega('archivo-no-disponible', 'GoFile no está configurado (falta GOFILE_API_TOKEN)')
+    const info = await fetch(`https://api.gofile.io/files/${encodeURIComponent(maestro.clave)}?token=${encodeURIComponent(token)}`)
+    if (!info.ok) throw new ErrorEntrega('archivo-no-disponible', `GoFile info ${info.status}`)
+    const ij:any = await info.json()
+    const d = ij?.data
+    let dl = d?.directLink || d?.downloadLink || d?.link
+    if (!dl && d?.file) dl = d.file?.downloadLink || d.file?.directLink
+    if (!dl && Array.isArray(d?.contents)) {
+      const first = Object.values(d.contents)[0] as any
+      dl = first?.directLink || first?.downloadLink
+    }
+    if (!dl) throw new ErrorEntrega('archivo-no-disponible', 'No se obtuvo enlace directo de GoFile')
+    const res = await fetch(dl, { redirect: 'follow' })
+    if (!res.ok || !res.body) throw new ErrorEntrega('archivo-no-disponible', `GoFile respondió ${res.status}`)
+    return new Response(res.body, { status: 200, headers: headersCliente(maestro, res.headers) })
+  }
+  if (almacen === 'r2' && env.PRODUCTOS_R2) {
+    const obj = await env.PRODUCTOS_R2.get(maestro.clave)
+    if (!obj || !obj.body) throw new ErrorEntrega('archivo-no-disponible', 'Archivo maestro no encontrado en R2')
+    const h = new Headers({
+      'Content-Type': maestro.content_type || obj.httpMetadata?.contentType || 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${escaparNombreArchivo(maestro.nombre_descarga)}"`,
+      'Content-Length': String(obj.size),
+      'Cache-Control': 'no-store, no-cache, private, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'X-Content-Type-Options': 'nosniff',
+    })
+    return new Response(obj.body, { status: 200, headers: h })
+  }
+  throw new ErrorEntrega('archivo-no-disponible', `Modo de almacenamiento no soportado para proxy: ${almacen}`)
 }

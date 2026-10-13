@@ -90,6 +90,11 @@ export interface Env {
   TROPIPAY_CLIENT_ID: string
   TROPIPAY_CLIENT_SECRET: string
   TROPIPAY_SANDBOX: string
+
+  /* --- Almacenamiento maestro gratuito (secrets) --- */
+  GOOGLE_SERVICE_ACCOUNT_JSON?: string
+  PIXELDRAIN_API_KEY?: string
+  GOFILE_API_TOKEN?: string
 }
 
 /** Conversion a numero con respaldo. Un string vacio en `[vars]` da NaN. */

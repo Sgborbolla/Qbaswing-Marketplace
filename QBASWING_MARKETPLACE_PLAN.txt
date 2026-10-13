@@ -1,0 +1,147 @@
+PLAN PARA IMPLEMENTAR "ARCHIVO MAESTRO ÚNICO + PROXY STREAMING" SIN R2
+=========================================================================
+Fecha: 2026-10-12
+Autor: Seguir lo que pide el creador del proyecto (proxy autorizado tras validar compra)
+
+OBJETIVO
+--------
+Subir el ZIP/RAR UNA SOLA VEZ por producto (archivo maestro privado). Cada vez
+que un comprador con compra VERIFICADA pulse "Descargar", el Worker comprueba
+que sí compró y LE SIRVE ese mismo archivo original en STREAMING, sin duplicarlo.
+Nunca devolver enlace directo al proveedor.
+
+PRINCIPIO
+---------
+- Reutilizar TODO lo existente: biblioteca, transacciones, SQL_VERIFICAR_COMPRA, evaluarCompra, sesión
+- Mantener política: SOLO quien compró Y está pagado accede
+- Proxy, NUNCA redirección a enlace público reutilizable
+- Compatibilidad hacia atrás con kv/fraccionado/externo
+
+ALMACENES GRATUITOS A SOPORTAR
+------------------------------
+drive       Google Drive + Service Account (proxy)
+pixeldrain  Pixeldrain API (proxy)
+gofile      GoFile.io API (proxy)
+
+NO usar R2 por ahora (no hay dinero para activar). Se deja 'r2' opcional por futuro.
+
+1) MIGRACIÓN D1 (archivos_producto)
+-----------------------------------
+Archivo: migrations/0021_archivos_maestros.sql
+
+Tabla: archivos_producto
+- id                INTEGER PK AUTOINCREMENT
+- producto_id       INTEGER NOT NULL UNIQUE REFERENCES productos(id) ON DELETE CASCADE
+- almacen           TEXT NOT NULL CHECK (almacen IN ('kv','fraccionado','r2','drive','pixeldrain','gofile'))
+- clave             TEXT NOT NULL  (referencia privada: drive=fileId, pixeldrain=id, gofile=fileId)
+- nombre_descarga   TEXT NOT NULL
+- content_type      TEXT NOT NULL DEFAULT 'application/zip'
+- bytes             INTEGER NOT NULL
+- hash_sha256       TEXT NOT NULL
+- subido_por        INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
+- creado_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+- actualizado_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+
+Índices + trigger actualizado_at
+
+2) TIPOS TYPESCRIPT
+-------------------
+Archivo: src/lib/tipos.ts
+
+export type AlmacenMaestro = 'kv'|'fraccionado'|'r2'|'drive'|'pixeldrain'|'gofile'
+
+export interface ArchivoProducto {
+  id: number
+  producto_id: number
+  almacen: AlmacenMaestro
+  clave: string
+  nombre_descarga: string
+  content_type: string
+  bytes: number
+  hash_sha256: string
+  creado_at: string
+  actualizado_at: string
+}
+
+3) ENTORNO WORKER
+-----------------
+Archivo: src/worker/entorno.ts
+
+Añadir secretos opcionales:
+- GOOGLE_SERVICE_ACCOUNT_JSON?: string
+- PIXELDRAIN_API_KEY?: string
+- GOFILE_API_TOKEN?: string
+
+PRODUCTOS_R2?: R2Bucket se mantiene (futuro)
+
+4) EXTENDER ENTREGA (proxy streaming)
+------------------------------------
+Archivo: src/lib/entrega.ts
+
+- Ampliar EntregaArchivo.modo con 'drive'|'pixeldrain'|'gofile'|'r2'
+- Añadir obtenerArchivoMaestro(productoId, db): Promise<ArchivoProducto|null>
+- Añadir servirDesdeMaestro(maestro, env): Promise<Response>
+  - drive: obtener token JWT RS256 via Web Crypto (desde GOOGLE_SERVICE_ACCOUNT_JSON)
+           GET https://www.googleapis.com/drive/v3/files/{clave}?alt=media con Bearer
+           passthrough + headers cliente (Content-Disposition forzado al nombre_descarga)
+  - pixeldrain: GET https://pixeldrain.com/api/file/{clave} (+ auth si hay key) -> stream
+  - gofile: obtener server + direct link via API -> proxy
+  - mantener kv/fraccionado/externo/r2 existentes
+
+Headers cliente: no-store, private, X-Content-Type-Options: nosniff
+
+5) ROUTER DESCARGA AUTORIZADA
+-----------------------------
+Crear: src/worker/routers/descargas.ts
+
+GET /api/productos/:id/descargar
+Pasos:
+1. obtenerSesion -> 401 si no logueado
+2. extraer id
+3. validar compra con SQL_VERIFICAR_COMPRA + evaluarCompra -> 403 si no válido
+4. obtenerArchivoMaestro -> 404 si no existe
+5. servirDesdeMaestro -> 200 stream o 500
+
+Registrar en src/worker/index.ts: enrutar /api/productos/*/descargar -> responderDescarga
+
+Mantener endpoints de enlace firmado existentes.
+
+6) PANEL: SUBIR ARCHIVO MAESTRO ÚNICO
+-------------------------------------
+Archivos: src/pages/vender.astro, src/pages/panel/productos/[id]/editar.astro
+
+UI:
+- Selector "Origen del archivo maestro": drive / pixeldrain / gofile / kv / fraccionado
+- Subida directa desde navegador al Worker (FormData)
+- Mostrar: nombre, bytes, almacen, hash_sha256, fecha
+- Botón "Reemplazar archivo"
+
+Endpoints Worker (protegidos: vendedor del producto o owner):
+- POST /api/panel/productos/:id/maestro/subir-drive
+- POST /api/panel/productos/:id/maestro/subir-pixeldrain
+- POST /api/panel/productos/:id/maestro/subir-gofile
+- GET  /api/panel/productos/:id/maestro/ver
+- DELETE /api/panel/productos/:id/maestro/eliminar
+
+Lógica servidor:
+- Subir con credenciales (nunca exponer keys al cliente)
+- Calcular/guardar metadatos
+- Para drive: subir con Service Account, obtener fileId, guardar
+- Para pixeldrain/gofile: obtener id/fileId remoto, guardar
+
+7) PRUEBAS
+----------
+- Producto digital SIN maestro -> no publicar
+- Con maestro drive -> descarga tras compra verificada -> mismo archivo
+- Con pixeldrain -> mismo comportamiento
+- Con gofile -> mismo comportamiento
+- SHA256 visible
+- Solo comprador pagado accede
+
+NOTAS
+-----
+- Carpeta/rar/zip empaquetado (attachment único)
+- No duplicar bytes
+- Proxy puro tras validación
+- Sin R2, 100% gratis
+- Reutiliza arquitectura actual

@@ -45,6 +45,8 @@ import { responderSalud } from './routers/salud'
 import { responderWebhooks } from './routers/webhooks'
 import { responderIdentidad } from './routers/identidad'
 import { responderCarrito } from './routers/carrito'
+import { responderDescarga } from './routers/descargas'
+import { responderDescarga } from './routers/descargas'
 
 export default {
   async fetch(peticion: Request, env: Env): Promise<Response> {
@@ -204,6 +206,9 @@ async function despachar(
   }
 
   // Detalle por slug. Se comparan los prefijos porque el slug va en la URL.
+  if (ruta.startsWith('/api/productos/') && ruta.endsWith('/descargar')) {
+    return await responderDescarga(ruta, peticion, env)
+  }
   if (ruta.startsWith('/api/productos/')) {
     const slug = decodificar(ruta.slice('/api/productos/'.length))
     if (!slug) throw ErrorApi.noEncontrado('Ese producto')

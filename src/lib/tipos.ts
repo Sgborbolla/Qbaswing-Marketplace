@@ -287,3 +287,25 @@ export const COMISIONES: Record<ReglaOro, ReglaComision> = {
     descripcion: 'Ropa, calzado, belleza, informatica y electronica.',
   },
 }
+
+
+export type AlmacenMaestro =
+  | 'kv'
+  | 'fraccionado'
+  | 'r2'
+  | 'drive'
+  | 'pixeldrain'
+  | 'gofile'
+
+export interface ArchivoProducto {
+  id: number
+  producto_id: number
+  almacen: AlmacenMaestro
+  clave: string
+  nombre_descarga: string
+  content_type: string
+  bytes: number
+  hash_sha256: string
+  creado_at: string
+  actualizado_at: string
+}
