@@ -242,56 +242,131 @@ const pasos = [
       </div>
     </div>
   </section>
-</Base>
-<section class="mt-10 space-y-4">
-  <h2 class="text-xl font-semibold">Archivo maestro (productos digitales)</h2>
-  <p class="text-sm text-gray-600">Se sube UNA SOLA VEZ. Cada compra descarga ese mismo archivo original por streaming autorizado (solo quien compró y está pagado).</p>
-  <div class="flex flex-col gap-3 md:flex-row md:items-end">
-    <div>
-      <label class="block text-sm font-medium">Origen</label>
-      <select id="maestro-almacen" class="mt-1 rounded border px-3 py-2">
-        <option value="drive">Google Drive (gratuito)</option>
-        <option value="pixeldrain">Pixeldrain (gratuito)</option>
-        <option value="gofile">GoFile.io (gratuito)</option>
-        <option value="kv">KV (<= 25 MB)</option>
-        <option value="fraccionado">Fraccionado (hasta ~100 MB)</option>
-      </select>
-    </div>
-    <div class="flex-1">
-      <label class="block text-sm font-medium">Archivo (.zip .rar .7z .pdf)</label>
-      <input id="maestro-archivo" type="file" accept=".zip,.rar,.7z,.pdf,application/zip,application/vnd.rar,application/x-7z-compressed,application/pdf" class="mt-1 w-full rounded border px-3 py-2" />
-    </div>
-    <button id="maestro-subir" type="button" class="rounded bg-black px-4 py-2 text-white">Subir archivo maestro</button>
-  </div>
-  <div id="maestro-estado" class="text-sm text-gray-700"></div>
-  <input type="hidden" name="tiene_maestro" value="0" />
-</section>
 
-<script>
-  const btn = document.getElementById('maestro-subir')
-  const fileEl = document.getElementById('maestro-archivo')
-  const almEl = document.getElementById('maestro-almacen')
-  const est = document.getElementById('maestro-estado')
-  async function subirMaestro(pid) {
-    const f = fileEl.files[0]
-    if (!f) { est.textContent='Selecciona un archivo'; return }
-    const alm = almEl.value
-    const fd = new FormData(); fd.append('archivo', f)
-    const endpoints = {
-      drive: `/api/panel/productos/${pid}/maestro/subir-drive`,
-      pixeldrain: `/api/panel/productos/${pid}/maestro/subir-pixeldrain`,
-      gofile: `/api/panel/productos/${pid}/maestro/subir-gofile`,
+  <!--
+    Archivo maestro de un producto digital. Esta seccion NO se usa desde esta
+    pagina a secas: vive aqui porque el vendedor llega desde la edicion de un
+    producto, con `?producto=<id>` en la URL. Sin ese id no hay a que colgar el
+    archivo, y la seccion lo dice en vez de fallar en silencio.
+  -->
+  <section class="container-page max-w-4xl pb-space-xl">
+    <h2 class="font-headline text-title-lg font-semibold text-on-surface">
+      Archivo maestro (productos digitales)
+    </h2>
+    <p class="mt-2 text-body-md text-on-surface-variant">
+      Se sube una sola vez. Cada compra descarga ese mismo original por streaming
+      autorizado, solo para quien compró y su pago está verificado.
+    </p>
+
+    <div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end">
+      <div>
+        <label for="maestro-almacen" class="block text-label-md font-medium text-on-surface">
+          Dónde se guarda
+        </label>
+        <select
+          id="maestro-almacen"
+          class="mt-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        >
+          <option value="kv">KV · hasta 25 MB (recomendado)</option>
+          <option value="drive">Google Drive</option>
+          <option value="pixeldrain">Pixeldrain</option>
+          <option value="gofile">GoFile.io</option>
+          <option value="fraccionado" disabled>Fraccionado · próximamente</option>
+        </select>
+      </div>
+
+      <div class="flex-1">
+        <label for="maestro-archivo" class="block text-label-md font-medium text-on-surface">
+          Archivo (.zip .rar .7z .pdf .tar.gz)
+        </label>
+        <input
+          id="maestro-archivo"
+          type="file"
+          accept=".zip,.rar,.7z,.pdf,.tar.gz,application/zip,application/vnd.rar,application/x-7z-compressed,application/pdf,application/gzip"
+          class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        />
+      </div>
+
+      <button
+        id="maestro-subir"
+        type="button"
+        class="rounded-full bg-primary px-5 py-2.5 text-body-md font-semibold text-on-primary transition hover:bg-primary-container"
+      >
+        Subir archivo maestro
+      </button>
+    </div>
+
+    <p id="maestro-estado" class="mt-3 text-body-sm text-on-surface-variant" role="status"></p>
+    <input type="hidden" name="tiene_maestro" value="0" />
+  </section>
+
+  <script>
+    // El id del producto viaja en la URL (`?producto=12`). Se lee aqui y no se
+    // escribe en el HTML para no interpolar un valor que viene de la query en
+    // una plantilla: una inyeccion seria un script ejecutando como este.
+    const pid = new URLSearchParams(location.search).get('producto')
+
+    const btn = document.getElementById('maestro-subir')
+    const archivoEl = document.getElementById('maestro-archivo') as HTMLInputElement | null
+    const almacenEl = document.getElementById('maestro-almacen') as HTMLSelectElement | null
+    const estado = document.getElementById('maestro-estado')
+    const oculto = document.querySelector<HTMLInputElement>('[name="tiene_maestro"]')
+
+    const ENDPOINTS: Record<string, string> = {
+      kv: 'kv',
+      drive: 'drive',
+      pixeldrain: 'pixeldrain',
+      gofile: 'gofile',
     }
-    const ep = endpoints[alm]
-    if (!ep) { est.textContent='Usa KV/fraccionado desde el flujo existente (requiere guardar producto).'; return }
-    btn.disabled=true; est.textContent='Subiendo...'
-    try {
-      const r = await fetch(ep, { method:'POST', body: fd })
-      const j = await r.json()
-      if (j.ok) { est.textContent='Archivo maestro subido correctamente.'; document.querySelector('[name="tiene_maestro"]').value='1' }
-      else est.textContent = j.mensaje || 'Error al subir'
-    } catch(e){ est.textContent='Error de red' }
-    finally { btn.disabled=false }
-  }
-  // Nota: usar tras crear producto (desde editar). Botón funcional cuando tengas productoId.
-</script>
+
+    async function subirMaestro(): Promise<void> {
+      if (!estado || !archivoEl || !almacenEl) return
+
+      if (!pid) {
+        estado.textContent = 'Abre esta sección desde la edición de un producto.'
+        return
+      }
+
+      const archivo = archivoEl.files?.[0]
+      if (!archivo) {
+        estado.textContent = 'Selecciona un archivo.'
+        return
+      }
+
+      const ruta = ENDPOINTS[almacenEl.value]
+      if (!ruta) {
+        estado.textContent = 'Esa ruta todavía no está disponible.'
+        return
+      }
+
+      const cuerpo = new FormData()
+      cuerpo.append('archivo', archivo)
+
+      if (btn instanceof HTMLButtonElement) btn.disabled = true
+      estado.textContent = 'Subiendo…'
+
+      try {
+        const respuesta = await fetch(
+          `/api/panel/productos/${pid}/maestro/${ruta}`,
+          { method: 'POST', body: cuerpo, credentials: 'include' },
+        )
+        const datos = (await respuesta.json()) as { ok?: boolean; mensaje?: string }
+
+        if (datos.ok) {
+          estado.textContent = 'Archivo maestro subido.'
+          if (oculto) oculto.value = '1'
+        } else {
+          estado.textContent = datos.mensaje || 'No se pudo subir el archivo.'
+        }
+      } catch {
+        estado.textContent = 'Error de red.'
+      } finally {
+        if (btn instanceof HTMLButtonElement) btn.disabled = false
+      }
+    }
+
+    btn?.addEventListener('click', () => {
+      void subirMaestro()
+    })
+  </script>
+</Base>

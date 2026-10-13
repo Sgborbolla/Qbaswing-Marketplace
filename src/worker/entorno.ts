@@ -95,6 +95,16 @@ export interface Env {
   GOOGLE_SERVICE_ACCOUNT_JSON?: string
   PIXELDRAIN_API_KEY?: string
   GOFILE_API_TOKEN?: string
+
+  /*
+   * Binding opcional de R2, todavia no activado (pide tarjeta).
+   *
+   * Es opcional porque hoy `wrangler.worker.toml` no lo declara: si un dia se
+   * activa R2, basta con anadir el binding y `servirDesdeMaestro` empieza a
+   * usarlo sin tocar nada mas. Mientras tanto, la rama de codigo que lo
+   * consulta queda inerte y el modo 'r2' cae al error de abajo.
+   */
+  PRODUCTOS_R2?: R2Bucket
 }
 
 /** Conversion a numero con respaldo. Un string vacio en `[vars]` da NaN. */

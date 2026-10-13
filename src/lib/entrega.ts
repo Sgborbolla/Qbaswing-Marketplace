@@ -43,6 +43,9 @@
  * recombine y entrega un unico archivo con el nombre correcto.
  */
 
+import type { ArchivoProducto, AlmacenMaestro } from './tipos'
+import type { Env } from '../worker/entorno'
+
 /* ===========================================================================
  * Configuracion
  * ======================================================================== */
@@ -399,6 +402,20 @@ function headersCliente(maestro: ArchivoProducto, extra?: Headers): Headers {
 
 export async function servirDesdeMaestro(maestro: ArchivoProducto, env: Env): Promise<Response> {
   const almacen = maestro.almacen as AlmacenMaestro
+
+  /*
+   * KV es el unico modo donde el archivo vive con nosotros. No hay firma ni
+   * redireccion de por medio: se leen los bytes del binding y se devuelven. La
+   * autorizacion ya la decidio `responderDescarga` antes de llegar aqui.
+   */
+  if (almacen === 'kv') {
+    const bytes = await env.ARCHIVOS.get(maestro.clave, 'arrayBuffer')
+    if (!bytes) throw new ErrorEntrega('archivo-no-disponible', 'Archivo maestro no encontrado en KV')
+    const h = headersCliente(maestro)
+    h.set('Content-Length', String(bytes.byteLength))
+    return new Response(bytes, { status: 200, headers: h })
+  }
+
   if (almacen === 'drive') {
     const token = await obtenerTokenDrive(env)
     const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(maestro.clave)}?alt=media`, { headers: { Authorization: `Bearer ${token}` }, redirect: 'follow' })

@@ -39,13 +39,12 @@ import { decodificar, enteroDeQuery, json } from './http'
 import { responderPlataforma } from './routers/plataforma'
 import { responderMediosPago } from './routers/medios-pago'
 import { responderMisMedios } from './routers/mis-medios'
-import { responderPanelProductos } from './routers/panel'
+import { responderPanelProductos, responderArchivoMaestro } from './routers/panel'
 import { responderCatalogo } from './routers/catalogo'
 import { responderSalud } from './routers/salud'
 import { responderWebhooks } from './routers/webhooks'
 import { responderIdentidad } from './routers/identidad'
 import { responderCarrito } from './routers/carrito'
-import { responderDescarga } from './routers/descargas'
 import { responderDescarga } from './routers/descargas'
 
 export default {
@@ -157,6 +156,13 @@ async function despachar(
   // escritura privada y no un listado publico.
   if (ruta === RUTAS.mediosPagoPropios) {
     return responderMisMedios(peticion, env)
+  }
+
+  // Archivo maestro de un producto (subir/consultar/borrar). Va antes que el
+  // listado de productos propios porque comparte el prefijo pero es una
+  // operacion distinta: aqui se maneja UN producto y su entregable.
+  if (ruta.startsWith('/api/panel/productos/') && ruta.includes('/maestro/')) {
+    return responderArchivoMaestro(peticion, env)
   }
 
   // Precios de los PROPIOS productos. Mismo motivo y misma colocacion que el

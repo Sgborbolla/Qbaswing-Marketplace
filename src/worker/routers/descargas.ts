@@ -1,6 +1,6 @@
 import { json } from '../http'
 import type { Env } from '../entorno'
-import { obtenerSesion } from './identidad'
+import { usuarioDePeticion } from './registro'
 import { SQL_VERIFICAR_COMPRA, evaluarCompra, obtenerArchivoMaestro, servirDesdeMaestro, ErrorEntrega } from '../../lib/entrega'
 
 function extraerIdDeRuta(ruta: string): number | null {
@@ -19,13 +19,13 @@ export async function responderDescarga(ruta: string, peticion: Request, env: En
     return json({ ok: false, codigo: 'id_invalido', mensaje: 'ID de producto inválido.' }, 400)
   }
 
-  const sesion = await obtenerSesion(peticion, env)
-  if (!sesion?.usuarioId) {
+  const { usuario } = await usuarioDePeticion(env.DB, peticion, env.QBASWING_SECRETO_FIRMA)
+  if (!usuario) {
     return json({ ok: false, codigo: 'no_autenticado', mensaje: 'Necesitas iniciar sesión para descargar.' }, 401)
   }
 
   try {
-    const fila = await env.DB.prepare(SQL_VERIFICAR_COMPRA).bind(sesion.usuarioId, id).first<any>()
+    const fila = await env.DB.prepare(SQL_VERIFICAR_COMPRA).bind(usuario.id, id).first<any>()
     const compra = evaluarCompra(fila)
     if (!compra.ok) {
       const cod = compra.motivo ?? 'sin_acceso'

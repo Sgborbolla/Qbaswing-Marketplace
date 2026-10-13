@@ -1,5 +1,5 @@
 
-async function base64UrlEncode(buf: ArrayBuffer): string {
+function base64UrlEncode(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf)
   let str = ''
   for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i])
@@ -136,6 +136,7 @@ async function subirArchivoAGofile(env: Env, archivo: File) {
 import { ErrorApi, TOPE_PRECIO } from '../constantes'
 import type { Env } from '../entorno'
 import { cuerpoJson, json } from '../http'
+import { crearAlmacenamientoKV, ErrorAlmacenamiento } from '../../lib/almacenamiento-kv'
 import { usuarioDePeticion } from './registro'
 
 /**
@@ -391,4 +392,307 @@ function leerMoneda(actual: unknown, previo: string): Moneda {
   }
 
   return valor as Moneda
+}
+
+/* ===========================================================================
+ * Archivo maestro
+ * ======================================================================== */
+
+/*
+ * El archivo maestro es el entregable de un producto digital: se sube UNA vez y
+ * cada compra descarga ese mismo original. No es lo mismo que las muestras ni
+ * las imagenes del catalogo, y por eso tiene su propia tabla (`archivos_producto`)
+ * y su propia ruta.
+ *
+ *   GET  /api/panel/productos/:id/maestro/ver        consulta lo que hay
+ *   POST /api/panel/productos/:id/maestro/kv         sube a Workers KV (<= 25 MB)
+ *   POST /api/panel/productos/:id/maestro/drive      sube a Google Drive
+ *   POST /api/panel/productos/:id/maestro/pixeldrain sube a Pixeldrain
+ *   POST /api/panel/productos/:id/maestro/gofile     sube a GoFile
+ *   POST /api/panel/productos/:id/maestro/eliminar   borra el archivo
+ *
+ * El `fraccionado` (partir en trozos para pasar de 25 MB sin R2) todavia no
+ * existe: no se finge. Un archivo que no quepa en KV se sube a un proveedor
+ * externo, que ya esta soportado.
+ */
+
+/** Los almacenes con subida directa desde el panel. `fraccionado` no esta. */
+const ALMACENES_SUBIDA = ['kv', 'drive', 'pixeldrain', 'gofile'] as const
+type AlmacenSubida = (typeof ALMACENES_SUBIDA)[number]
+
+/**
+ * Router del archivo maestro. Se llama desde `index.ts` cuando la ruta empieza
+ * por `/api/panel/productos/` y lleva `/maestro/`.
+ *
+ * La propiedad se comprueba leyendo el `vendedor_id` del producto, no el de la
+ * sesion: lo que se decide es si el producto es de quien llama. Un Owner o un
+ * administrador pueden gestionar el archivo de cualquier producto, que es lo
+ * que necesita el circuito de aprobacion (0003).
+ */
+export async function responderArchivoMaestro(
+  peticion: Request,
+  env: Env,
+): Promise<Response> {
+  const { usuario } = await usuarioDePeticion(
+    env.DB,
+    peticion,
+    env.QBASWING_SECRETO_FIRMA,
+  )
+
+  if (!usuario) throw ErrorApi.noAutenticado()
+
+  const coincidencia = new URL(peticion.url).pathname.match(
+    /^\/api\/panel\/productos\/(\d+)\/maestro\/([a-z-]+)$/,
+  )
+  if (!coincidencia) throw ErrorApi.noEncontrado('Esa ruta')
+
+  const productoId = Number(coincidencia[1])
+  const accion = coincidencia[2]
+
+  const producto = await env.DB.prepare(
+    'SELECT vendedor_id FROM productos WHERE id = ?',
+  )
+    .bind(productoId)
+    .first<{ vendedor_id: number | null }>()
+
+  if (!producto) throw ErrorApi.noEncontrado('Ese producto')
+
+  const esDueno =
+    usuario.vendedor_id !== null && usuario.vendedor_id === producto.vendedor_id
+  const esAdmin = usuario.rol === 'owner' || usuario.rol === 'administrador'
+
+  // Se contesta 404 y no 403 cuando el producto no es de quien llama y no es
+  // admin: decir "no es tuyo" confirmaria que el producto existe en otra tienda.
+  if (!esDueno && !esAdmin) throw ErrorApi.noEncontrado('Ese producto')
+
+  if (peticion.method === 'GET') {
+    if (accion !== 'ver') {
+      throw ErrorApi.metodoNoPermitido('GET solo sirve para ver el archivo.', [
+        'GET',
+      ])
+    }
+    return consultarArchivoMaestro(env, productoId)
+  }
+
+  if (peticion.method === 'POST') {
+    if (accion === 'eliminar') return eliminarArchivoMaestro(env, productoId)
+
+    if ((ALMACENES_SUBIDA as readonly string[]).includes(accion)) {
+      return subirArchivoMaestro(
+        peticion,
+        env,
+        productoId,
+        producto.vendedor_id,
+        accion as AlmacenSubida,
+        usuario.id,
+      )
+    }
+
+    throw ErrorApi.noEncontrado('Esa accion sobre el archivo maestro')
+  }
+
+  throw ErrorApi.metodoNoPermitido('Ese metodo no existe aqui.', ['GET', 'POST'])
+}
+
+/** GET. Lo que hay guardado, o `null`. La clave privada se devuelve porque es
+ *  del dueño; la descarga publica nunca la expone. */
+async function consultarArchivoMaestro(
+  env: Env,
+  productoId: number,
+): Promise<Response> {
+  const archivo = await env.DB.prepare(
+    `SELECT id, producto_id, almacen, clave, nombre_descarga, content_type,
+            bytes, hash_sha256, subido_por, creado_at, actualizado_at
+       FROM archivos_producto
+      WHERE producto_id = ?`,
+  )
+    .bind(productoId)
+    .first()
+
+  return json({ ok: true, archivo: archivo ?? null })
+}
+
+/**
+ * POST .../eliminar. Borra la referencia y, si el archivo vive en KV, tambien
+ * el valor.
+ *
+ * Los externos (Drive, Pixeldrain, GoFile) solo se desvinculan: borrarlos pide
+ * permisos que no tenemos o una llamada a cada API, y el espacio lo libera el
+ * propio proveedor. Se borra la fila SIEMPRE, para que el producto deje de
+ * ofrecer una descarga rota.
+ */
+async function eliminarArchivoMaestro(
+  env: Env,
+  productoId: number,
+): Promise<Response> {
+  const archivo = await env.DB.prepare(
+    'SELECT almacen, clave FROM archivos_producto WHERE producto_id = ?',
+  )
+    .bind(productoId)
+    .first<{ almacen: string; clave: string }>()
+
+  if (!archivo) throw ErrorApi.noEncontrado('Ese archivo maestro')
+
+  if (archivo.almacen === 'kv') {
+    await crearAlmacenamientoKV(env.ARCHIVOS).borrar(archivo.clave)
+  }
+
+  await env.DB.prepare('DELETE FROM archivos_producto WHERE producto_id = ?')
+    .bind(productoId)
+    .run()
+
+  return json({ ok: true })
+}
+
+interface DatosMaestro {
+  almacen: string
+  clave: string
+  nombre: string
+  contentType: string
+  bytes: number
+  hash: string
+}
+
+/**
+ * POST .../{almacen}. Sube el archivo al almacen elegido y guarda la referencia.
+ *
+ * El archivo llega como `multipart/form-data` en el campo `archivo`. Se sube
+ * primero al almacen y solo si eso funciona se escribe la fila: al reves, un
+ * fallo de red dejaria en la base una clave que no apunta a ningun lado.
+ */
+async function subirArchivoMaestro(
+  peticion: Request,
+  env: Env,
+  productoId: number,
+  vendedorId: number | null,
+  almacen: AlmacenSubida,
+  subidoPor: number,
+): Promise<Response> {
+  const forma = await peticion.formData()
+  const crudo = forma.get('archivo')
+
+  // Se exige `File` y no se acepta un string: un campo de texto con el nombre
+  // no es un archivo, y guardar su nombre como clave seria una fila que no
+  // descarga nada.
+  if (!(crudo instanceof File)) {
+    throw ErrorApi.invalido('archivo', 'Adjunta el archivo maestro.')
+  }
+
+  let datos: DatosMaestro
+
+  try {
+    if (almacen === 'kv') {
+      const subido = await crearAlmacenamientoKV(env.ARCHIVOS).subir({
+        productoId: String(productoId),
+        vendedorId: String(vendedorId ?? 0),
+        archivo: crudo,
+        tipo: 'descarga',
+      })
+      datos = {
+        almacen: 'kv',
+        clave: subido.clave ?? '',
+        nombre: subido.nombreMostrado,
+        contentType: subido.contentType,
+        bytes: subido.bytes,
+        hash: subido.hash,
+      }
+    } else if (almacen === 'drive') {
+      const r = await subirArchivoADrive(env, crudo)
+      datos = {
+        almacen: 'drive',
+        clave: r.fileId,
+        nombre: r.nombre,
+        contentType: r.contentType,
+        bytes: r.bytes,
+        hash: await sha256Archivo(crudo),
+      }
+    } else if (almacen === 'pixeldrain') {
+      const r = await subirArchivoAPixeldrain(env, crudo)
+      datos = {
+        almacen: 'pixeldrain',
+        clave: r.id,
+        nombre: r.nombre,
+        contentType: r.contentType,
+        bytes: r.bytes,
+        hash: await sha256Archivo(crudo),
+      }
+    } else {
+      const r = await subirArchivoAGofile(env, crudo)
+      datos = {
+        almacen: 'gofile',
+        clave: r.fileId,
+        nombre: r.nombre,
+        contentType: r.contentType,
+        bytes: r.bytes,
+        hash: await sha256Archivo(crudo),
+      }
+    }
+  } catch (error) {
+    // Un fallo de tamano o formato es culpa de quien sube: 400 con el motivo.
+    // Un fallo del proveedor externo es 502: la peticion estaba bien y fallo el
+    // otro extremo.
+    if (error instanceof ErrorAlmacenamiento) {
+      throw ErrorApi.invalido('archivo', error.message)
+    }
+    throw new ErrorApi(
+      'archivo_maestro',
+      error instanceof Error
+        ? error.message
+        : 'No se pudo subir el archivo maestro.',
+      502,
+    )
+  }
+
+  await guardarArchivoMaestro(env, productoId, datos, subidoPor)
+  return json({ ok: true, archivo: { ...datos, producto_id: productoId } })
+}
+
+/**
+ * Guarda o reemplaza la fila del archivo maestro.
+ *
+ * Antes de escribir se mira lo que habia: si era un archivo distinto en KV, se
+ * borra el valor viejo para no dejar basura pagada por el vendedor. Reemplazar
+ * en KV sin borrar el anterior perderia la clave vieja y dejaria el objeto
+ * huerfano para siempre.
+ */
+async function guardarArchivoMaestro(
+  env: Env,
+  productoId: number,
+  datos: DatosMaestro,
+  subidoPor: number,
+): Promise<void> {
+  const previo = await env.DB.prepare(
+    'SELECT almacen, clave FROM archivos_producto WHERE producto_id = ?',
+  )
+    .bind(productoId)
+    .first<{ almacen: string; clave: string }>()
+
+  if (previo && previo.almacen === 'kv' && previo.clave !== datos.clave) {
+    await crearAlmacenamientoKV(env.ARCHIVOS).borrar(previo.clave)
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO archivos_producto
+       (producto_id, almacen, clave, nombre_descarga, content_type, bytes, hash_sha256, subido_por)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(producto_id) DO UPDATE SET
+       almacen         = excluded.almacen,
+       clave           = excluded.clave,
+       nombre_descarga = excluded.nombre_descarga,
+       content_type    = excluded.content_type,
+       bytes           = excluded.bytes,
+       hash_sha256     = excluded.hash_sha256,
+       subido_por      = excluded.subido_por`,
+  )
+    .bind(
+      productoId,
+      datos.almacen,
+      datos.clave,
+      datos.nombre,
+      datos.contentType,
+      datos.bytes,
+      datos.hash,
+      subidoPor,
+    )
+    .run()
 }
