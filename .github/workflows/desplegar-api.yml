@@ -1,0 +1,94 @@
+# =============================================================================
+# Despliegue automatico de la API (Worker `qbaswing-api`)
+# =============================================================================
+#
+# QUE HACE
+#
+# Cada vez que se empuja a `main` un cambio que afecta al Worker o al esquema,
+# este flujo:
+#
+#   1. Instala dependencias.
+#   2. Comprueba los tipos del Worker (`npm run check:worker`).
+#   3. Aplica las migraciones pendientes a la base D1 (idempotente).
+#   4. Despliega el Worker con `wrangler`, que respeta los secretos existentes.
+#
+# POR QUE EXISTE
+#
+# El equipo de desarrollo es un Android (Termux) donde `wrangler` no arranca:
+# `workerd` no tiene binario `android arm64`. Sin este flujo, el unico camino
+# era hablar a mano con la API REST de Cloudflare desde el telefono. GitHub
+# corre en `ubuntu-latest`, donde wrangler SI arranca, y automatiza el trabajo.
+#
+# QUE NO HACE
+#
+# El sitio (Cloudflare Pages) NO se despliega aqui: el proyecto de Pages esta
+# enlazado a este repositorio y Cloudflare lo reconstruye solo con cada push a
+# `main` (build command `npm run build`). Montar tambien un `wrangler pages
+# deploy` aqui haria dos despliegues del mismo sitio compitiendo.
+#
+# SECRETOS NECESARIOS (Settings -> Secrets and variables -> Actions)
+#
+#   CLOUDFLARE_API_TOKEN   token con permiso de editar Workers y D1
+#   CLOUDFLARE_ACCOUNT_ID  id de la cuenta de Cloudflare
+#
+# El token NO se escribe en el repositorio. Sin ellos, el flujo falla al
+# desplegar; con ellos, el despliegue sale solo.
+# =============================================================================
+
+name: Desplegar API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/worker/**'
+      - 'src/lib/**'
+      - 'migrations/**'
+      - 'wrangler.worker.toml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/aplicar-migraciones.mjs'
+      - '.github/workflows/desplegar-api.yml'
+  # Permite lanzarlo a mano desde la pestana Actions.
+  workflow_dispatch:
+
+# Un despliegue a la vez. Si se empuja dos veces seguidas, el segundo espera en
+# vez de pisar al primero a mitad: dos aplicaciones de migraciones en paralelo
+# sobre la misma base es la forma de dejar el esquema a medias.
+concurrency:
+  group: desplegar-api
+  cancel-in-progress: false
+
+jobs:
+  api:
+    name: Migraciones + Worker
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # La base de produccion. Es publica (va en wrangler.worker.toml) y por eso
+      # puede estar aqui sin ser secreto.
+      QBASWING_D1_ID: 7c782a19-f3bb-4107-819f-82b6b08d14d1
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # Se comprueba antes de desplegar: un Worker que no compila no debe llegar
+      # a produccion. Si esto falla, no se aplican migraciones ni se despliega.
+      - name: Comprobar tipos del Worker
+        run: npm run check:worker
+
+      - name: Aplicar migraciones a D1
+        run: node scripts/aplicar-migraciones.mjs
+
+      - name: Desplegar el Worker
+        run: npx wrangler deploy -c wrangler.worker.toml

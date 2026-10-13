@@ -1,0 +1,76 @@
+#:schema node_modules/wrangler/config-schema.json
+# =============================================================================
+# CONFIGURACION DEL WORKER DE API (`qbaswing-api`)
+# =============================================================================
+#
+# QUE ES ESTE ARCHIVO
+#
+# Es la configuracion del Worker de la API, separada del sitio a proposito. El
+# archivo `wrangler.toml` es SOLO del frontend (Pages) y no puede llevar `main`
+# junto con `pages_build_output_dir`: Cloudflare rechaza esa combinacion. Como
+# la API SI necesita `main`, bindings y `[vars]`, vive aqui.
+#
+# POR QUE TIENE NOMBRE PROPIO Y NO ES `wrangler.toml`
+#
+# Wrangler lee `wrangler.toml` por defecto. Para desplegar la API se le pasa
+# este archivo explicito (`wrangler deploy -c wrangler.worker.toml`). Tener los
+# dos separados evita que un deploy del sitio se lleve por delante los bindings
+# del Worker, que es el fallo mas caro de descubrir: la API arranca sin `DB` y
+# toda lectura revienta con "Cannot read properties of undefined".
+#
+# NOTA DE ENTORNO (Termux/Android)
+#
+# En este equipo `wrangler` no arranca (workerd no tiene binario para
+# `android arm64`). Este archivo se mantiene versionado como fuente de verdad de
+# los bindings, y el despliegue se hace por la API REST de Cloudflare con el
+# bundle que produce `esbuild`. Ver `scripts/` para el flujo.
+# =============================================================================
+
+name = "qbaswing-api"
+main = "src/worker/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# -----------------------------------------------------------------------------
+# Variables publicas
+# -----------------------------------------------------------------------------
+# Estas NO son secretas: viajan al Worker en claro y son de configuracion. Los
+# secretos (QBASWING_SECRETO_FIRMA, QVAPAY_APP_SECRET, TROPIPAY_*, y las claves
+# de los almacenes externos) NO van aqui: se cargan con `wrangler secret put` o
+# por la API, y quedan cifrados en el Secret Store.
+[vars]
+# Origenes permitidos, separados por coma. La comparacion es exacta y sin barra
+# final. `localhost:4321` es el `astro dev` (el puerto por defecto de Astro).
+ALLOWED_ORIGIN = "https://qbaswing-marketplace.pages.dev,http://localhost:4321"
+# Vida del enlace de descarga, en segundos (5 min).
+EXPIRACION_ENLACE_SEG = "300"
+# Tolerancia del timestamp de los webhooks, en segundos.
+VENTANA_TIMESTAMP_SEG = "300"
+# URL publica de esta misma API, para enlaces absolutos.
+PUBLIC_API_BASE = "https://qbaswing-api.sgborbolla.workers.dev"
+
+# -----------------------------------------------------------------------------
+# Base de datos (D1)
+# -----------------------------------------------------------------------------
+# `binding = "DB"` tiene que coincidir con `Env.DB` en `src/worker/entorno.ts`.
+# Un nombre distinto produce un `undefined` silencioso en tiempo de ejecucion.
+[[d1_databases]]
+binding = "DB"
+database_name = "qbaswing_marketplace"
+database_id = "7c782a19-f3bb-4107-819f-82b6b08d14d1"
+
+# -----------------------------------------------------------------------------
+# Almacenamiento (KV)
+# -----------------------------------------------------------------------------
+# `binding = "ARCHIVOS"` coincide con `Env.ARCHIVOS`. Aqui viven los archivos
+# maestros de hasta 25 MiB. Cuando se active R2 se anade su binding y el codigo
+# no se toca, porque todo el acceso pasa por `src/lib/almacenamiento.ts`.
+[[kv_namespaces]]
+binding = "ARCHIVOS"
+id = "d17446bd79644534baad1a185830ad6e"
+
+# -----------------------------------------------------------------------------
+# Observabilidad
+# -----------------------------------------------------------------------------
+[observability]
+enabled = true
