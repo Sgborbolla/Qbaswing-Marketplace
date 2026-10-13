@@ -1,3 +1,75 @@
+
+async function base64UrlEncode(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf)
+  let str = ''
+  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i])
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----/g,'').replace(/-----END PRIVATE KEY-----/g,'').replace(/\s+/g,'')
+  const binary = atob(b64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i=0;i<len;i++) bytes[i]=binary.charCodeAt(i)
+  return bytes.buffer
+}
+async function obtenerTokenDrivePanel(env: Env): Promise<string> {
+  if (!env.GOOGLE_SERVICE_ACCOUNT_JSON) throw new Error('Falta GOOGLE_SERVICE_ACCOUNT_JSON')
+  let sa: any
+  try { sa = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON) } catch { throw new Error('JSON inválido') }
+  const now = Math.floor(Date.now() / 1000)
+  const enc = new TextEncoder()
+  const header = { alg: 'RS256', typ: 'JWT' }
+  const payload = { iss: sa.client_email, scope: 'https://www.googleapis.com/auth/drive.file', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }
+  const h64 = base64UrlEncode(enc.encode(JSON.stringify(header)).buffer)
+  const p64 = base64UrlEncode(enc.encode(JSON.stringify(payload)).buffer)
+  const toSign = enc.encode(h64+'.'+p64)
+  const keyData = pemToArrayBuffer(sa.private_key)
+  const ck = await crypto.subtle.importKey('pkcs8', keyData, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'])
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', ck, toSign)
+  const jwt = h64+'.'+p64+'.'+base64UrlEncode(sig)
+  const tr = await fetch('https://oauth2.googleapis.com/token', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion:jwt})})
+  if (!tr.ok) throw new Error('Token Drive falló')
+  const tj = await tr.json() as any
+  if (!tj.access_token) throw new Error('Sin access_token')
+  return tj.access_token
+}
+async function sha256Archivo(file: File): Promise<string> {
+  const buf = await file.arrayBuffer()
+  const hash = await crypto.subtle.digest('SHA-256', buf)
+  const bytes = new Uint8Array(hash)
+  return Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('')
+}
+async function subirArchivoADrive(env: Env, archivo: File) {
+  const token = await obtenerTokenDrivePanel(env)
+  const form = new FormData()
+  form.append('metadata', new Blob([JSON.stringify({name: archivo.name})], {type:'application/json'}))
+  form.append('file', archivo)
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=false', {method:'POST', headers:{Authorization:'Bearer '+token}, body:form})
+  if (!res.ok) throw new Error('Drive upload falló')
+  const j = await res.json() as any
+  if (!j.id) throw new Error('Drive sin fileId')
+  return {fileId:j.id, bytes:archivo.size, contentType:archivo.type||'application/octet-stream', nombre:archivo.name}
+}
+async function subirArchivoAPixeldrain(env: Env, archivo: File) {
+  const form = new FormData(); form.append('file', archivo)
+  const headers: Record<string,string>={}; if (env.PIXELDRAIN_API_KEY) headers.Authorization = 'Basic '+btoa(env.PIXELDRAIN_API_KEY+':')
+  const res = await fetch('https://pixeldrain.com/api/file', {method:'POST', headers, body:form})
+  if (!res.ok) throw new Error('Pixeldrain upload falló')
+  const j = await res.json() as any
+  if (!j.id) throw new Error('Pixeldrain sin id')
+  return {id:j.id, bytes:archivo.size, contentType:archivo.type||'application/octet-stream', nombre:archivo.name}
+}
+async function subirArchivoAGofile(env: Env, archivo: File) {
+  const token = env.GOFILE_API_TOKEN; if (!token) throw new Error('Falta GOFILE_API_TOKEN')
+  const s = await fetch('https://api.gofile.io/servers'); if (!s.ok) throw new Error('GoFile servers falló')
+  const sj = await s.json() as any; const server = sj?.data?.servers?.[0]?.name; if (!server) throw new Error('Sin server GoFile')
+  const form = new FormData(); form.append('file', archivo)
+  const up = await fetch('https://'+server+'.gofile.io/uploadFile?token='+encodeURIComponent(token), {method:'POST', body:form})
+  if (!up.ok) throw new Error('GoFile upload falló')
+  const uj = await up.json() as any; const fileId = uj?.data?.fileId; if (!fileId) throw new Error('GoFile sin fileId')
+  return {fileId, bytes:archivo.size, contentType:archivo.type||'application/octet-stream', nombre:archivo.name}
+}
 /**
  * Precios de los PROPIOS productos.
  *
