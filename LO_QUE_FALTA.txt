@@ -1,0 +1,57 @@
+LO QUE FALTA PARA TENER MARKETPLACE 100% FUNCIONAL
+==================================================
+
+1) MIGRACIÓN D1 (REMOTO)
+-------------------------
+Aplicar migración 0021:
+  wrangler d1 migrations apply qbaswing-marketplace --remote
+
+Archivo: migrations/0021_archivos_maestros.sql
+Crea tabla archivos_producto + trigger actualizado_at.
+
+2) SECRETS DEL WORKER (CLOUDFLARE)
+---------------------------------
+Añadir al Worker (API) estos secretos:
+  wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON
+  wrangler secret put PIXELDRAIN_API_KEY
+  wrangler secret put GOFILE_API_TOKEN
+
+GOOGLE_SERVICE_ACCOUNT_JSON = contenido completo del service-account.json
+
+3) UI PANEL (SUBIR ARCHIVO MAESTRO DESDE VENDER/EDITAR)
+--------------------------------------------------------
+Falta añadir bloque "Archivo maestro (digital)" en:
+- src/pages/vender.astro
+- src/pages/panel/productos/[id]/editar.astro
+
+Ya existen endpoints:
+- GET  /api/panel/productos/:id/maestro/ver
+- POST /api/panel/productos/:id/maestro/subir-drive
+- POST /api/panel/productos/:id/maestro/subir-pixeldrain
+- POST /api/panel/productos/:id/maestro/subir-gofile
+- DELETE /api/panel/productos/:id/maestro/eliminar
+
+4) ENDPOINT DESCARGA AUTORIZADA (YA HECHO)
+-----------------------------------------
+GET /api/productos/:id/descargar
+- Requiere sesión
+- Valida compra pagada/verificada (biblioteca + transacciones)
+- Sirve archivo maestro ÚNICO por proxy streaming (Drive/Pixeldrain/GoFile/R2)
+- Sin duplicados, sin enlace directo
+
+5) VALIDACIONES
+---------------
+- Solo productos digitales deben tener archivo maestro antes de publicar
+- Mostrar advertencia para >100MB si se elige KV/fraccionado
+
+6) OPCIONAL (R2)
+----------------
+Si algún día quieres usar R2 (sin depender terceros), añadir binding PRODUCTOS_R2 y usar modo 'r2'.
+
+RESUMEN
+-------
+Backend 100% hecho. Falta SOLO interfaz panel + aplicar migración/secrets.
+
+OBJETIVO
+--------
+Subir ZIP/RAR 1 VEZ → queda como archivo maestro → cada compra descarga ese MISMO archivo tras validar pago.
