@@ -243,3 +243,55 @@ const pasos = [
     </div>
   </section>
 </Base>
+<section class="mt-10 space-y-4">
+  <h2 class="text-xl font-semibold">Archivo maestro (productos digitales)</h2>
+  <p class="text-sm text-gray-600">Se sube UNA SOLA VEZ. Cada compra descarga ese mismo archivo original por streaming autorizado (solo quien compró y está pagado).</p>
+  <div class="flex flex-col gap-3 md:flex-row md:items-end">
+    <div>
+      <label class="block text-sm font-medium">Origen</label>
+      <select id="maestro-almacen" class="mt-1 rounded border px-3 py-2">
+        <option value="drive">Google Drive (gratuito)</option>
+        <option value="pixeldrain">Pixeldrain (gratuito)</option>
+        <option value="gofile">GoFile.io (gratuito)</option>
+        <option value="kv">KV (<= 25 MB)</option>
+        <option value="fraccionado">Fraccionado (hasta ~100 MB)</option>
+      </select>
+    </div>
+    <div class="flex-1">
+      <label class="block text-sm font-medium">Archivo (.zip .rar .7z .pdf)</label>
+      <input id="maestro-archivo" type="file" accept=".zip,.rar,.7z,.pdf,application/zip,application/vnd.rar,application/x-7z-compressed,application/pdf" class="mt-1 w-full rounded border px-3 py-2" />
+    </div>
+    <button id="maestro-subir" type="button" class="rounded bg-black px-4 py-2 text-white">Subir archivo maestro</button>
+  </div>
+  <div id="maestro-estado" class="text-sm text-gray-700"></div>
+  <input type="hidden" name="tiene_maestro" value="0" />
+</section>
+
+<script>
+  const btn = document.getElementById('maestro-subir')
+  const fileEl = document.getElementById('maestro-archivo')
+  const almEl = document.getElementById('maestro-almacen')
+  const est = document.getElementById('maestro-estado')
+  async function subirMaestro(pid) {
+    const f = fileEl.files[0]
+    if (!f) { est.textContent='Selecciona un archivo'; return }
+    const alm = almEl.value
+    const fd = new FormData(); fd.append('archivo', f)
+    const endpoints = {
+      drive: `/api/panel/productos/${pid}/maestro/subir-drive`,
+      pixeldrain: `/api/panel/productos/${pid}/maestro/subir-pixeldrain`,
+      gofile: `/api/panel/productos/${pid}/maestro/subir-gofile`,
+    }
+    const ep = endpoints[alm]
+    if (!ep) { est.textContent='Usa KV/fraccionado desde el flujo existente (requiere guardar producto).'; return }
+    btn.disabled=true; est.textContent='Subiendo...'
+    try {
+      const r = await fetch(ep, { method:'POST', body: fd })
+      const j = await r.json()
+      if (j.ok) { est.textContent='Archivo maestro subido correctamente.'; document.querySelector('[name="tiene_maestro"]').value='1' }
+      else est.textContent = j.mensaje || 'Error al subir'
+    } catch(e){ est.textContent='Error de red' }
+    finally { btn.disabled=false }
+  }
+  // Nota: usar tras crear producto (desde editar). Botón funcional cuando tengas productoId.
+</script>
