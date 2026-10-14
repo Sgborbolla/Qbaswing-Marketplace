@@ -15,3 +15,4 @@
 2026-10-13 23:03:06 - Revisar estado redes API: https://qbaswing-api.sgborbolla.workers.dev/api/plataforma/redes
 2026-10-13 23:06:12 - visto estado redes en marlon solaris (tiene Facebook/Instagram/Twitter/YouTube/LinkedIn)
 2026-10-13 23:07:46 - pedido: quitar twitter, añadir whatsapp en redes sociales del footer/tiendas según configuración
+2026-10-13 23:10:00 - redes sociales gestionables desde panel owner (DB redes_sociales). Footer las lee de API
