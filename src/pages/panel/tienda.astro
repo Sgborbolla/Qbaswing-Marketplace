@@ -1,0 +1,229 @@
+---
+/**
+ * Panel de la tienda del vendedor: `/panel/tienda`.
+ *
+ * ============================================================================
+ *  QUE EDITA
+ * ============================================================================
+ * Lo que identifica la tienda de cara al publico: nombre comercial, descripcion,
+ * ubicacion y avatar; el contacto directo (telefono, WhatsApp, correo, direccion,
+ * sitio web) y las redes sociales (lista reemplazable: la que no venga, se
+ * borra).
+ *
+ * Los precios y el catalogo NO se tocan aqui: eso es `/panel/productos`. Y las
+ * formas de cobro van en su propio sitio. Son tres decisiones distintas.
+ *
+ * La pagina llega vacia y el navegador pide los datos a `/api/panel/tienda`,
+ * que es lo unico que puede validar la cookie de sesion.
+ */
+import Base from '../../layouts/Base.astro'
+import Miniatura from '../../components/Miniatura.astro'
+---
+
+<Base title="Mi tienda" descripcion="Edita los datos publicos de tu tienda.">
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-3xl">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <a href="/panel" class="text-label-md text-primary hover:underline">← Volver al panel</a>
+          <h1 class="mt-2 font-headline text-headline-lg text-on-surface">Mi tienda</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            Así te ven los compradores. Todo es opcional menos el nombre.
+          </p>
+        </div>
+        <Miniatura nombre="cuenta" ancho={64} />
+      </div>
+
+      <p id="tienda-cargando" class="mt-8 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-body-md text-on-surface-variant">
+        Cargando tu tienda...
+      </p>
+
+      <form id="tienda-form" class="mt-8 hidden space-y-8">
+        <fieldset class="space-y-4 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5">
+          <legend class="px-2 font-headline text-headline-sm text-on-surface">Datos de la tienda</legend>
+
+          <label class="block">
+            <span class="text-label-md text-on-surface">Nombre comercial</span>
+            <input id="nombre_comercial" type="text" maxlength="120" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
+          </label>
+
+          <label class="block">
+            <span class="text-label-md text-on-surface">Descripción</span>
+            <textarea id="descripcion" rows="4" maxlength="2000" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface"></textarea>
+          </label>
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <label class="block">
+              <span class="text-label-md text-on-surface">Ubicación</span>
+              <input id="ubicacion" type="text" maxlength="120" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
+            </label>
+            <label class="block">
+              <span class="text-label-md text-on-surface">Avatar (URL)</span>
+              <input id="avatar_url" type="url" maxlength="500" placeholder="https://..." class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="space-y-4 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5">
+          <legend class="px-2 font-headline text-headline-sm text-on-surface">Contacto</legend>
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <label class="block">
+              <span class="text-label-md text-on-surface">Teléfono</span>
+              <input id="telefono" type="tel" maxlength="40" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
+            </label>
+            <label class="block">
+              <span class="text-label-md text-on-surface">WhatsApp</span>
+              <input id="whatsapp" type="tel" maxlength="40" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
+            </label>
+            <label class="block">
+              <span class="text-label-md text-on-surface">Correo</span>
+              <input id="correo" type="email" maxlength="200" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
+            </label>
+            <label class="block">
+              <span class="text-label-md text-on-surface">Sitio web</span>
+              <input id="sitio_web" type="url" maxlength="500" placeholder="https://..." class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
+            </label>
+          </div>
+
+          <label class="block">
+            <span class="text-label-md text-on-surface">Dirección</span>
+            <input id="direccion" type="text" maxlength="300" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
+          </label>
+        </fieldset>
+
+        <fieldset class="space-y-3 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5">
+          <legend class="px-2 font-headline text-headline-sm text-on-surface">Redes sociales</legend>
+          <p class="text-body-sm text-on-surface-variant">Las que no estén en la lista, se quitan al guardar.</p>
+          <div id="redes" class="space-y-2"></div>
+          <button type="button" id="anadir-red" class="rounded-full border border-outline-variant px-4 py-2 text-body-md font-semibold text-primary transition hover:border-primary">
+            + Añadir red
+          </button>
+        </fieldset>
+
+        <div class="flex items-center gap-4">
+          <button type="submit" class="rounded-full bg-primary px-6 py-3 text-body-lg font-semibold text-on-primary transition hover:opacity-90">
+            Guardar cambios
+          </button>
+          <p id="tienda-aviso" class="text-body-md" role="status"></p>
+        </div>
+      </form>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { miTienda, guardarTienda, REDES_TIENDA, type CuerpoTienda } from '../../lib/tienda-cliente'
+
+  const formulario = document.getElementById('tienda-form') as HTMLFormElement | null
+  const cargando = document.getElementById('tienda-cargando')
+  const aviso = document.getElementById('tienda-aviso')
+  const contenedorRedes = document.getElementById('redes')
+
+  const campo = (id: string) =>
+    document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null
+
+  /** Una fila de red: desplegable + direccion + boton de quitar. */
+  function crearFilaRed(red: string, url: string): HTMLDivElement {
+    const fila = document.createElement('div')
+    fila.className = 'flex flex-col gap-2 sm:flex-row'
+
+    const selector = document.createElement('select')
+    selector.className =
+      'red-select rounded-xl border border-outline-variant bg-surface px-3 py-2 text-body-md text-on-surface sm:w-48'
+    for (const r of REDES_TIENDA) {
+      const op = document.createElement('option')
+      op.value = r.valor
+      op.textContent = r.nombre
+      selector.append(op)
+    }
+    selector.value = REDES_TIENDA.some((r) => r.valor === red) ? red : REDES_TIENDA[0].valor
+
+    const entrada = document.createElement('input')
+    entrada.type = 'url'
+    entrada.placeholder = 'https://...'
+    entrada.className =
+      'red-url flex-1 rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface'
+    entrada.value = url
+
+    const quitar = document.createElement('button')
+    quitar.type = 'button'
+    quitar.textContent = 'Quitar'
+    quitar.className =
+      'rounded-xl border border-outline-variant px-3 py-2 text-label-md text-on-surface-variant hover:border-error hover:text-error'
+    quitar.addEventListener('click', () => fila.remove())
+
+    fila.append(selector, entrada, quitar)
+    return fila
+  }
+
+  function agregarRed(red = '', url = '') {
+    if (!contenedorRedes) return
+    contenedorRedes.append(crearFilaRed(red, url))
+  }
+
+  function leerRedes() {
+    if (!contenedorRedes) return []
+    return Array.from(contenedorRedes.children).map((hijo) => {
+      const sel = hijo.querySelector('.red-select') as HTMLSelectElement
+      const url = hijo.querySelector('.red-url') as HTMLInputElement
+      return { red: sel.value, url: url.value.trim() }
+    })
+  }
+
+  function mostrar(mensaje: string, esError: boolean) {
+    if (!aviso) return
+    aviso.textContent = mensaje
+    aviso.className = esError ? 'text-body-md text-error' : 'text-body-md text-secondary'
+  }
+
+  document.getElementById('anadir-red')?.addEventListener('click', () => agregarRed())
+
+  async function cargar() {
+    const r = await miTienda()
+    if (!r.ok) {
+      if (cargando) cargando.textContent = r.mensaje
+      return
+    }
+    const { tienda, contacto, redes } = r.datos
+    ;(campo('nombre_comercial') as HTMLInputElement).value = tienda.nombre_comercial ?? ''
+    ;(campo('descripcion') as HTMLTextAreaElement).value = tienda.descripcion ?? ''
+    ;(campo('ubicacion') as HTMLInputElement).value = tienda.ubicacion ?? ''
+    ;(campo('avatar_url') as HTMLInputElement).value = tienda.avatar_url ?? ''
+    ;(campo('telefono') as HTMLInputElement).value = contacto.telefono ?? ''
+    ;(campo('whatsapp') as HTMLInputElement).value = contacto.whatsapp ?? ''
+    ;(campo('correo') as HTMLInputElement).value = contacto.correo ?? ''
+    ;(campo('direccion') as HTMLInputElement).value = contacto.direccion ?? ''
+    ;(campo('sitio_web') as HTMLInputElement).value = contacto.sitio_web ?? ''
+
+    for (const red of redes) agregarRed(red.red, red.url)
+
+    cargando?.classList.add('hidden')
+    formulario?.classList.remove('hidden')
+    formulario?.classList.add('space-y-8')
+  }
+
+  formulario?.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const cuerpo: CuerpoTienda = {
+      nombre_comercial: (campo('nombre_comercial') as HTMLInputElement).value.trim(),
+      descripcion: (campo('descripcion') as HTMLTextAreaElement).value.trim(),
+      ubicacion: (campo('ubicacion') as HTMLInputElement).value.trim(),
+      avatar_url: (campo('avatar_url') as HTMLInputElement).value.trim() || null,
+      contacto: {
+        telefono: (campo('telefono') as HTMLInputElement).value.trim(),
+        whatsapp: (campo('whatsapp') as HTMLInputElement).value.trim(),
+        correo: (campo('correo') as HTMLInputElement).value.trim(),
+        direccion: (campo('direccion') as HTMLInputElement).value.trim(),
+        sitio_web: (campo('sitio_web') as HTMLInputElement).value.trim(),
+      },
+      redes: leerRedes(),
+    }
+    mostrar('Guardando...', false)
+    const r = await guardarTienda(cuerpo)
+    if (r.ok) mostrar('Guardado.', false)
+    else mostrar(r.mensaje, true)
+  })
+
+  cargar()
+</script>

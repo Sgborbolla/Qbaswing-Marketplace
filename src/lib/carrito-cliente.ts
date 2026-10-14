@@ -57,7 +57,7 @@ import { CABECERA_TOKEN_CARRITO, guardarToken, tokenGuardado } from './token-car
  * Tiparlo aqui como union y no como `string` es lo que hace que el formateador
  * de precios pueda aceptar el valor sin una conversion en cada llamada.
  */
-export type Moneda = 'CUP' | 'USD' | 'EUR'
+export type Moneda = string
 
 /**
  * Como pasa a moneda el valor que llega del servidor.

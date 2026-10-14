@@ -468,6 +468,11 @@ export const ES = {
   registro: {
     descripcion: 'Crea tu cuenta en QBASwing Marketplace.',
     subtitulo: 'Tu correo y tu contrasena. Nada mas.',
+    tipoTitulo: '¿Que quieres hacer?',
+    tipoComprador: 'Solo comprar',
+    tipoCompradorAyuda: 'Navega y compra en cualquier tienda. Puedes abrir tu propia tienda cuando quieras.',
+    tipoVendedor: 'Vender',
+    tipoVendedorAyuda: 'Abre tu tienda ahora mismo. Tambien puedes comprar en las demas tiendas.',
     sinBackend:
       'Este sitio todavia no tiene servidor configurado, asi que no se puede crear una cuenta. Intentalo mas tarde.',
     ayudaContrasena:
@@ -1142,6 +1147,11 @@ const EN: Diccionario = {
   registro: {
     descripcion: 'Create your account on QBASwing Marketplace.',
     subtitulo: 'Your email and your password. Nothing else.',
+      tipoTitulo: 'What do you want to do?',
+      tipoComprador: 'Just buy',
+      tipoCompradorAyuda: 'Browse and buy in any store. You can open your own store whenever you want.',
+      tipoVendedor: 'Sell',
+      tipoVendedorAyuda: 'Open your store right now. You can also buy from other stores.',
     sinBackend:
       'This site does not have a server configured yet, so an account cannot be created. Try again later.',
     ayudaContrasena: 'At least 8 characters. It cannot be only spaces or contain your email.',
@@ -1769,6 +1779,11 @@ const PT: Diccionario = {
   registro: {
     descripcion: 'Crie sua conta no QBASwing Marketplace.',
     subtitulo: 'Seu e-mail e sua senha. Nada mais.',
+      tipoTitulo: 'O que voce quer fazer?',
+      tipoComprador: 'So comprar',
+      tipoCompradorAyuda: 'Navegue e compre em qualquer loja. Voce pode abrir a sua quando quiser.',
+      tipoVendedor: 'Vender',
+      tipoVendedorAyuda: 'Abra a sua loja agora mesmo. Voce tambem pode comprar nas outras lojas.',
     sinBackend:
       'Este site ainda não tem servidor configurado, então não é possível criar uma conta. Tente mais tarde.',
     ayudaContrasena: 'Pelo menos 8 caracteres. Não pode ser só espaços nem conter seu e-mail.',
@@ -2402,6 +2417,11 @@ const FR: Diccionario = {
   registro: {
     descripcion: 'Créez votre compte sur QBASwing Marketplace.',
     subtitulo: 'Votre e-mail et votre mot de passe. Rien de plus.',
+      tipoTitulo: 'Que voulez-vous faire ?',
+      tipoComprador: 'Acheter seulement',
+      tipoCompradorAyuda: 'Parcourez et achetez dans n\'importe quelle boutique. Vous pouvez ouvrir la votre quand vous voulez.',
+      tipoVendedor: 'Vendre',
+      tipoVendedorAyuda: 'Ouvrez votre boutique des maintenant. Vous pouvez aussi acheter dans les autres boutiques.',
     sinBackend:
       "Ce site n'a pas encore de serveur configuré, donc un compte ne peut pas être créé. Réessayez plus tard.",
     ayudaContrasena:
@@ -3036,6 +3056,11 @@ const DE: Diccionario = {
   registro: {
     descripcion: 'Erstelle dein Konto auf QBASwing Marketplace.',
     subtitulo: 'Deine E-Mail und dein Passwort. Nichts weiter.',
+      tipoTitulo: 'Was mochtest du tun?',
+      tipoComprador: 'Nur kaufen',
+      tipoCompradorAyuda: 'Stobere und kaufe in jedem Shop. Du kannst deinen eigenen Shop jederzeit eroffnen.',
+      tipoVendedor: 'Verkaufen',
+      tipoVendedorAyuda: 'Eroffne deinen Shop sofort. Du kannst auch in anderen Shops kaufen.',
     sinBackend:
       'Diese Seite hat noch keinen konfigurierten Server, daher kann kein Konto erstellt werden. Versuche es später erneut.',
     ayudaContrasena:
@@ -3667,6 +3692,11 @@ const IT: Diccionario = {
   registro: {
     descripcion: 'Crea il tuo account su QBASwing Marketplace.',
     subtitulo: "La tua email e la tua password. Nient'altro.",
+      tipoTitulo: 'Cosa vuoi fare?',
+      tipoComprador: 'Solo acquistare',
+      tipoCompradorAyuda: 'Naviga e acquista in qualsiasi negozio. Puoi aprire il tuo quando vuoi.',
+      tipoVendedor: 'Vendere',
+      tipoVendedorAyuda: 'Apri subito il tuo negozio. Puoi anche acquistare negli altri negozi.',
     sinBackend:
       'Questo sito non ha ancora un server configurato, quindi non si può creare un account. Riprova più tardi.',
     ayudaContrasena:
@@ -4267,6 +4297,11 @@ const CA: Diccionario = {
   registro: {
     descripcion: 'Crea el teu compte a QBASwing Marketplace.',
     subtitulo: 'El teu correu i la teva contrasena. Res més.',
+      tipoTitulo: 'Que vols fer?',
+      tipoComprador: 'Nomes comprar',
+      tipoCompradorAyuda: 'Navega i compra a qualsevol botiga. Pots obrir la teva quan vulguis.',
+      tipoVendedor: 'Vendre',
+      tipoVendedorAyuda: 'Obre la teva botiga ara mateix. Tambe pots comprar a les altres botigues.',
     sinBackend: 'Aquest lloc encara no té servidor configurat, de manera que no es pot crear un compte. Intenteu-ho més tard.',
     ayudaContrasena: 'Almenys 8 caràcters. No pot ser només espais ni contenir el correu.',
     creandoCuenta: 'Creant compte...',
@@ -4834,6 +4869,11 @@ const GL: Diccionario = {
   registro: {
     descripcion: 'Crea a túa conta en QBASwing Marketplace.',
     subtitulo: 'O teu correo electrónico e o teu contrasinal. Nada máis.',
+      tipoTitulo: 'Que queres facer?',
+      tipoComprador: 'So mercar',
+      tipoCompradorAyuda: 'Navega e merca en calquera tenda. Podes abrir a tua cando queiras.',
+      tipoVendedor: 'Vender',
+      tipoVendedorAyuda: 'Abre a tua tenda agora mesmo. Tamén podes mercar nas outras tendas.',
     sinBackend: 'Este sitio aínda non ten un servidor configurado, polo que non podes crear unha conta. Téntao máis tarde.',
     ayudaContrasena: 'Polo menos 8 caracteres. Non pode ser só espazos nin conter o teu correo electrónico.',
     creandoCuenta: 'Creando conta...',
@@ -5401,6 +5441,11 @@ const EU: Diccionario = {
   registro: {
     descripcion: 'Sortu zure kontua QBASwing Marketplace helbidean.',
     subtitulo: 'Zure helbide elektronikoa eta pasahitza. Beste ezer ez.',
+      tipoTitulo: 'Zer egin nahi duzu?',
+      tipoComprador: 'Erosi besterik ez',
+      tipoCompradorAyuda: 'Nabigatu eta erosi edozein dendatan. Zurea noiznahi ireki dezakezu.',
+      tipoVendedor: 'Saldu',
+      tipoVendedorAyuda: 'Ireki zure denda oraintxe. Beste dendetan ere eros dezakezu.',
     sinBackend: 'Gune honek ez du zerbitzaririk konfiguratuta oraindik, beraz, ezin duzu konturik sortu. Saiatu geroago.',
     ayudaContrasena: 'Gutxienez 8 karaktere. Ezin da hutsuneak izan edo zure posta elektronikoa eduki.',
     creandoCuenta: 'Kontua sortzen...',
@@ -5968,6 +6013,11 @@ const RU: Diccionario = {
   registro: {
     descripcion: 'Создайте свою учетную запись на QBASwing Marketplace.',
     subtitulo: 'Ваш адрес электронной почты и пароль. Ничего больше.',
+      tipoTitulo: 'Что вы хотите сделать?',
+      tipoComprador: 'Только покупать',
+      tipoCompradorAyuda: 'Просматривайте и покупайте в любом магазине. Свой магазин можно открыть в любой момент.',
+      tipoVendedor: 'Продавать',
+      tipoVendedorAyuda: 'Откройте свой магазин прямо сейчас. Вы также можете покупать в других магазинах.',
     sinBackend: 'На этом сайте еще не настроен сервер, поэтому вы не можете создать учетную запись. Попробуйте позже.',
     ayudaContrasena: 'Минимум 8 символов. Это не может быть просто пробел или ваш адрес электронной почты.',
     creandoCuenta: 'Создание учетной записи...',
@@ -6535,6 +6585,11 @@ const AR: Diccionario = {
   registro: {
     descripcion: 'قم بإنشاء حسابك على QBASwing Marketplace.',
     subtitulo: 'البريد الإلكتروني الخاص بك وكلمة المرور الخاصة بك. لا شيء آخر.',
+      tipoTitulo: 'ماذا تريد أن تفعل؟',
+      tipoComprador: 'الشراء فقط',
+      tipoCompradorAyuda: 'تصفح واشتر من أي متجر. يمكنك فتح متجرك متى شئت.',
+      tipoVendedor: 'البيع',
+      tipoVendedorAyuda: 'افتح متجرك الآن. يمكنك أيضًا الشراء من المتاجر الأخرى.',
     sinBackend: 'لا يحتوي هذا الموقع على خادم تم تكوينه بعد، لذا لا يمكنك إنشاء حساب. جربه لاحقًا.',
     ayudaContrasena: 'ما لا يقل عن 8 أحرف. لا يمكن أن تكون مجرد مسافات أو تحتوي على بريدك الإلكتروني.',
     creandoCuenta: 'جارٍ إنشاء الحساب...',
@@ -7102,6 +7157,11 @@ const ZH_CN: Diccionario = {
   registro: {
     descripcion: '在 QBASwing Marketplace 创建您的帐户。',
     subtitulo: '您的电子邮件和密码。没有别的了。',
+      tipoTitulo: '你想做什么？',
+      tipoComprador: '只购买',
+      tipoCompradorAyuda: '浏览并在任何商店购物。你随时可以开自己的店。',
+      tipoVendedor: '出售',
+      tipoVendedorAyuda: '立即开你的店。你也可以在其他商店购物。',
     sinBackend: '该站点尚未配置服务器，因此您无法创建帐户。稍后尝试一下。',
     ayudaContrasena: '至少 8 个字符。它不能只是空格或包含您的电子邮件。',
     creandoCuenta: '正在创建帐户...',
@@ -7669,6 +7729,11 @@ const ZH_TW: Diccionario = {
   registro: {
     descripcion: '在 QBASwing Marketplace 建立您的帳戶。',
     subtitulo: '您的電子郵件和密碼。沒有別的了。',
+      tipoTitulo: '你想做什麼？',
+      tipoComprador: '只購買',
+      tipoCompradorAyuda: '瀏覽並在任何商店購物。你隨時可以開自己的店。',
+      tipoVendedor: '出售',
+      tipoVendedorAyuda: '立即開你的店。你也可以在其他商店購物。',
     sinBackend: '該網站尚未配置伺服器，因此您無法建立帳戶。稍後再嘗試一下。',
     ayudaContrasena: '至少 8 個字元。它不能只是空格或包含您的電子郵件。',
     creandoCuenta: '正在建立帳戶...',
@@ -8236,6 +8301,11 @@ const JA: Diccionario = {
   registro: {
     descripcion: 'QBASwing Marketplace でアカウントを作成してください。',
     subtitulo: 'あなたのメールアドレスとパスワード。他には何もありません。',
+      tipoTitulo: '何をしますか？',
+      tipoComprador: '購入のみ',
+      tipoCompradorAyuda: 'どのショップでも閲覧・購入できます。自分のショップはいつでも開けます。',
+      tipoVendedor: '販売',
+      tipoVendedorAyuda: '今すぐ自分のショップを開けます。他のショップでも購入できます。',
     sinBackend: 'このサイトにはまだサーバーが設定されていないため、アカウントを作成できません。後で試してください。',
     ayudaContrasena: '少なくとも 8 文字。スペースだけを使用したり、電子メールを含めたりすることはできません。',
     creandoCuenta: 'アカウントを作成しています...',
@@ -8803,6 +8873,11 @@ const KO: Diccionario = {
   registro: {
     descripcion: 'QBASwing Marketplace에서 계정을 만드세요.',
     subtitulo: '귀하의 이메일과 비밀번호. 다른 것은 없습니다.',
+      tipoTitulo: '무엇을 하시겠어요?',
+      tipoComprador: '구매만',
+      tipoCompradorAyuda: '어떤 상점에서든 둘러보고 구매하세요. 원할 때 자신의 상점을 열 수 있습니다.',
+      tipoVendedor: '판매',
+      tipoVendedorAyuda: '지금 바로 자신의 상점을 여세요. 다른 상점에서도 구매할 수 있습니다.',
     sinBackend: '이 사이트에는 아직 서버가 구성되어 있지 않으므로 계정을 만들 수 없습니다. 나중에 시도해 보세요.',
     ayudaContrasena: '최소 8자 이상입니다. 공백만 포함하거나 이메일을 포함할 수 없습니다.',
     creandoCuenta: '계정을 만드는 중...',

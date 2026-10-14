@@ -40,6 +40,12 @@ import { responderPlataforma } from './routers/plataforma'
 import { responderMediosPago } from './routers/medios-pago'
 import { responderMisMedios } from './routers/mis-medios'
 import { responderPanelProductos, responderArchivoMaestro } from './routers/panel'
+import { responderPanelProducto, crearProducto } from './routers/panel-productos'
+import { responderOwnerProductos } from './routers/owner-productos'
+import { responderOwnerCuentas } from './routers/owner-cuentas'
+import { responderOwnerFaq } from './routers/owner-faq'
+import { responderTienda } from './routers/panel-tienda'
+import { responderImagen } from './routers/imagenes'
 import { responderCatalogo } from './routers/catalogo'
 import { responderSalud } from './routers/salud'
 import { responderWebhooks } from './routers/webhooks'
@@ -144,6 +150,13 @@ async function despachar(
   // distingue "el Worker no esta desplegado" de "la base no responde".
   if (ruta === '/api/salud') return responderSalud(env, soloLectura)
 
+  // Imagenes publicas de los productos. Van antes que todo porque la clave
+  // vive en la URL y cualquiera las ve sin sesion: es el mismo criterio que el
+  // catalogo, pero sin pasar por el.
+  if (ruta.startsWith('/api/imagenes/')) {
+    return responderImagen(peticion, env, ruta)
+  }
+
   // Identidad. Va antes que el catalogo porque `DELETE /api/sesion` es el cierre
   // de sesion y `POST /api/registro` es el alta: si el catalogo aceptase estos
   // metodos, un POST a `/api/sesion` llegaria al router equivocado.
@@ -165,11 +178,42 @@ async function despachar(
     return responderArchivoMaestro(peticion, env)
   }
 
-  // Precios de los PROPIOS productos. Mismo motivo y misma colocacion que el
-  // grupo de arriba: primero la identidad, porque lo primero que hace es leer
-  // la cookie, y antes que el catalogo porque es escritura privada.
+  // Perfil de la tienda: nombre, descripcion, contacto y redes. Va con el
+  // resto del panel del vendedor, y comparte con el la comprobacion de sesion.
+  if (ruta === RUTAS.tiendaPropia) {
+    return responderTienda(peticion, env)
+  }
+
+  // Precios y ficha de los PROPIOS productos. El `POST` crea; el resto de
+  // metodos sobre la coleccion (GET lista, PATCH cambia precio) los lleva
+  // `responderPanelProductos`. Mismo motivo y misma colocacion que el grupo de
+  // arriba: primero la identidad, porque lo primero que hace es leer la cookie,
+  // y antes que el catalogo porque es escritura privada.
   if (ruta === RUTAS.productosPropios) {
+    if (peticion.method === 'POST') return crearProducto(peticion, env)
     return responderPanelProductos(peticion, env)
+  }
+
+  // Un producto concreto del panel (ficha completa, imagenes y variantes). Va
+  // despues del archivo maestro, que comparte prefijo pero es otra cosa.
+  if (ruta.startsWith('/api/panel/productos/')) {
+    return responderPanelProducto(peticion, env)
+  }
+
+  // Revision de productos por el Owner (listar, aprobar, rechazar).
+  if (ruta === RUTAS.ownerProductos || ruta.startsWith('/api/owner/productos/')) {
+    return responderOwnerProductos(peticion, env)
+  }
+
+  // Gestion de cuentas por el Owner (listar, rol, verificacion, borrado).
+  if (ruta === RUTAS.ownerUsuarios) {
+    return responderOwnerCuentas(peticion, env)
+  }
+
+  // Edicion de la FAQ por el Owner. La lectura publica vive en `plataforma.ts`;
+  // aqui solo se escribe.
+  if (ruta === RUTAS.ownerFaq) {
+    return responderOwnerFaq(peticion, env)
   }
 
   // Datos editables por el Owner: redes, contacto, FAQ y tarifas de paquetes.

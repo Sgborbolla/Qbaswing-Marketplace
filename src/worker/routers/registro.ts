@@ -54,6 +54,7 @@ import {
   tokenSesion,
   verificarContrasena,
 } from '../../lib/auth'
+import { slugUnico } from '../slug'
 
 /* ===========================================================================
  * SQL
@@ -345,7 +346,7 @@ export type ResultadoRegistro =
  */
 export async function registrar(
   db: D1Database,
-  cuerpo: { email?: unknown; nombre?: unknown; contrasena?: unknown },
+  cuerpo: { email?: unknown; nombre?: unknown; contrasena?: unknown; tipo?: unknown },
   peticion: Request,
   secreto: string,
 ): Promise<ResultadoRegistro> {
@@ -388,12 +389,39 @@ export async function registrar(
     }
   }
 
-  const rol = await db.prepare(SQL_ROL_Y_TIENDA).bind(email, email, email).first<{
+  const rolFila = await db.prepare(SQL_ROL_Y_TIENDA).bind(email, email, email).first<{
     rol: UsuarioSesion['rol']
     vendedor_id: number | null
   }>()
-  const rolElegido = rol?.rol ?? 'comprador'
-  const vendedorId = rolElegido === 'vendedor' ? (rol?.vendedor_id ?? null) : null
+  const esOwner = rolFila?.rol === 'owner'
+
+  // LO QUE ELIGE AL REGISTRARSE.
+  //
+  // Hay dos caminos y el rol depende del que se elija:
+  //   - comprador: solo comprar. No estrena tienda.
+  //   - vendedor:  abre su tienda aqui mismo, automaticamente.
+  //
+  // En los DOS casos la cuenta puede comprar y navegar todas las tiendas: ser
+  // vendedor no quita poder comprar en las demas. La unica diferencia es si
+  // tiene tienda propia con la que publicar.
+  //
+  // Quien ya viene con tienda (el patrocinador, sembrado en `vendedores`) la
+  // conserva y es vendedor elija lo que elija.
+  const quiereVender = cuerpo.tipo === 'vendedor'
+
+  let rolElegido: UsuarioSesion['rol']
+  let vendedorId: number | null = rolFila?.vendedor_id ?? null
+
+  if (esOwner) {
+    rolElegido = 'owner'
+  } else if (vendedorId !== null) {
+    rolElegido = 'vendedor'
+  } else if (quiereVender) {
+    vendedorId = await tiendaParaUsuario(db, nombre, email)
+    rolElegido = 'vendedor'
+  } else {
+    rolElegido = 'comprador'
+  }
 
   const hash = await hashearContrasena(contrasena)
 
@@ -438,6 +466,52 @@ export async function registrar(
       sesion_id: 0,
       privilegios: (listaPrivilegios.results ?? []).map((p) => p.alcance),
     },
+  }
+}
+
+/* ===========================================================================
+ * Tienda automatica
+ * ======================================================================== */
+
+/**
+ * Devuelve el id de la tienda del correo, creandola si no existe.
+ *
+ * El slug se deriva del nombre y se asegura unico contra la tabla. El
+ * `INSERT` va envuelto porque dos registros del mismo correo a la vez chocan
+ * contra `idx_vendedores_email`: en vez de propagar un `UNIQUE constraint`, se
+ * relee la fila que gano la carrera y se devuelve esa, que es lo que el segundo
+ * registro queria de todos modos.
+ */
+export async function tiendaParaUsuario(
+  db: D1Database,
+  nombre: string,
+  email: string,
+): Promise<number> {
+  const existente = await db
+    .prepare('SELECT id FROM vendedores WHERE email = ? COLLATE NOCASE LIMIT 1')
+    .bind(email)
+    .first<{ id: number }>()
+  if (existente) return existente.id
+
+  const slug = await slugUnico(db, 'vendedores', nombre, 'tienda')
+
+  try {
+    const insertado = await db
+      .prepare(
+        `INSERT INTO vendedores
+           (slug, nombre, nombre_comercial, descripcion, email, ubicacion)
+         VALUES (?, ?, ?, '', ?, '')`,
+      )
+      .bind(slug, nombre, nombre, email)
+      .run()
+    return Number(insertado.meta.last_row_id ?? 0)
+  } catch (error) {
+    const ganadora = await db
+      .prepare('SELECT id FROM vendedores WHERE email = ? COLLATE NOCASE LIMIT 1')
+      .bind(email)
+      .first<{ id: number }>()
+    if (ganadora) return ganadora.id
+    throw error
   }
 }
 

@@ -159,7 +159,8 @@ async function listarProductos(peticion: Request, env: Env) {
   const desplazamiento = (pagina - 1) * porPagina
   const { results } = await env.DB.prepare(
     `SELECT p.id, p.slug, p.titulo, p.descripcion, p.tipo, p.origen, p.regla,
-            p.categoria, p.precio, p.precio_anterior, p.moneda, p.destacado,
+            p.categoria, p.precio, p.precio_anterior,
+            COALESCE(p.moneda_codigo, p.moneda) AS moneda, p.destacado,
             p.vitalicia, p.creado_at,
             v.slug AS vendedor_slug, v.nombre_comercial AS vendedor_nombre,
             (SELECT i.url
@@ -194,7 +195,9 @@ async function productoPorSlug(env: Env, slug: string) {
   const fila = await env.DB.prepare(
     `SELECT p.id, p.slug, p.titulo, p.descripcion, p.descripcion_larga,
             p.tipo, p.origen, p.regla, p.categoria, p.precio, p.precio_anterior,
-            p.moneda, p.destacado, p.vitalicia, p.creado_at, p.actualizado_at,
+            COALESCE(p.moneda_codigo, p.moneda) AS moneda, p.destacado, p.vitalicia,
+            p.creado_at, p.actualizado_at,
+            v.id AS vendedor_id,
             v.slug AS vendedor_slug, v.nombre_comercial AS vendedor_nombre,
             v.ubicacion AS vendedor_ubicacion, v.verificado AS vendedor_verificado,
             d.stack, d.licencia, d.version, d.ultima_actualizacion, d.demo_url,
@@ -226,7 +229,70 @@ async function productoPorSlug(env: Env, slug: string) {
   // Se manda explicito para que el frontend no ofrezca la opcion por inercia.
   const requierePasarela = fila.regla === 'A'
 
-  return { ...fila, imagenes: imagenes.results, requiere_pasarela_plataforma: requierePasarela }
+  // Las variantes y sus existencias, para que la ficha las pueda ofrecer como
+  // selector antes de anadir al carrito. Un fisico sin variantes devuelve lista
+  // vacia, que es el caso normal de un producto de stock unico.
+  const variantes = await env.DB.prepare(
+    `SELECT id, nombre, valor, stock
+       FROM producto_variantes
+      WHERE producto_id = ?
+      ORDER BY nombre, valor`,
+  )
+    .bind(fila.id)
+    .all()
+
+  // Contacto y redes DE LA TIENDA, no de la plataforma: el comprador que quiere
+  // preguntar por ESTE producto habla con quien lo vende.
+  const contacto = await contactoVendedor(env, fila.vendedor_id as number)
+  const redes = await redesVendedor(env, fila.vendedor_id as number)
+
+  return {
+    ...fila,
+    imagenes: imagenes.results,
+    variantes: variantes.results,
+    contacto,
+    redes,
+    requiere_pasarela_plataforma: requierePasarela,
+  }
+}
+
+/**
+ * Contacto publico de una tienda. `null` si no configuro ninguno.
+ *
+ * `null` y no un objeto de cadenas vacias: `null` le dice a la ficha "esta
+ * tienda no pone contacto" y lo oculta; un objeto en blanco pinta etiquetas
+ * sin nada al lado.
+ */
+async function contactoVendedor(
+  env: Env,
+  vendedorId: number,
+): Promise<Record<string, unknown> | null> {
+  const fila = await env.DB.prepare(
+    `SELECT telefono, whatsapp, correo, direccion, sitio_web
+       FROM contacto_vendedor
+      WHERE vendedor_id = ?`,
+  )
+    .bind(vendedorId)
+    .first<Record<string, unknown>>()
+
+  if (!fila) return null
+
+  const campos = ['telefono', 'whatsapp', 'correo', 'direccion', 'sitio_web'] as const
+  const alguno = campos.some((c) => String(fila[c] ?? '').trim() !== '')
+  return alguno ? fila : null
+}
+
+async function redesVendedor(env: Env, vendedorId: number) {
+  const { results } = await env.DB.prepare(
+    `SELECT red, url, orden
+       FROM redes_vendedor
+      WHERE vendedor_id = ?
+      ORDER BY orden, id`,
+  )
+    .bind(vendedorId)
+    .all()
+
+  return results ?? []
 }
 
 /* ===========================================================================
@@ -302,7 +368,7 @@ async function listarVendedores(peticion: Request, env: Env) {
 
 async function vendedorPorSlug(env: Env, slug: string) {
   const fila = await env.DB.prepare(
-    `SELECT v.slug, v.nombre, v.nombre_comercial, v.descripcion, v.avatar_url,
+    `SELECT v.id, v.slug, v.nombre, v.nombre_comercial, v.descripcion, v.avatar_url,
             v.ubicacion, v.verificado, v.creado_at
        FROM vendedores v
       WHERE v.slug = ?`,
@@ -313,7 +379,8 @@ async function vendedorPorSlug(env: Env, slug: string) {
   if (!fila) throw ErrorApi.noEncontrado('Ese vendedor')
 
   const productos = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.titulo, p.tipo, p.categoria, p.precio, p.moneda,
+    `SELECT p.id, p.slug, p.titulo, p.tipo, p.categoria, p.precio,
+            COALESCE(p.moneda_codigo, p.moneda) AS moneda,
             (SELECT i.url FROM producto_imagenes i
               WHERE i.producto_id = p.id ORDER BY i.orden, i.id LIMIT 1) AS imagen
        FROM productos p
@@ -323,7 +390,14 @@ async function vendedorPorSlug(env: Env, slug: string) {
     .bind(slug)
     .all()
 
-  return { ...fila, productos: productos.results }
+  const contacto = await contactoVendedor(env, fila.id as number)
+  const redes = await redesVendedor(env, fila.id as number)
+
+  // El `id` no se devuelve: es un detalle interno y la ficha navega por slug.
+  const { id, ...resto } = fila
+  void id
+
+  return { ...resto, contacto, redes, productos: productos.results }
 }
 
 /* ===========================================================================

@@ -321,18 +321,18 @@ const ICONO = {
 
       <div class="mt-8 flex max-w-3xl flex-wrap gap-3">
         <a
-          href="/productos"
+          href="/registro?tipo=vendedor"
           class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-body-lg font-semibold text-on-primary transition-all hover:bg-primary-container hover:shadow-e2"
-        >
-          <Icono nombre={ICONO.explorar} class="text-[20px]" />
-          {t.inicio.explorarCatalogo}
-        </a>
-        <a
-          href="/registro"
-          class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-6 py-3 text-body-lg font-semibold text-primary transition-all hover:border-primary hover:shadow-e1"
         >
           <Icono nombre={ICONO.tienda} class="text-[20px]" />
           {t.inicio.abrirTienda}
+        </a>
+        <a
+          href="/registro?tipo=comprador"
+          class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-6 py-3 text-body-lg font-semibold text-primary transition-all hover:border-primary hover:shadow-e1"
+        >
+          <Icono nombre={ICONO.explorar} class="text-[20px]" />
+          {t.registro.tipoComprador}
         </a>
       </div>
 
@@ -892,10 +892,28 @@ const ICONO = {
                   <h3 class="mt-1 font-headline text-title-md font-semibold text-on-surface">
                     {p.titulo}
                   </h3>
-                  <p class="mt-4 font-headline text-title-lg font-semibold text-primary">
-                    {p.precio.toLocaleString('es-CU')}{' '}
-                    <span class="text-body-sm font-normal text-on-surface-variant">{p.moneda}</span>
-                  </p>
+                  <div class="mt-4 flex flex-col">
+                    {p.precioAnterior && p.precioAnterior > p.precio ? (
+                      <div class="flex items-baseline gap-2">
+                        <span class="text-body-sm text-on-surface-variant/60 line-through">
+                          {p.precioAnterior.toLocaleString('es-CU')}{' '}
+                          <span class="text-body-xs font-normal">{p.moneda}</span>
+                        </span>
+                        {(() => {
+                          const pct = Math.round(((p.precioAnterior - p.precio) / p.precioAnterior) * 100)
+                          return pct > 0 ? (
+                            <span class="rounded-full bg-error/10 px-2 py-0.5 text-label-xs font-semibold text-error">
+                              -{pct}%
+                            </span>
+                          ) : null
+                        })()}
+                      </div>
+                    ) : null}
+                    <p class="font-headline text-title-lg font-semibold text-primary">
+                      {p.precio.toLocaleString('es-CU')}{' '}
+                      <span class="text-body-sm font-normal text-on-surface-variant">{p.moneda}</span>
+                    </p>
+                  </div>
                 </div>
               </a>
             ))}

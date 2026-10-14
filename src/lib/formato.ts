@@ -37,6 +37,8 @@
  */
 
 /** Locale unico del sitio. Ver nota 1 del bloque de arriba. */
+import { decimalesDe, simboloDe } from './monedas'
+
 const LOCALE = 'es-CU'
 
 /**
@@ -46,21 +48,35 @@ const LOCALE = 'es-CU'
  * y el de `EUR` como `€`, y una lista de precios donde uno lleva simbolo y los
  * otros tres llevan codigo se lee como dos sistemas distintos. Se escribe la
  * lista entera para que el mismo tratamiento.
+ *
+ * La lista completa vive en `monedas.ts`; esto es un atajo por codigo.
  */
-export const SIMBOLO_MONEDA: Record<'CUP' | 'USD' | 'EUR', string> = {
-  CUP: 'CUP',
-  USD: 'USD',
-  EUR: 'EUR',
-}
+export const SIMBOLO_MONEDA: Record<string, string> = Object.fromEntries(
+  [
+    'CUP',
+    'USD',
+    'EUR',
+    'MXN',
+    'ARS',
+    'COP',
+    'CLP',
+    'PEN',
+    'BRL',
+    'UYU',
+    'VES',
+    'GBP',
+    'JPY',
+    'CNY',
+    'RUB',
+  ].map((c) => [c, simboloDe(c)]),
+)
 
 /**
  * Dos decimales fijos, para las monedas que se guardan en la unidad menor.
  *
  * No se le pasa esto a `formatearNumero` porque esa funcion recorta los
  * decimales cuando el numero resulta entero: 10 dolares saldria escrito "10"
- * y no "10,00". Recortar es lo correcto en CUP, donde el entero ya es la
- * moneda, pero en USD y EUR "10 USD" junto a "10,50 USD" en la misma lista se
- * leen como dos precios con reglas distintas.
+ * y no "10,00". Recortar solo vale para las monedas sin centimos.
  */
 const FORMATO_DOS_DECIMALES = new Intl.NumberFormat(LOCALE, {
   minimumFractionDigits: 2,
@@ -68,32 +84,28 @@ const FORMATO_DOS_DECIMALES = new Intl.NumberFormat(LOCALE, {
 })
 
 /**
- * Formatea un precio.
+ * Escribe un precio con su moneda.
  *
  * ============================================================================
- *  LA UNIDAD EN QUE SE GUARDA Y LA QUE SE ESCRIBE
+ *  POR QUE RECIBE CUALQUIER CODIGO
  * ============================================================================
- * La base guarda enteros de la unidad menor: 250 CUP es `250` y $10.00 USD es
- * `1000`. La conversion al texto la hace el frontend, y este es el sitio donde.
+ * Antes solo aceptaba `'CUP' | 'USD' | 'EUR'`. Ahora cada vendedor cobra en la
+ * moneda de su pais (ver `monedas.ts`), asi que aqui entra cualquier codigo de
+ * esa lista. Los decimales NO se adivinan: los dice la ficha de la moneda,
+ * porque el precio se guarda en enteros de la unidad menor y hay monedas que no
+ * tienen centimos (CUP, CLP, JPY...). Dividir siempre entre 100 pondria un yen
+ * de 1000 a diez.
  *
- * Durante un tiempo no se hacia. `formatearPrecio(1000, 'USD')` devolvia
- * "1.000 USD" para un paquete que cuesta diez dolares, y salia asi en la pagina
- * de paquetes, en la del producto y en la del vendedor: el precio equivocado
- * en el sitio que decide si alguien compra. No se veia con CUP, que se guarda
- * y se escribe en la misma unidad, y por eso estuvo tanto tiempo sin notarse:
- * solo se rompia en las dos monedas que casi nadie miraba.
- *
- * CUP no se divide: el Documento Maestro la guarda en enteros y en enteros se
- * escribe, sin decimales. USD y EUR se dividen entre 100 y se escriben siempre
- * con dos, tambien cuando el resultado es entero.
+ * Un codigo desconocido no rompe: `monedaDe` devuelve la de por defecto, que es
+ * mejor que dejar el precio sin escribir.
  *
  * `vitalicia` no se pide aqui: es una condicion de la compra, no del numero.
  */
-export function formatearPrecio(monto: number, moneda: 'CUP' | 'USD' | 'EUR'): string {
-  const simbolo = SIMBOLO_MONEDA[moneda]
+export function formatearPrecio(monto: number, moneda: string): string {
+  const simbolo = simboloDe(moneda)
   if (!Number.isFinite(monto)) return `precio no disponible ${simbolo}`
-  if (moneda !== 'CUP') return `${FORMATO_DOS_DECIMALES.format(monto / 100)} ${simbolo}`
-  return `${formatearNumero(monto)} ${simbolo}`
+  if (decimalesDe(moneda) === 0) return `${formatearNumero(monto)} ${simbolo}`
+  return `${FORMATO_DOS_DECIMALES.format(monto / 100)} ${simbolo}`
 }
 
 /**
@@ -123,7 +135,7 @@ export function formatearNumero(monto: number, decimales = 2): string {
  */
 export function precioONoDisponible(
   monto: number,
-  moneda: 'CUP' | 'USD' | 'EUR',
+  moneda: string,
 ): { hay: boolean; texto: string } {
   if (monto === 0) return { hay: false, texto: 'no disponible' }
   return { hay: true, texto: formatearPrecio(monto, moneda) }

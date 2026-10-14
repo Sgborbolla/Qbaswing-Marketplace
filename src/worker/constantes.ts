@@ -110,13 +110,34 @@ export const RUTAS = {
   // cuenta que solo ella puede tocar, y que por eso no comparten ruta con el
   // catalogo. En `catalogo` se decide QUE se ve; aqui, QUE se cobra.
   productosPropios: '/api/panel/productos',
+
+  // Perfil publico de la tienda (nombre, descripcion, contacto y redes).
+  // Mismo prefijo privado que las dos anteriores: es la tercera pata del panel
+  // del vendedor, y se separa de las otras dos porque son tres decisiones
+  // distintas y se guardan por caminos distintos.
+  tiendaPropia: '/api/panel/tienda',
+
+  // Revision de productos por parte del Owner. Va bajo `/api/owner` para
+  // dejarlo claro en la propia URL: no es una ruta de catalogo (que es publica)
+  // ni de panel de vendedor (que es de quien vende). Autoriza `owner` y
+  // `administrador`.
+  ownerProductos: '/api/owner/productos',
+
+  // Gestion de CUENTAS por el Owner: listar, cambiar rol/verificacion y borrar.
+  // No incluye los medios de cobro ni el contacto: eso es de cada
+  // usuario y solo se toca desde su propio panel.
+  ownerUsuarios: '/api/owner/usuarios',
+
+  // Edicion de la FAQ por el Owner. La lectura sigue en `faq`
+  // (`/api/plataforma/faq`); esta ruta es solo escritura y va bajo `/api/owner`
+  // porque tocar el texto publico del sitio es una decision del Owner, no de
+  // quien vende.
+  ownerFaq: '/api/owner/faq',
 } as const
 
 /* ===========================================================================
  * Reglas de negocio
  * ======================================================================== */
-
-/** Dias de vigencia de un paquete de espacios. */
 export const VIGENCIA_PACQUETE_DIAS = 60
 
 /**

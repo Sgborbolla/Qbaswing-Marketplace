@@ -42,6 +42,16 @@ export interface Env {
   /** Origen del sitio. Sin esto, cualquiera podria llamar la API desde su pagina. */
   ALLOWED_ORIGIN: string
 
+  /**
+   * Base publica de la API, para armar la URL absoluta de las imagenes.
+   *
+   * La columna `producto_imagenes.url` guarda la URL COMPLETA porque el sitio
+   * vive en otro origen y el `<img src>` tiene que poder resolverla sin saber
+   * donde esta la API. Si falta, se usa el origen de la peticion.
+   */
+  PUBLIC_API_BASE?: string
+
+
   /** Vida del enlace de descarga, en segundos. */
   EXPIRACION_ENLACE_SEG: string
 

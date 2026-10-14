@@ -254,7 +254,7 @@ export interface ProductoResumen {
   categoria: string
   precio: number
   precioAnterior: number | null
-  moneda: 'CUP' | 'USD' | 'EUR'
+  moneda: string
   destacado: boolean
   vitalicia: boolean | null
   fechaPublicacion: string
@@ -321,9 +321,27 @@ export interface Producto extends ProductoResumen {
     demoUrl: string | null
     formatoEntrega: string | null
   } | null
-  detallesFisicos: { stock: number | null; envio: string | null; processingTime: string | null } | null
-  detallesServicio: { modalidad: string | null; duracionEstimada: string | null } | null
+  detallesFisicos: {
+    stock: number | null
+    envio: string | null
+    processingTime: string | null
+    pesoKg: number | null
+  } | null
+  detallesServicio: {
+    modalidad: string | null
+    duracionEstimada: string | null
+    incluye: string | null
+  } | null
+  /** Galería completa, en el orden que fijó el vendedor. La primera es la portada. */
   imagenes: { url: string; alt: string | null }[]
+  /** Variantes con sus existencias. Lista vacía si el producto no tiene. */
+  variantes: VarianteProducto[]
+  /** Contacto directo de la tienda. `null` si no configuró ninguno. */
+  contacto: ContactoTienda | null
+  /** Redes sociales de la tienda, en orden. */
+  redes: RedTienda[]
+  vendedorUbicacion: string | null
+  vendedorVerificado: boolean
   /**
    * `true` cuando el pago tiene que pasar por la plataforma.
    *
@@ -332,6 +350,27 @@ export interface Producto extends ProductoResumen {
    * calculara por su cuenta, bastaria una peticion manipulada para saltarselo.
    */
   requierePasarelaPlataforma: boolean
+}
+
+export interface VarianteProducto {
+  id: number
+  nombre: string
+  valor: string
+  stock: number
+}
+
+export interface ContactoTienda {
+  telefono: string
+  whatsapp: string
+  correo: string
+  direccion: string
+  sitioWeb: string
+}
+
+export interface RedTienda {
+  red: string
+  url: string
+  orden: number
 }
 
 export async function obtenerProducto(
@@ -346,7 +385,7 @@ export async function obtenerProducto(
     descripcionLarga: String(f.descripcion_larga ?? ''),
     fechaActualizacion: String(f.actualizado_at ?? ''),
     detallesDigitales:
-      f.stack || f.licencia
+      f.tipo === 'digital'
         ? {
             stack: (f.stack as string | null) ?? null,
             licencia: (f.licencia as string | null) ?? null,
@@ -357,22 +396,67 @@ export async function obtenerProducto(
           }
         : null,
     detallesFisicos:
-      f.stock !== null || f.envio
+      f.tipo === 'fisico'
         ? {
             stock: (f.stock as number | null) ?? null,
             envio: (f.envio as string | null) ?? null,
             processingTime: (f.processing_time as string | null) ?? null,
+            pesoKg: (f.peso_kg as number | null) ?? null,
           }
         : null,
-    detallesServicio: f.modalidad
-      ? {
-          modalidad: (f.modalidad as string | null) ?? null,
-          duracionEstimada: (f.duracion_estimada as string | null) ?? null,
-        }
-      : null,
+    detallesServicio:
+      f.tipo === 'servicio'
+        ? {
+            modalidad: (f.modalidad as string | null) ?? null,
+            duracionEstimada: (f.duracion_estimada as string | null) ?? null,
+            incluye: (f.incluye as string | null) ?? null,
+          }
+        : null,
     imagenes: (cuerpo.imagenes as { url: string; alt: string | null }[] | undefined) ?? [],
+    variantes: mapearVariantes(cuerpo.variantes),
+    contacto: mapearContacto(cuerpo.contacto),
+    redes: mapearRedes(cuerpo.redes),
+    vendedorUbicacion: (f.vendedor_ubicacion as string | null) ?? null,
+    vendedorVerificado: f.vendedor_verificado === 1,
     requierePasarelaPlataforma: f.requiere_pasarela_plataforma === true,
   }
+}
+
+function mapearVariantes(valor: unknown): VarianteProducto[] {
+  if (!Array.isArray(valor)) return []
+  return valor.map((v) => {
+    const fila = v as Registro
+    return {
+      id: fila.id as number,
+      nombre: String(fila.nombre ?? ''),
+      valor: String(fila.valor ?? ''),
+      stock: Number(fila.stock ?? 0),
+    }
+  })
+}
+
+function mapearContacto(valor: unknown): ContactoTienda | null {
+  if (!valor || typeof valor !== 'object') return null
+  const f = valor as Registro
+  return {
+    telefono: String(f.telefono ?? ''),
+    whatsapp: String(f.whatsapp ?? ''),
+    correo: String(f.correo ?? ''),
+    direccion: String(f.direccion ?? ''),
+    sitioWeb: String(f.sitio_web ?? ''),
+  }
+}
+
+function mapearRedes(valor: unknown): RedTienda[] {
+  if (!Array.isArray(valor)) return []
+  return valor.map((r) => {
+    const fila = r as Registro
+    return {
+      red: String(fila.red ?? ''),
+      url: String(fila.url ?? ''),
+      orden: Number(fila.orden ?? 0),
+    }
+  })
 }
 
 /**
@@ -527,6 +611,10 @@ export async function listarVendedores(
 
 export interface Vendedor extends VendedorResumen {
   creadoAt: string
+  /** Contacto directo de la tienda. `null` si no configuró ninguno. */
+  contacto: ContactoTienda | null
+  /** Redes sociales de la tienda, en orden. */
+  redes: RedTienda[]
   productos: ProductoResumen[]
 }
 
@@ -548,6 +636,8 @@ export async function obtenerVendedor(
     verificado: f.verificado === 1,
     productosPublicados: productos.length,
     creadoAt: String(f.creado_at ?? ''),
+    contacto: mapearContacto(cuerpo.contacto),
+    redes: mapearRedes(cuerpo.redes),
     productos: productos.map(mapearResumen),
   }
 }

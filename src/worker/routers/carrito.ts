@@ -42,6 +42,7 @@ import { ErrorApi, RUTAS } from '../constantes'
 import { type Env } from '../entorno'
 import { json } from '../http'
 import { usuarioDePeticion } from './registro'
+import { bucketDe } from '../../lib/monedas'
 
 /** Escribe un numero aleatorio en hexadecimal, para el token de carrito anonimo. */
 function tokenNuevo(): string {
@@ -120,7 +121,7 @@ const SQL_CARRITO = `
     ci.id,
     ci.cantidad,
     ci.precio_unitario,
-    ci.moneda,
+    COALESCE(ci.moneda_codigo, ci.moneda) AS moneda,
     ci.producto_id,
     ci.variante_id,
     p.slug,
@@ -378,7 +379,9 @@ export async function responderCarrito(
         : entero(cuerpo, 'variante_id', 1, 2_000_000_000)
 
     const producto = await env.DB.prepare(
-      'SELECT id, precio, moneda, publicado FROM productos WHERE id = ?',
+      `SELECT id, precio,
+              COALESCE(moneda_codigo, moneda) AS moneda, publicado
+         FROM productos WHERE id = ?`,
     )
       .bind(productoId)
       .first<{ id: number; precio: number; moneda: string; publicado: number }>()
@@ -422,12 +425,20 @@ export async function responderCarrito(
     // anadir por segunda vez un producto que ya esta en el carrito, que es
     // justo la operacion mas comun que hay.
     await env.DB.prepare(
-      `INSERT INTO carrito_items (carrito_id, producto_id, variante_id, cantidad, precio_unitario, moneda)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO carrito_items (carrito_id, producto_id, variante_id, cantidad, precio_unitario, moneda, moneda_codigo)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (carrito_id, producto_id, variante_key)
        DO UPDATE SET cantidad = MIN(cantidad + excluded.cantidad, 99)`,
     )
-      .bind(carrito.id, productoId, varianteId, cantidad, producto.precio, producto.moneda)
+      .bind(
+        carrito.id,
+        productoId,
+        varianteId,
+        cantidad,
+        producto.precio,
+        bucketDe(producto.moneda),
+        producto.moneda,
+      )
       .run()
 
     const contenido = await leerCarrito(env.DB, carrito.id)

@@ -225,9 +225,26 @@ const urlDePagina = (n: number): string => {
                 <p class="mt-2 text-body-sm text-on-surface-variant">
                   {recortar(p.descripcion, 20)}
                 </p>
-                <p class="mt-4 font-headline text-title-lg font-semibold text-primary">
-                  {formatearPrecio(p.precio, p.moneda)}
-                </p>
+                <div class="mt-4 flex flex-col">
+                  {p.precioAnterior && p.precioAnterior > p.precio ? (
+                    <div class="flex items-baseline gap-2">
+                      <span class="text-body-sm text-on-surface-variant/60 line-through">
+                        {formatearPrecio(p.precioAnterior, p.moneda)}
+                      </span>
+                      {(() => {
+                        const pct = Math.round(((p.precioAnterior - p.precio) / p.precioAnterior) * 100)
+                        return pct > 0 ? (
+                          <span class="rounded-full bg-error/10 px-2 py-0.5 text-label-xs font-semibold text-error">
+                            -{pct}%
+                          </span>
+                        ) : null
+                      })()}
+                    </div>
+                  ) : null}
+                  <p class="font-headline text-title-lg font-semibold text-primary">
+                    {formatearPrecio(p.precio, p.moneda)}
+                  </p>
+                </div>
               </div>
             </a>
           ))}

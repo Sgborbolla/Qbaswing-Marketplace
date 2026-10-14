@@ -28,6 +28,7 @@
 
 import { json, cuerpoJson } from '../http'
 import { RUTAS, ErrorApi, TOPE_PRECIO } from '../constantes'
+import { IDIOMAS } from '../../i18n/config'
 import type { Env } from '../entorno'
 import { usuarioDePeticion } from './registro'
 
@@ -60,7 +61,7 @@ export async function responderPlataforma(
     case RUTAS.contacto:
       return json({ ok: true, contacto: await contacto(env) })
     case RUTAS.faq:
-      return json({ ok: true, faq: await faq(env) })
+      return json({ ok: true, faq: await faq(env, idiomaDePeticion(peticion)) })
     default:
       throw ErrorApi.noEncontrado('Esa ruta')
   }
@@ -73,6 +74,14 @@ export async function responderPlataforma(
  * SQLite puede devolverlas en cualquier orden y el footer cambiaria de aspecto
  * entre una carga y otra. `id` es estable.
  */
+const IDIOMAS_VALIDOS = new Set<string>(IDIOMAS)
+
+/** El idioma de la consulta (`?idioma=`), o espanol si no viene o no existe. */
+function idiomaDePeticion(peticion: Request): string {
+  const pedido = new URL(peticion.url).searchParams.get('idioma') ?? 'es'
+  return IDIOMAS_VALIDOS.has(pedido) ? pedido : 'es'
+}
+
 async function redes(env: Env): Promise<Record<string, unknown>[]> {
   const { results } = await env.DB.prepare(
     `SELECT etiqueta, icono, tipo, base, valor, activo, orden
@@ -128,15 +137,27 @@ async function contacto(env: Env): Promise<Record<string, unknown> | null> {
  * Lo que si es redundante y no se devuelve: el texto de la tabla de quien la
  * edito. No lo necesita ningun visitante.
  */
-async function faq(env: Env): Promise<Record<string, unknown>[]> {
-  const { results } = await env.DB.prepare(
-    `SELECT pregunta, respuesta, orden, activa
-       FROM faq
-      WHERE activa = 1
-      ORDER BY orden, id`,
-  ).all()
+async function faq(env: Env, idioma: string): Promise<Record<string, unknown>[]> {
+  const consulta = (codigo: string) =>
+    env.DB.prepare(
+      `SELECT pregunta, respuesta, orden, activa
+         FROM faq
+        WHERE activa = 1 AND idioma = ?
+        ORDER BY orden, id`,
+    )
+      .bind(codigo)
+      .all()
 
-  return results as Record<string, unknown>[]
+  const pedido = await consulta(idioma)
+  if (pedido.results && pedido.results.length > 0) {
+    return pedido.results as Record<string, unknown>[]
+  }
+
+  // Sin filas en ese idioma se cae al espanol: medio sitio traducido es peor que
+  // el sitio entero en espanol, y una FAQ vacia se ve como un fallo.
+  if (idioma === 'es') return []
+  const espanol = await consulta('es')
+  return (espanol.results ?? []) as Record<string, unknown>[]
 }
 
 /* ===========================================================================

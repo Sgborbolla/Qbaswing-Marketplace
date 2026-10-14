@@ -138,20 +138,15 @@ import type { Env } from '../entorno'
 import { cuerpoJson, json } from '../http'
 import { crearAlmacenamientoKV, ErrorAlmacenamiento } from '../../lib/almacenamiento-kv'
 import { usuarioDePeticion } from './registro'
+import { bucketDe, esMonedaValida } from '../../lib/monedas'
 
-/**
- * Las tres monedas del `CHECK` de la tabla.
- *
- * Se repite aqui y no se importa de `src/lib` porque el Worker tiene su propio
- * `tsconfig` con los tipos de Cloudflare y los del navegador conviviendo seria
- * mezclar dos mundos en un fichero que corre en el servidor. La misma razon por
- * la que `mis-medios` declara `TIPOS` en vez de traerlos de parte alguna: es un
- * conjunto que tiene que coincidir con la base, y si un dia se anade una
- * moneda nueva, `tsc` obliga a tocar el `CHECK` de la migracion y este array a
- * la vez, en el mismo compilado.
+/*
+ * La moneda de un producto la elige el vendedor entre las del mundo (ver
+ * `src/lib/monedas.ts`). La columna `productos.moneda` solo admite CUP/USD/EUR
+ * por el `CHECK` heredado (es lo que usa la contabilidad), asi que aqui se
+ * guarda el codigo elegido en `moneda_codigo` y en `moneda` el `bucket`. La
+ * lectura siempre devuelve el codigo.
  */
-const MONEDAS = ['CUP', 'USD', 'EUR'] as const
-type Moneda = (typeof MONEDAS)[number]
 
 /* ===========================================================================
  * Router
@@ -202,7 +197,8 @@ async function listar(env: Env, vendedorId: number | null): Promise<Response> {
   if (vendedorId === null) return json({ productos: [], total: 0 })
 
   const filas = await env.DB.prepare(
-    `SELECT id, slug, titulo, precio, precio_anterior, moneda,
+    `SELECT id, slug, titulo, precio, precio_anterior,
+            COALESCE(moneda_codigo, moneda) AS moneda,
             publicado, estado_publicacion, categoria, regla, actualizado_at
        FROM productos
       WHERE vendedor_id = ?
@@ -262,7 +258,7 @@ async function cambiar(
   }
 
   const existente = await env.DB.prepare(
-    `SELECT precio, precio_anterior, moneda
+    `SELECT precio, precio_anterior, COALESCE(moneda_codigo, moneda) AS moneda
        FROM productos
       WHERE id = ? AND vendedor_id = ?`,
   )
@@ -294,11 +290,12 @@ async function cambiar(
     `UPDATE productos
         SET precio = ?,
             moneda = ?,
+            moneda_codigo = ?,
             precio_anterior = ?,
             actualizado_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE id = ? AND vendedor_id = ?`,
   )
-    .bind(precio, moneda, precioAnterior, id, vendedorId)
+    .bind(precio, bucketDe(moneda), moneda, precioAnterior, id, vendedorId)
     .run()
 
   // Dos consultas con el mismo `WHERE`, pero la primera podia encontrar la fila
@@ -380,18 +377,15 @@ function leerPrecio(actual: unknown, previo: number): number {
  * navegador tal cual. Y hay que validarla aunque no venga: un `moneda`
  * ausente conserva la anterior, que siempre es una de las tres.
  */
-function leerMoneda(actual: unknown, previo: string): Moneda {
-  if (actual === undefined) return previo as Moneda
+function leerMoneda(actual: unknown, previo: string): string {
+  if (actual === undefined) return previo
 
   const valor = typeof actual === 'string' ? actual.trim().toUpperCase() : ''
-  if (!MONEDAS.includes(valor as Moneda)) {
-    throw ErrorApi.invalido(
-      'moneda',
-      `La moneda tiene que ser ${MONEDAS.join(', ')}.`,
-    )
+  if (!esMonedaValida(valor)) {
+    throw ErrorApi.invalido('moneda', 'Esa moneda no esta en la lista.')
   }
 
-  return valor as Moneda
+  return valor
 }
 
 /* ===========================================================================

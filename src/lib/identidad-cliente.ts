@@ -93,12 +93,20 @@ export async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promis
   // 20 s. Es lento para un movil con mala senal y eterno para alguien esperando.
   const reloj = setTimeout(() => control.abort(), 20_000)
 
+  // Subir una imagen manda `FormData`, y con `FormData` el navegador TIENE que
+  // poner el `Content-Type` el solo: lleva el `boundary` que separa las partes.
+  // Forzar `application/json` aqui rompe la subida sin un error claro. El resto
+  // de peticiones si son JSON.
+  const esFormData = typeof FormData !== 'undefined' && opciones.body instanceof FormData
+
   try {
     const r = await fetch(API_BASE + ruta, {
       ...opciones,
       credentials: 'include',
       signal: control.signal,
-      headers: { 'Content-Type': 'application/json', ...(opciones.headers ?? {}) },
+      headers: esFormData
+        ? { ...(opciones.headers ?? {}) }
+        : { 'Content-Type': 'application/json', ...(opciones.headers ?? {}) },
     })
 
     let cuerpo: unknown = null
@@ -164,6 +172,8 @@ export function registrar(cuerpo: {
   email: string
   nombre: string
   contrasena: string
+  /** `vendedor` abre tienda al registrarse; `comprador` (o nada) solo compra. */
+  tipo?: 'comprador' | 'vendedor'
 }): Promise<Respuesta<{ usuario: UsuarioCliente }>> {
   return pedir<{ usuario: UsuarioCliente }>('/api/registro', {
     method: 'POST',
