@@ -53,7 +53,7 @@ function tokenNuevo(): string {
 }
 
 /** Cabecera donde viaja el token del carrito de quien no esta dentro. */
-const CABECERA_TOKEN_CARRITO = 'X-QBASWing-Carrito'
+export const CABECERA_TOKEN_CARRITO = 'X-QBASWing-Carrito'
 
 /**
  * El carrito de esta peticion.
@@ -63,7 +63,7 @@ const CABECERA_TOKEN_CARRITO = 'X-QBASWing-Carrito'
  * el de la cuenta, aunque llegue con un token anonimo en la cabecera. Un token
  * anonimo no puede reclamar la sesion de otro.
  */
-async function carritoDe(
+export async function carritoDe(
   db: D1Database,
   peticion: Request,
   usuario: { id: number } | null,
@@ -147,7 +147,7 @@ const SQL_CARRITO = `
  * con otra en CUP y la suma no significa nada. Por eso se devuelve el desglose y
  * el total va por moneda.
  */
-async function leerCarrito(db: D1Database, carritoId: number) {
+export async function leerCarrito(db: D1Database, carritoId: number) {
   const filas = await db.prepare(SQL_CARRITO).bind(carritoId).all<{
     id: number
     cantidad: number

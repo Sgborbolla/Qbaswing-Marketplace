@@ -1,0 +1,443 @@
+---
+/**
+ * El checkout.
+ *
+ * ============================================================================
+ *  NI UNA LINEA DE PRODUCTO EN EL HTML
+ * ============================================================================
+ * Como el carrito, esta pagina se sirve vacia y la pinta el navegador despues de
+ * preguntar. Un resumen en el HTML seria un resumen que el servidor todavia no
+ * ha confirmado, y justo aqui eso significa mostrar un precio que no es el que
+ * se va a cobrar.
+ *
+ * ============================================================================
+ *  ESTA PAGINA NO COBRA: PIDE AL WORKER QUE COBRE
+ * ============================================================================
+ * El navegador no calcula el total ni decide el reparto: manda la pasarela
+ * elegida y el Worker crea las ordenes con su comision y su referencia
+ * congeladas. Si el navegador pudiera elegir el total, el "pago" seria una
+ * sugerencia.
+ *
+ * ============================================================================
+ *  LA LISTA DE PASARELAS SE RINDE EN EL SERVIDOR
+ * ============================================================================
+ * Las cinco pasarelas salen de `src/lib/pagos.ts`, que es la unica fuente. Se
+ * pasan al navegador como JSON en un `<script type="application/json">`: no es
+ * codigo ejecutable, el navegador no lo interpreta, y asi los nombres traducidos
+ * no se escriben a mano en el script (que es un modulo y no ve el diccionario).
+ */
+import Base from '../layouts/Base.astro'
+import { diccionarioDe } from '../i18n/diccionario'
+import { PASARELAS } from '../lib/pagos'
+
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
+
+/** El tiempo de acreditacion de cada pasarela, ya traducido. */
+function tiempoDe(liquidacion: 'inmediata' | 'dias' | 'manual'): string {
+  if (liquidacion === 'inmediata') return t.pago.tiempoWebhook
+  if (liquidacion === 'manual') return t.pago.tiempoManual
+  return t.pago.tiempoSondeo
+}
+
+const pasarelas = Object.values(PASARELAS).map((p) => ({
+  id: p.id,
+  nombre: p.nombre,
+  tiempo: tiempoDe(p.liquidacion),
+  manual: p.requiereRevision === true,
+}))
+---
+
+<Base title={t.pago.titulo} descripcion={t.pago.descripcion}>
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-4xl">
+      <h1 class="font-headline text-headline-lg text-on-surface">{t.pago.titulo}</h1>
+
+      <p
+        data-cargando
+        class="mt-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-body-md text-on-surface-variant"
+      >
+        {t.pago.cargando}
+      </p>
+
+      <div
+        data-zona
+        data-txt-cargando={t.pago.cargando}
+        data-txt-necesitas-entrar={t.pago.necesitasEntrar}
+        data-txt-entrar={t.pago.entrar}
+        data-txt-carrito-vacio={t.pago.carritoVacio}
+        data-txt-ver-productos={t.carrito.verProductos}
+        data-txt-resumen={t.pago.resumen}
+        data-txt-subtotal={t.carrito.subtotal}
+        data-txt-total={t.carrito.total}
+        data-txt-pasarela={t.pago.pasarela}
+        data-txt-confirmar={t.pago.confirmar}
+        data-txt-procesando={t.pago.procesando}
+        data-txt-creada={t.pago.creada}
+        data-txt-creada-texto={t.pago.creadaTexto}
+        data-txt-referencia={t.pago.referencia}
+        data-txt-instruccion={t.pago.instruccion}
+        data-txt-ir-biblioteca={t.pago.irBiblioteca}
+        data-txt-volver={t.pago.volver}
+        data-txt-error-carrito={t.pago.errorCarrito}
+        data-txt-no-disponible={t.pago.noDisponible}
+        data-txt-revision-manual={t.pago.revisionManual}
+        data-txt-seguir={t.carrito.seguir}
+        data-txt-reintentar={t.error.reintentar}
+        class="mt-6 space-y-4"
+        aria-busy="true"
+      ></div>
+
+      <p
+        data-aviso
+        role="alert"
+        aria-live="assertive"
+        hidden
+        class="mt-4 rounded-2xl border border-error/40 bg-error-container/40 px-4 py-3 text-body-md text-on-error-container"
+      >
+      </p>
+    </div>
+  </section>
+</Base>
+
+{/*
+  Las pasarelas viajan al navegador como texto JSON dentro de un `div` oculto.
+
+  NO se usa un `<script type="application/json">` con `set:html`: Astro no admite
+  `set:html` sobre un `<script>`. Un `div` oculto con el texto dentro se lee desde
+  el JavaScript con `textContent`, que deshace el escapado de HTML, y como no es
+  codigo el navegador no lo ejecuta.
+*/}
+<div id="datos-pago" hidden>{JSON.stringify({ pasarelas })}</div>
+
+<script>
+  import {
+    dinero,
+    leerCarrito,
+    type ContenidoCarrito,
+    type LineaCarrito,
+  } from '../lib/carrito-cliente'
+  import { sesionActual } from '../lib/identidad-cliente'
+  import { cobrar, type Orden } from '../lib/pagos-cliente'
+  import { rellenar } from '../i18n/diccionario'
+  import { crearIcono } from '../lib/icono-dom'
+  import type { NombreIcono } from '../lib/iconos'
+
+  interface DefinicionPasarela {
+    id: string
+    nombre: string
+    tiempo: string
+    manual: boolean
+  }
+
+  const zona = document.querySelector('[data-zona]') as HTMLElement | null
+  const cargando = document.querySelector('[data-cargando]') as HTMLElement | null
+  const aviso = document.querySelector('[data-aviso]') as HTMLElement | null
+  const datosPago = document.querySelector('#datos-pago') as HTMLElement | null
+
+  const textos: DOMStringMap = zona?.dataset ?? {}
+  const {
+    txtNecesitasEntrar = '',
+    txtEntrar = '',
+    txtCarritoVacio = '',
+    txtVerProductos = '',
+    txtResumen = '',
+    txtSubtotal = '',
+    txtTotal = '',
+    txtPasarela = '',
+    txtConfirmar = '',
+    txtProcesando = '',
+    txtCreada = '',
+    txtCreadaTexto = '',
+    txtReferencia = '',
+    txtInstruccion = '',
+    txtIrBiblioteca = '',
+    txtVolver = '',
+    txtErrorCarrito = '',
+    txtNoDisponible = '',
+    txtRevisionManual = '',
+    txtSeguir = '',
+    txtReintentar = '',
+  } = textos
+
+  /** Las pasarelas, tal como las rindio el servidor. */
+  let pasarelas: DefinicionPasarela[] = []
+  try {
+    const crudo = JSON.parse(datosPago?.textContent ?? '{}') as { pasarelas?: DefinicionPasarela[] }
+    pasarelas = Array.isArray(crudo.pasarelas) ? crudo.pasarelas : []
+  } catch {
+    pasarelas = []
+  }
+
+  /** El carrito que se esta cobrando, para no volver a pedirlo. */
+  let carrito: ContenidoCarrito | null = null
+
+  function el<K extends keyof HTMLElementTagNameMap>(
+    etiqueta: K,
+    clase: string,
+    texto?: string,
+  ): HTMLElementTagNameMap[K] {
+    const nodo = document.createElement(etiqueta)
+    nodo.className = clase
+    if (texto !== undefined) nodo.textContent = texto
+    return nodo
+  }
+
+  function simbolo(nombre: NombreIcono, clase: string): SVGElement {
+    return crearIcono(nombre, clase)
+  }
+
+  function tarjeta(clase = 'rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5'): HTMLElement {
+    return el('div', clase)
+  }
+
+  function avisar(texto: string, ocultar = false) {
+    if (!aviso) return
+    if (ocultar) {
+      aviso.hidden = true
+      aviso.textContent = ''
+      return
+    }
+    aviso.hidden = false
+    aviso.textContent = texto
+  }
+
+  /** El bloque que dice que hay que entrar antes de pagar. */
+  function bloqueEntrar(): HTMLElement {
+    const caja = tarjeta('rounded-2xl border border-outline-variant bg-surface-container-low p-6 text-center')
+    caja.append(
+      el('p', 'font-headline text-title-md font-semibold text-on-surface', txtNecesitasEntrar),
+    )
+    const entrar = el(
+      'a',
+      'mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
+    )
+    entrar.href = '/iniciar-sesion'
+    entrar.append(simbolo('lock', 'text-label-md'))
+    entrar.append(el('span', '', txtEntrar))
+    caja.append(entrar)
+    return caja
+  }
+
+  /** El bloque de carrito vacio. */
+  function bloqueVacio(): HTMLElement {
+    const caja = tarjeta('rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-8 text-center')
+    caja.append(el('p', 'font-headline text-title-md font-semibold text-on-surface', txtCarritoVacio))
+    const ver = el(
+      'a',
+      'mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
+      txtVerProductos,
+    )
+    ver.href = '/productos'
+    caja.append(ver)
+    return caja
+  }
+
+  /** El resumen del pedido: lineas y subtotal por moneda. */
+  function resumen(contenido: ContenidoCarrito): HTMLElement {
+    const caja = tarjeta()
+    caja.append(el('h2', 'font-headline text-title-md font-semibold text-on-surface', txtResumen))
+
+    for (const linea of contenido.lineas) {
+      const fila = el('div', 'mt-3 flex items-start justify-between gap-3 text-body-md')
+      const izq = el('div', 'min-w-0 flex-1')
+      izq.append(el('p', 'font-medium text-on-surface', linea.producto.titulo))
+      izq.append(
+        el('p', 'text-label-sm text-on-surface-variant', `${linea.cantidad} x ${dinero(linea.precioUnitario, linea.moneda)}`),
+      )
+      fila.append(izq)
+      fila.append(el('p', 'shrink-0 font-semibold text-on-surface', dinero(linea.subtotal, linea.moneda)))
+      caja.append(fila)
+    }
+
+    const pie = el('dl', 'mt-4 space-y-2 border-t border-outline-variant/40 pt-4')
+    for (const total of contenido.totales) {
+      const fila = el('div', 'flex items-baseline justify-between gap-3')
+      fila.append(el('dt', 'text-body-md text-on-surface-variant', txtSubtotal))
+      fila.append(el('dd', 'text-body-md font-semibold text-on-surface', dinero(total.subtotal, total.moneda)))
+      pie.append(fila)
+    }
+    caja.append(pie)
+    return caja
+  }
+
+  /** Las opciones de pago y el boton de confirmar. */
+  function bloquePago(contenido: ContenidoCarrito): HTMLElement {
+    const caja = tarjeta()
+    caja.append(el('h2', 'font-headline text-title-md font-semibold text-on-surface', txtPasarela))
+
+    const grupo = el('div', 'mt-4 space-y-2')
+    pasarelas.forEach((p, indice) => {
+      const opcion = el(
+        'label',
+        'flex cursor-pointer items-center gap-3 rounded-xl border border-outline-variant/60 p-4 transition hover:border-primary has-[:checked]:border-primary has-[:checked]:bg-primary/5',
+      )
+      const radio = document.createElement('input')
+      radio.type = 'radio'
+      radio.name = 'pasarela'
+      radio.value = p.id
+      radio.className = 'size-4 shrink-0'
+      if (indice === 0) radio.checked = true
+
+      const texto = el('div', 'min-w-0 flex-1')
+      texto.append(el('p', 'font-medium text-on-surface', p.nombre))
+      texto.append(el('p', 'text-label-sm text-on-surface-variant', p.tiempo))
+
+      opcion.append(radio, texto)
+      grupo.append(opcion)
+    })
+    caja.append(grupo)
+
+    const confirmar = el(
+      'button',
+      'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-body-md font-semibold text-on-primary transition hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60',
+    )
+    confirmar.type = 'button'
+    confirmar.dataset.confirmar = ''
+    confirmar.append(simbolo('lock', 'text-label-md'))
+    confirmar.append(el('span', '', txtConfirmar))
+    caja.append(confirmar)
+
+    // El aviso de que un pago manual lo confirma una persona va SIEMPRE visible
+    // y no solo al elegir: escondido detras de una seleccion, quien no lo mira
+    // se queda esperando una confirmacion automatica que no va a llegar.
+    caja.append(
+      el('p', 'mt-3 text-label-md text-on-surface-variant', txtRevisionManual),
+    )
+    return caja
+  }
+
+  /** Lo que se ve despues de cobrar: la referencia y como pagar. */
+  function bloqueCreada(ordenes: Orden[], pasarelaNombre: string) {
+    if (!zona) return
+    zona.replaceChildren()
+    zona.setAttribute('aria-busy', 'false')
+    if (cargando) cargando.hidden = true
+
+    const caja = tarjeta('rounded-2xl border border-primary/40 bg-surface-container-low p-6')
+    caja.append(el('h2', 'font-headline text-title-lg font-semibold text-on-surface', txtCreada))
+    caja.append(el('p', 'mt-2 text-body-md text-on-surface-variant', txtCreadaTexto))
+
+    for (const orden of ordenes) {
+      const bloque = el('div', 'mt-4 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-4')
+      bloque.append(
+        el('p', 'font-mono text-code font-semibold text-on-surface', rellenar(txtReferencia, { ref: orden.referencia })),
+      )
+      bloque.append(el('p', 'mt-1 text-body-md text-on-surface', dinero(orden.total, orden.monedaCodigo)))
+      bloque.append(
+        el('p', 'mt-2 text-label-md text-on-surface-variant', rellenar(txtInstruccion, { pasarela: pasarelaNombre })),
+      )
+      caja.append(bloque)
+    }
+
+    const acciones = el('div', 'mt-6 flex flex-col gap-3 sm:flex-row')
+    const biblioteca = el(
+      'a',
+      'inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
+    )
+    biblioteca.href = '/cuenta'
+    biblioteca.append(simbolo('download', 'text-label-md'))
+    biblioteca.append(el('span', '', txtIrBiblioteca))
+
+    const volver = el(
+      'a',
+      'inline-flex items-center justify-center rounded-full border border-outline px-6 py-3 text-body-md font-semibold text-primary transition-colors hover:bg-surface-container',
+      txtVolver,
+    )
+    volver.href = '/carrito'
+
+    acciones.append(biblioteca, volver)
+    caja.append(acciones)
+    zona.append(caja)
+  }
+
+  function fallo(mensaje: string) {
+    if (!zona) return
+    zona.setAttribute('aria-busy', 'false')
+    if (cargando) cargando.hidden = true
+
+    const caja = tarjeta('rounded-2xl border border-error/40 bg-error-container/40 p-6 text-center')
+    caja.append(el('p', 'text-body-md text-on-error-container', mensaje))
+    const reintentar = el(
+      'button',
+      'mt-5 inline-flex items-center gap-2 rounded-full border border-on-error-container/40 px-5 py-2.5 text-body-md font-semibold text-on-error-container transition hover:bg-on-error-container/10',
+    )
+    reintentar.type = 'button'
+    reintentar.dataset.reintentar = ''
+    reintentar.append(simbolo('refresh', 'text-label-md'))
+    reintentar.append(el('span', '', txtReintentar))
+    caja.append(reintentar)
+    zona.replaceChildren(caja)
+  }
+
+  function pintar(ordenes?: Orden[], pasarelaNombre = '') {
+    if (!zona || !carrito) return
+    if (ordenes) {
+      bloqueCreada(ordenes, pasarelaNombre)
+      return
+    }
+    zona.replaceChildren()
+    zona.setAttribute('aria-busy', 'false')
+    if (cargando) cargando.hidden = true
+    zona.append(resumen(carrito))
+    zona.append(bloquePago(carrito))
+  }
+
+  async function iniciar() {
+    const sesion = await sesionActual()
+    if (!sesion.ok) {
+      fallo(sesion.mensaje)
+      return
+    }
+    if (!sesion.datos.usuario) {
+      zona?.replaceChildren(bloqueEntrar())
+      zona?.setAttribute('aria-busy', 'false')
+      if (cargando) cargando.hidden = true
+      return
+    }
+
+    const r = await leerCarrito()
+    if (!r.ok) {
+      fallo(r.mensaje)
+      return
+    }
+    if (r.datos.carrito.vacio) {
+      zona?.replaceChildren(bloqueVacio())
+      zona?.setAttribute('aria-busy', 'false')
+      if (cargando) cargando.hidden = true
+      return
+    }
+    carrito = r.datos.carrito
+    pintar()
+  }
+
+  zona?.addEventListener('click', async (evento) => {
+    const objetivo = evento.target as HTMLElement | null
+
+    if (objetivo?.closest('[data-reintentar]')) {
+      void iniciar()
+      return
+    }
+
+    const boton = objetivo?.closest<HTMLButtonElement>('[data-confirmar]')
+    if (!boton || boton.disabled) return
+
+    const elegida = zona?.querySelector<HTMLInputElement>('input[name="pasarela"]:checked')
+    if (!elegida) return
+
+    const definicion = pasarelas.find((p) => p.id === elegida.value)
+    avisar('', true)
+    boton.disabled = true
+    boton.replaceChildren(simbolo('refresh', 'text-label-md'), el('span', '', txtProcesando))
+
+    const r = await cobrar(elegida.value)
+    if (!r.ok) {
+      avisar(r.mensaje || txtErrorCarrito)
+      boton.disabled = false
+      boton.replaceChildren(simbolo('lock', 'text-label-md'), el('span', '', txtConfirmar))
+      return
+    }
+    pintar(r.datos.ordenes, definicion?.nombre ?? elegida.value)
+  })
+
+  void iniciar()
+</script>

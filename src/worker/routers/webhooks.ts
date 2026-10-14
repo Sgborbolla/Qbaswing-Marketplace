@@ -44,8 +44,10 @@
  */
 
 import { json } from '../http'
-import { RUTAS } from '../constantes'
+import { RUTAS, VENTANA_TIMESTAMP_SEG } from '../constantes'
 import type { Env } from '../entorno'
+import { cambiarEstado, ordenPorReferencia } from '../pagos'
+import type { EstadoPago } from '../../lib/pagos'
 
 /** Rutas que este router atiende. */
 type Pasarela = 'qva_pay' | 'tropi_pay'
@@ -93,33 +95,158 @@ export async function responderWebhooks(
     )
   }
 
-  // A partir de aqui empiezan a hacer falta las 0004 y 0005.
-  //
-  // Cuando se escriban, el orden va a ser:
-  //
-  //   1. Registrar el evento en `webhooks_recibidos`. Si ya esta, se responde
-  //      200 sin procesar: es un reintento de la pasarela, y procesarlo otra vez
-  //      cobraria dos veces al comprador o entregaria el archivo dos veces.
-  //   2. Verificar la firma con el secreto. Si no coincide, 401.
-  //   3. Verificar el timestamp contra `VENTANA_TIMESTAMP_SEG`. Si esta fuera,
-  //      401: un webhook con timestamp viejo es una repeticion enviada a mano.
-  //   4. Buscar la transaccion por la referencia de la pasarela.
-  //   5. Moverla de 'pendiente' a 'pagado', guardar `verificado_at`, y crear la
-  //      fila en `biblioteca` para que el comprador pueda descargar.
-  //
-  // El orden importa: registrar antes de verificar evita que alguien que no
-  // tiene el secreto llene la tabla de `webhooks_recibidos` con basura. Por eso
-  // el paso 1 tiene que comprobar la firma despues de insertar y borrar la fila
-  // si no cuadra, o equivalentemente registrar con una columna `verificado`.
+  // ===========================================================================
+  //  TROPIPAY: TODAVIA NO, Y A PROPOSITO
+  // ===========================================================================
+  // La firma de TropiPay no es HMAC sobre el cuerpo: cubre dos campos sueltos
+  // (monto y codigo de orden) y se verifica con una funcion propia. Mientras esa
+  // funcion no este escrita y probada contra el proveedor, este endpoint NO
+  // acepta nada. Aceptar un webhook sin verificar seria dejar que cualquiera
+  // marque pagos como pagados con un curl.
+  if (pasarela === 'tropi_pay') {
+    return json(
+      {
+        ok: false,
+        codigo: 'no_implementado',
+        mensaje:
+          'TropiPay esta configurada, pero su verificacion de firma todavia no esta escrita. ' +
+          'Hasta entonces este endpoint no acepta pagos.',
+      },
+      501,
+    )
+  }
 
-  return json(
-    {
-      ok: false,
-      codigo: 'no_implementado',
-      mensaje: `${pasarela} esta configurada, pero el procesamiento del pago todavia no esta escrito.`,
-    },
-    501,
+  // ===========================================================================
+  //  QVAPAY
+  // ===========================================================================
+  // El cuerpo se lee como TEXTO CRUDO y se hashea tal cual. Si se parseara el
+  // JSON y se volviera a serializar, la firma no cuadraria nunca: el orden de
+  // las claves y los espacios cambian entre lo que mando el proveedor y lo que
+  // produce `JSON.stringify`. Por eso el texto crudo es obligatorio.
+  const crudo = await peticion.text()
+
+  const firma = peticion.headers.get('x-qvapay-signature') ?? ''
+  const sello = Number(peticion.headers.get('x-qvapay-timestamp') ?? '')
+
+  const firmaEsperada = await hmacHex(env.QVAPAY_APP_SECRET, crudo)
+  if (!firma || !iguales(firma, firmaEsperada)) {
+    return json({ ok: false, codigo: 'firma_invalida', mensaje: 'La firma no coincide.' }, 401)
+  }
+
+  // El sello tiene que ser reciente. Sin esto, un webhook bueno capturado hoy
+  // vale para siempre: quien lo copie puede reenviarlo cuando quiera.
+  const ahora = Math.floor(Date.now() / 1000)
+  if (!Number.isFinite(sello) || Math.abs(ahora - sello) > VENTANA_TIMESTAMP_SEG) {
+    return json({ ok: false, codigo: 'sello_vencido', mensaje: 'El timestamp esta fuera de la ventana.' }, 401)
+  }
+
+  let evento: Record<string, unknown>
+  try {
+    const parseado: unknown = JSON.parse(crudo)
+    if (typeof parseado !== 'object' || parseado === null) throw new Error('no es objeto')
+    evento = parseado as Record<string, unknown>
+  } catch {
+    return json({ ok: false, codigo: 'cuerpo_invalido', mensaje: 'El cuerpo no es un JSON valido.' }, 400)
+  }
+
+  // Idempotencia. QvaPay reintenta hasta tres veces; sin esto, el mismo pago
+  // se confirmaria tres veces. `evento_id` es el `transaction_uuid`, que es
+  // estable entre reintentos.
+  const eventoId = String(evento.transaction_uuid ?? '')
+  if (!eventoId) {
+    return json({ ok: false, codigo: 'evento_sin_id', mensaje: 'El webhook no trae transaction_uuid.' }, 400)
+  }
+
+  const registro = await env.DB.prepare(
+    'INSERT OR IGNORE INTO webhooks_recibidos (pasarela, evento_id) VALUES (?, ?)',
   )
+    .bind(pasarela, eventoId)
+    .run()
+
+  // Si `changes` es 0, ese evento ya se habia recibido. Se contesta 200 sin
+  // volver a procesarlo: es un reintento, y procesarlo otra vez cobraria o
+  // entregaria dos veces.
+  if ((registro.meta.changes ?? 0) === 0) {
+    return json({ ok: true, repetido: true })
+  }
+
+  // La referencia de nuestra orden viaja como `remote_id`. Es el campo con el
+  // que QvaPay devuelve el identificador que nosotros pusimos al crear la
+  // factura, y por eso es el unico con el que se puede casar el pago.
+  const referencia = String(evento.remote_id ?? evento.reference ?? '')
+  if (!referencia) {
+    return json({ ok: true, sin_referencia: true })
+  }
+
+  const orden = await ordenPorReferencia(env, referencia)
+  // Una referencia desconocida no es un error del proveedor. Se contesta 200
+  // para que no reintente: no hay nada que procesar.
+  if (!orden) return json({ ok: true, orden_desconocida: true })
+
+  const estado = estadoDeQvaPay(String(evento.status ?? ''))
+  if (!estado) {
+    // Pendiente o cualquier estado intermedio: no se toca la orden. El pago
+    // puede estar en camino, y marcarlo como fallido perderia una venta real.
+    return json({ ok: true, sin_cambio: true, estado_proveedor: evento.status ?? null })
+  }
+
+  // Si la orden ya no esta pendiente, no se toca. Un segundo webhook sobre una
+  // orden ya verificada no es un reintento (esos los corta la idempotencia de
+  // arriba): es otro evento, y moverlo otra vez no tiene sentido. Se contesta
+  // 200 para que el proveedor no siga reintentando.
+  if (orden.estado !== 'pendiente') {
+    return json({ ok: true, sin_cambio: true, estado_actual: orden.estado })
+  }
+
+  await cambiarEstado(env, orden, estado, {
+    clase: 'webhook',
+    crudo,
+    hash: firma,
+    montoVerificado:
+      typeof evento.amount === 'number' ? Math.round(evento.amount * 100) : null,
+    moneda: (orden.moneda as 'CUP' | 'USD' | 'EUR') ?? null,
+  })
+
+  return json({ ok: true, referencia, estado })
+}
+
+/** Traduce el estado de QvaPay a uno de los nuestros. `null` = no se toca. */
+function estadoDeQvaPay(estado: string): EstadoPago | null {
+  const e = estado.toLowerCase()
+  if (e === 'paid' || e === 'completed' || e === 'success' || e === 'confirmed') {
+    return 'verificado'
+  }
+  if (e === 'cancelled' || e === 'canceled' || e === 'failed' || e === 'declined' || e === 'expired') {
+    return 'rechazado'
+  }
+  return null
+}
+
+/** HMAC-SHA256 en hexadecimal, con la clave del secreto compartido. */
+async function hmacHex(secreto: string, mensaje: string): Promise<string> {
+  const llave = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secreto),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const firma = await crypto.subtle.sign('HMAC', llave, new TextEncoder().encode(mensaje))
+  return Array.from(new Uint8Array(firma), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Comparacion en tiempo constante.
+ *
+ * Comparar con `===` deja medir, por lo que tarda, cuantos caracteres de la
+ * firma acerto quien prueba. Con una firma corta no da para adivinarla, pero
+ * escribir esto una vez cuesta tres lineas y quita el debate.
+ */
+function iguales(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diferencia = 0
+  for (let i = 0; i < a.length; i++) diferencia |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diferencia === 0
 }
 
 /**

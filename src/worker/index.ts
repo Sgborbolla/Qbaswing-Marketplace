@@ -52,6 +52,7 @@ import { responderSalud } from './routers/salud'
 import { responderWebhooks } from './routers/webhooks'
 import { responderIdentidad } from './routers/identidad'
 import { responderCarrito } from './routers/carrito'
+import { responderPagos } from './routers/pagos'
 import { responderDescarga } from './routers/descargas'
 
 export default {
@@ -251,6 +252,12 @@ async function despachar(
   // quien pregunta antes que nada, y el catalogo es de lectura publica.
   if (ruta === RUTAS.carrito) {
     return responderCarrito(ruta, peticion.method, peticion, env)
+  }
+
+  // Pagos. Va junto al carrito y por el mismo motivo, pero al reves en cuanto a
+  // quien puede entrar: el carrito es de cualquiera, cobrar exige sesion.
+  if (ruta === RUTAS.pagos) {
+    return responderPagos(ruta, peticion.method, peticion, env)
   }
 
   // Catalogo: productos, categorias, vendedores.
