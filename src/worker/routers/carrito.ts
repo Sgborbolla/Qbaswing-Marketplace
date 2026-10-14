@@ -42,6 +42,7 @@ import { ErrorApi, RUTAS } from '../constantes'
 import { type Env } from '../entorno'
 import { json } from '../http'
 import { usuarioDePeticion } from './registro'
+import { avisarVendedor } from '../avisos'
 import { bucketDe } from '../../lib/monedas'
 
 /** Escribe un numero aleatorio en hexadecimal, para el token de carrito anonimo. */
@@ -379,12 +380,19 @@ export async function responderCarrito(
         : entero(cuerpo, 'variante_id', 1, 2_000_000_000)
 
     const producto = await env.DB.prepare(
-      `SELECT id, precio,
+      `SELECT id, vendedor_id, titulo, precio,
               COALESCE(moneda_codigo, moneda) AS moneda, publicado
          FROM productos WHERE id = ?`,
     )
       .bind(productoId)
-      .first<{ id: number; precio: number; moneda: string; publicado: number }>()
+      .first<{
+        id: number
+        vendedor_id: number
+        titulo: string
+        precio: number
+        moneda: string
+        publicado: number
+      }>()
 
     // Mismo mensaje para "no existe" y para "no esta publicado". Distinguirlos
     // permitiria a alguien recorrer ids y saber que productos hay publicados.
@@ -440,6 +448,24 @@ export async function responderCarrito(
         producto.moneda,
       )
       .run()
+
+    // Aviso al dueño de la tienda de que alguien eligio su producto. Va despues
+    // del INSERT y NUNCA puede fallar hacia afuera: `avisarVendedor` se traga
+    // sus propios errores. Un problema al mandar el SMS no puede impedir que el
+    // comprador anada al carrito.
+    await avisarVendedor(env, {
+      vendedorId: producto.vendedor_id,
+      tipo: 'carrito',
+      productoId,
+      productoTitulo: producto.titulo,
+      cantidad,
+      comprador: {
+        usuarioId: usuario?.id ?? null,
+        nombre: usuario?.nombre ?? '',
+        email: usuario?.email ?? '',
+        telefono: '',
+      },
+    })
 
     const contenido = await leerCarrito(env.DB, carrito.id)
     return json({ ok: true, carrito: contenido }, 200, cabeceras)

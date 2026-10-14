@@ -106,6 +106,27 @@ export interface Env {
   PIXELDRAIN_API_KEY?: string
   GOFILE_API_TOKEN?: string
 
+  /* --- Avisos a las tiendas (secrets, todos opcionales) --- */
+  /*
+   * Un canal sin sus secretos queda en 'sin_configurar' y el aviso sigue
+   * existiendo en el panel. Por eso son opcionales: la plataforma no se cae por
+   * no tener todavia proveedor de SMS, solo no manda ese canal.
+   *
+   *   npx wrangler secret put CORREO_API_KEY      (Resend)
+   *   npx wrangler secret put WHATSAPP_TOKEN      (Meta WhatsApp Cloud API)
+   *   npx wrangler secret put TWILIO_AUTH_TOKEN   (SMS)
+   */
+  CORREO_API_KEY?: string
+  /** Remitente verificado del proveedor de correo, p.ej. `QBASwing <avisos@dominio>`. */
+  CORREO_REMITENTE?: string
+  WHATSAPP_TOKEN?: string
+  /** Id del numero de WhatsApp Business que envia los mensajes. */
+  WHATSAPP_PHONE_ID?: string
+  TWILIO_ACCOUNT_SID?: string
+  TWILIO_AUTH_TOKEN?: string
+  /** Numero emisor de los SMS, en E.164 (p.ej. `+12025550123`). */
+  TWILIO_FROM?: string
+
   /*
    * Binding opcional de R2, todavia no activado (pide tarjeta).
    *

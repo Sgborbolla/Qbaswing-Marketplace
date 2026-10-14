@@ -117,6 +117,11 @@ export const RUTAS = {
   // distintas y se guardan por caminos distintos.
   tiendaPropia: '/api/panel/tienda',
 
+  // Avisos de la tienda: quien eligio o compro sus productos. Es la cuarta pata
+  // del panel, y va bajo el mismo prefijo privado porque tambien son datos de
+  // la cuenta: solo los ve el dueño de esa tienda.
+  avisosPropios: '/api/panel/avisos',
+
   // Revision de productos por parte del Owner. Va bajo `/api/owner` para
   // dejarlo claro en la propia URL: no es una ruta de catalogo (que es publica)
   // ni de panel de vendedor (que es de quien vende). Autoriza `owner` y

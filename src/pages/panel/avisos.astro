@@ -1,0 +1,157 @@
+---
+/**
+ * Avisos de la tienda: `/panel/avisos`.
+ *
+ * ============================================================================
+ *  QUE MUESTRA
+ * ============================================================================
+ * Quien eligio o compro los productos de esta tienda. Es lo que el Worker
+ * guarda al anadir al carrito y al comprar, y lo que el dueño tiene que ver
+ * aunque no tuviera el sitio abierto en ese momento.
+ *
+ * La pagina llega vacia y el navegador pide los datos a `/api/panel/avisos`,
+ * que es lo unico que puede validar la cookie de sesion.
+ */
+import Base from '../../layouts/Base.astro'
+import Miniatura from '../../components/Miniatura.astro'
+---
+
+<Base title="Avisos" descripcion="Quién eligió o compró tus productos.">
+  <section class="w-full py-space-xl">
+    <div class="container-page max-w-3xl">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <a href="/panel" class="text-label-md text-primary hover:underline">← Volver al panel</a>
+          <h1 class="mt-2 font-headline text-headline-lg text-on-surface">Avisos</h1>
+          <p class="mt-2 text-body-md text-on-surface-variant">
+            Quién eligió o compró tus productos. Te avisamos por correo, WhatsApp y SMS según lo que tengas configurado.
+          </p>
+        </div>
+        <Miniatura nombre="cuenta" ancho={64} />
+      </div>
+
+      <div class="mt-6 flex items-center justify-between gap-4">
+        <p id="avisos-cuenta" class="text-body-md text-on-surface-variant"></p>
+        <button
+          type="button"
+          id="avisos-todo"
+          class="hidden rounded-full border border-outline-variant px-4 py-2 text-label-md font-semibold text-primary transition hover:border-primary"
+        >
+          Marcar todo como leído
+        </button>
+      </div>
+
+      <p id="avisos-cargando" class="mt-8 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-body-md text-on-surface-variant">
+        Cargando tus avisos...
+      </p>
+
+      <div id="avisos-lista" class="mt-4 space-y-3"></div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { misAvisos, marcarAviso, type Aviso } from '../../lib/avisos-cliente'
+
+  const cargando = document.getElementById('avisos-cargando')
+  const lista = document.getElementById('avisos-lista')
+  const cuenta = document.getElementById('avisos-cuenta')
+  const botonTodo = document.getElementById('avisos-todo') as HTMLButtonElement | null
+
+  function fecha(iso: string): string {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return iso
+    return d.toLocaleString()
+  }
+
+  function crearAviso(a: Aviso): HTMLElement {
+    const caja = document.createElement('article')
+    caja.className =
+      'rounded-2xl border p-4 ' +
+      (a.leido
+        ? 'border-outline-variant/60 bg-surface-container-lowest'
+        : 'border-primary/40 bg-primary/5')
+
+    const etiqueta =
+      a.tipo === 'compra'
+        ? '<span class="rounded-full bg-secondary/15 px-2 py-0.5 text-label-sm font-semibold text-secondary">Compra</span>'
+        : '<span class="rounded-full bg-primary/15 px-2 py-0.5 text-label-sm font-semibold text-primary">Carrito</span>'
+
+    const comprador =
+      a.comprador_nombre || a.comprador_email || 'Alguien sin cuenta'
+
+    const contacto: string[] = []
+    if (a.comprador_telefono) {
+      const tel = a.comprador_telefono.replace(/[^0-9]/g, '')
+      contacto.push(
+        `<a class="text-primary hover:underline" href="tel:${a.comprador_telefono}">Llamar</a>`,
+      )
+      if (tel) {
+        contacto.push(
+          `<a class="text-primary hover:underline" href="https://wa.me/${tel}" target="_blank" rel="noopener noreferrer">WhatsApp</a>`,
+        )
+      }
+    }
+    if (a.comprador_email) {
+      contacto.push(
+        `<a class="text-primary hover:underline" href="mailto:${a.comprador_email}">Correo</a>`,
+      )
+    }
+
+    caja.innerHTML = `
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">${etiqueta}<span class="text-label-sm text-on-surface-variant">${fecha(a.creado_at)}</span></div>
+          <p class="mt-2 text-body-md font-semibold text-on-surface">${a.producto_titulo || 'Producto'}</p>
+          <p class="text-body-sm text-on-surface-variant">${comprador} · cantidad ${a.cantidad}</p>
+          ${contacto.length ? `<p class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-body-sm">${contacto.join('')}</p>` : ''}
+        </div>
+        <button
+          type="button"
+          data-marcar="${a.id}"
+          class="shrink-0 ${a.leido ? 'hidden' : ''} rounded-full border border-outline-variant px-3 py-1.5 text-label-md text-on-surface-variant transition hover:border-primary hover:text-primary"
+        >
+          Marcar leído
+        </button>
+      </div>
+    `
+    return caja
+  }
+
+  async function cargar() {
+    const r = await misAvisos()
+    cargando?.classList.add('hidden')
+    if (!r.ok) {
+      if (cargando) {
+        cargando.textContent = r.mensaje
+        cargando.classList.remove('hidden')
+      }
+      return
+    }
+    const { avisos, no_leidos } = r.datos
+    if (cuenta) {
+      cuenta.textContent = avisos.length === 0 ? 'No tienes avisos todavía.' : `${no_leidos} sin leer de ${avisos.length}.`
+    }
+    botonTodo?.classList.toggle('hidden', no_leidos === 0)
+    if (!lista) return
+    lista.replaceChildren(...avisos.map(crearAviso))
+  }
+
+  lista?.addEventListener('click', async (e) => {
+    const boton = (e.target as HTMLElement).closest('[data-marcar]') as HTMLElement | null
+    if (!boton) return
+    const id = Number(boton.dataset.marcar)
+    if (!Number.isInteger(id)) return
+    boton.setAttribute('disabled', 'true')
+    await marcarAviso({ id })
+    await cargar()
+  })
+
+  botonTodo?.addEventListener('click', async () => {
+    botonTodo.setAttribute('disabled', 'true')
+    await marcarAviso({ todos: true })
+    await cargar()
+  })
+
+  cargar()
+</script>

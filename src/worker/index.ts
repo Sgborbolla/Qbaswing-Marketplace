@@ -39,6 +39,7 @@ import { decodificar, enteroDeQuery, json } from './http'
 import { responderPlataforma } from './routers/plataforma'
 import { responderMediosPago } from './routers/medios-pago'
 import { responderMisMedios } from './routers/mis-medios'
+import { responderAvisos } from './routers/avisos'
 import { responderPanelProductos, responderArchivoMaestro } from './routers/panel'
 import { responderPanelProducto, crearProducto } from './routers/panel-productos'
 import { responderOwnerProductos } from './routers/owner-productos'
@@ -182,6 +183,13 @@ async function despachar(
   // resto del panel del vendedor, y comparte con el la comprobacion de sesion.
   if (ruta === RUTAS.tiendaPropia) {
     return responderTienda(peticion, env)
+  }
+
+  // Avisos de la tienda: quien eligio o compro sus productos. Misma familia que
+  // el resto del panel del vendedor: lo primero es leer la cookie, y es lectura
+  // y escritura privada, no un listado publico.
+  if (ruta === RUTAS.avisosPropios) {
+    return responderAvisos(peticion, env)
   }
 
   // Precios y ficha de los PROPIOS productos. El `POST` crea; el resto de
