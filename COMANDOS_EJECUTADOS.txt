@@ -1,0 +1,5 @@
+2026-10-13 21:16:10 - git commit 9eb2b3f: feat panel vendedor, owner FAQ, descuentos, monedas, registro doble opción, migraciones 0022-0025
+2026-10-13 21:16:18 - next: aplicar migraciones 0022-0025 a D1 y hacer push para desplegar (wrangler no disponible en Android; usar GitHub Actions)
+2026-10-13 21:17:09 - git push origin main OK
+2026-10-13 21:21:12 - aplicadas migraciones 0022-0025 a D1 (OK)
+2026-10-13 21:46:11 - verificado traducciones registro en los 15 bloques de idioma presentes (base + traducidos). Variantes usan fallback.

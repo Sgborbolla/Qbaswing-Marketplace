@@ -100,7 +100,7 @@ CREATE INDEX IF NOT EXISTS idx_redes_vendedor ON redes_vendedor(vendedor_id, ord
 -- columna.
 --
 -- Solucion: `moneda` se queda como la moneda "fuerte" a la que se contabiliza
- * (CUP, USD o EUR, el `bucket` de `monedas.ts`), y el codigo real que eligio el
+-- (CUP, USD o EUR, el `bucket` de `monedas.ts`), y el codigo real que eligio el
 -- vendedor (MXN, ARS, BRL, JPY...) se guarda aqui. La ficha y los precios se
 -- pintan con `moneda_codigo`; la comision y los pagos siguen usando `moneda`.
 --
