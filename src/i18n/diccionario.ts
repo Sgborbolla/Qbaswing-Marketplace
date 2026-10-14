@@ -99,6 +99,7 @@ export const ES = {
     principal: 'Navegación principal',
     entrar: 'Entrar en mi cuenta',
     carritoCompras: 'Carrito de compras',
+    salirTienda: 'Salir de la tienda',
   },
 
   /* --- Estados vacios. La diferencia con un error importa. --- */
@@ -811,6 +812,7 @@ const EN: Diccionario = {
     principal: 'Main navigation',
     entrar: 'Sign in to my account',
     carritoCompras: 'Shopping cart',
+    salirTienda: 'Leave the store',
   },
   vacio: {
     sinProductos: 'No products published yet',
@@ -1443,6 +1445,7 @@ const PT: Diccionario = {
     principal: 'Navegação principal',
     entrar: 'Entrar na minha conta',
     carritoCompras: 'Carrinho de compras',
+    salirTienda: 'Sair da loja',
   },
   vacio: {
     sinProductos: 'Ainda não há produtos publicados',
@@ -2075,6 +2078,7 @@ const FR: Diccionario = {
     principal: 'Navigation principale',
     entrar: 'Se connecter à mon compte',
     carritoCompras: "Panier d'achat",
+    salirTienda: 'Quitter la boutique',
   },
   vacio: {
     sinProductos: 'Aucun produit publié pour le moment',
@@ -2715,6 +2719,7 @@ const DE: Diccionario = {
     principal: 'Hauptnavigation',
     entrar: 'In mein Konto anmelden',
     carritoCompras: 'Einkaufswagen',
+    salirTienda: 'Shop verlassen',
   },
   vacio: {
     sinProductos: 'Noch keine Produkte veröffentlicht',
@@ -3353,6 +3358,7 @@ const IT: Diccionario = {
     principal: 'Navigazione principale',
     entrar: 'Accedi al mio account',
     carritoCompras: 'Carrello',
+    salirTienda: 'Esci dal negozio',
   },
   vacio: {
     sinProductos: 'Non ci sono ancora prodotti pubblicati',
@@ -3993,6 +3999,7 @@ const CA: Diccionario = {
     principal: 'Navegació principal',
     entrar: 'Entrar al meu compte',
     carritoCompras: 'Cistella de compres',
+    salirTienda: 'Sortir de la botiga',
   },
   vacio: {
     sinProductos: 'Encara no hi ha productes publicats',
@@ -4565,6 +4572,7 @@ const GL: Diccionario = {
     principal: 'Navegación principal',
     entrar: 'Introduce a miña conta',
     carritoCompras: 'carro da compra',
+    salirTienda: 'Saír da tenda',
   },
   vacio: {
     sinProductos: 'Aínda non hai produtos publicados',
@@ -5137,6 +5145,7 @@ const EU: Diccionario = {
     principal: 'Nabigazio nagusia',
     entrar: 'Sartu nire kontua',
     carritoCompras: 'erosketa saskia',
+    salirTienda: 'Dendatik irten',
   },
   vacio: {
     sinProductos: 'Oraindik ez dago produkturik argitaratu',
@@ -5709,6 +5718,7 @@ const RU: Diccionario = {
     principal: 'Основная навигация',
     entrar: 'Войдите в мой аккаунт',
     carritoCompras: 'корзина',
+    salirTienda: 'Выйти из магазина',
   },
   vacio: {
     sinProductos: 'Еще нет опубликованных продуктов',
@@ -6281,6 +6291,7 @@ const AR: Diccionario = {
     principal: 'الملاحة الرئيسية',
     entrar: 'أدخل حسابي',
     carritoCompras: 'عربة التسوق',
+    salirTienda: 'الخروج من المتجر',
   },
   vacio: {
     sinProductos: 'لا توجد منتجات منشورة بعد',
@@ -6853,6 +6864,7 @@ const ZH_CN: Diccionario = {
     principal: '主导航',
     entrar: '输入我的帐户',
     carritoCompras: '购物车',
+    salirTienda: '退出商店',
   },
   vacio: {
     sinProductos: '还没有发布产品',
@@ -7425,6 +7437,7 @@ const ZH_TW: Diccionario = {
     principal: '主導航',
     entrar: '輸入我的帳戶',
     carritoCompras: '購物車',
+    salirTienda: '離開商店',
   },
   vacio: {
     sinProductos: '還沒發布產品',
@@ -7997,6 +8010,7 @@ const JA: Diccionario = {
     principal: 'メインナビゲーション',
     entrar: '私のアカウントを入力してください',
     carritoCompras: 'ショッピングカート',
+    salirTienda: 'ストアを出る',
   },
   vacio: {
     sinProductos: 'まだ公開されている製品はありません',
@@ -8569,6 +8583,7 @@ const KO: Diccionario = {
     principal: '메인 네비게이션',
     entrar: '내 계정을 입력하세요',
     carritoCompras: '장바구니',
+    salirTienda: '상점 나가기',
   },
   vacio: {
     sinProductos: '아직 출시된 제품이 없습니다.',

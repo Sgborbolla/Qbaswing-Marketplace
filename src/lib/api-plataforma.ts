@@ -80,8 +80,8 @@ async function pedirLista<T>(ruta: string, clave: string): Promise<T[]> {
 /**
  * Redes sociales del marketplace.
  *
- * Devuelve las ocho redes con `valor: ''` porque eso es lo que hay en la base:
- * el Owner todavia no completo ninguna. NO devuelve `@usuario` de ejemplo: un
+ * Devuelve las redes con `valor: ''` porque eso es lo que hay en la base:
+ * el Owner todavia no las completo todas. NO devuelve `@usuario` de ejemplo: un
  * icono de Instagram que apunta a una cuenta inexistente es PEOR que ningun
  * icono, porque el visitante hace clic, ve que la cuenta no esta, y concluye que
  * el marketplace es falso. El footer filtra las vacias y no las dibuja.

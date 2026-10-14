@@ -24,6 +24,15 @@ interface Props {
   themeColor?: string
   /** Oculta el header en pantallas de tipo panel. */
   sinHeader?: boolean
+  /**
+   * Oculta la flecha de "volver".
+   *
+   * Se usa en la portada: ahi no hay un "atras" con sentido, y la flecha del
+   * sitio compite con el logo y la navegacion en la primera pantalla. Es un
+   * `boolean` y no el escondite automatico por referrer porque la home SI puede
+   * tener referrer (llegar desde un producto) y aun asi no debe mostrar flecha.
+   */
+  sinVolver?: boolean
 }
 
 const {
@@ -31,6 +40,7 @@ const {
   descripcion = 'QBASwing Marketplace: software, plantillas, menu digitales, artesanias y productos fisicos de Cuba y el mundo.',
   themeColor = '#f6f8ff',
   sinHeader = false,
+  sinVolver = false,
 } = Astro.props
 
 // Nombre de la pagina: "Detalle | QBASwing Marketplace" salvo en la home.
@@ -216,16 +226,20 @@ const urlLogo = new URL('/logo-qbaswing-og.jpg', origen)
         página anterior DENTRO del sitio y la flecha no se pinta. Las reglas
         están escritas en el script de abajo.
       */}
-      <div id="barra-volver" class="container-page hidden pt-4">
-        <button
-          type="button"
-          id="boton-volver"
-          class="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-label-md font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
-        >
-          <Icono nombre="arrow_back" class="text-[18px]" />
-          {t.comun.volver}
-        </button>
-      </div>
+      {
+        !sinVolver && (
+          <div id="barra-volver" class="container-page hidden pt-4">
+            <button
+              type="button"
+              id="boton-volver"
+              class="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-label-md font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+            >
+              <Icono nombre="arrow_back" class="text-[18px]" />
+              {t.comun.volver}
+            </button>
+          </div>
+        )
+      }
 
       <slot />
     </main>

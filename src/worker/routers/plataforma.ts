@@ -17,9 +17,9 @@
  * ============================================================================
  *  LO QUE NUNCA SE INVENTA
  * ============================================================================
- * `0002_datos_plataforma.sql` inserta las ocho redes con `valor = ''` y un
- * contacto vacio. Este router devuelve ese estado tal cual, con `valor: ''`, en
- * vez de rellenarlo con cuentas de ejemplo.
+ * `0002_datos_plataforma.sql` inserta las redes con `valor = ''` (y la `0026`
+ * apaga GitHub y Discord), con un contacto vacio. Este router devuelve ese
+ * estado tal cual, con `valor: ''`, en vez de rellenarlo con cuentas de ejemplo.
  *
  * Un placeholder del tipo `@qbaswing_oficial` en un sitio recien lanzado es una
  * mentira que el visitante da por cierta, y si el Owner nunca lo cambia queda

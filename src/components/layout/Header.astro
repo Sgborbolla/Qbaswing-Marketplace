@@ -38,6 +38,7 @@ const ICONO = {
   buscar: 'search',
   carrito: 'shopping_cart',
   cuenta: 'account_circle',
+  tienda: 'storefront',
   menu: 'menu',
   cerrar: 'close',
 } as const
@@ -153,6 +154,23 @@ const ICONO = {
         <BotonCerrarSesion />
       </span>
 
+      {/*
+        "Salir de la tienda": solo dentro del panel. NO cierra la sesion —eso lo
+        hace BotonCerrarSesion— y NO lleva al inicio. Devuelve al catalogo publico
+        (/productos) para que el vendedor siga mirando otras tiendas con la cuenta
+        abierta. El `href` es real para que funcione sin JavaScript; el script de
+        abajo solo decide si se ve.
+      */}
+      <a
+        href="/productos"
+        data-panel="tienda"
+        class="hidden rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+        aria-label={t.nav.salirTienda}
+        title={t.nav.salirTienda}
+      >
+        <Icono nombre={ICONO.tienda} class="text-headline-sm" />
+      </a>
+
       <a
         href="/carrito"
         class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
@@ -191,6 +209,20 @@ const ICONO = {
   // en un "entra primero".
   const resultado = await sesionActual()
   mostrar(resultado.ok && resultado.datos.usuario !== null)
+
+  /*
+    El enlace "Salir de la tienda" solo tiene sentido dentro del panel. Se decide
+    por la URL y no por la sesion: estar dentro no basta (un comprador logueado
+    que mira /productos no debe ver el boton). Se hace aqui y no con CSS porque
+    el sitio es estatico y el HTML es el mismo para todos.
+  */
+  function marcarPanel() {
+    const enPanel = /^\/panel(\/|$)/.test(location.pathname)
+    for (const nodo of document.querySelectorAll<HTMLElement>('[data-panel]')) {
+      nodo.classList.toggle('hidden', !enPanel)
+    }
+  }
+  marcarPanel()
 
   // Si el usuario entra o sale en otra pestana, la cabecera se entera. `storage`
   // es el evento que el navegador lanza entre pestanas del mismo origen; dentro

@@ -1,0 +1,42 @@
+-- ============================================================================
+-- 0026 — Redes del footer: dejar seis
+-- ============================================================================
+--
+-- QUE HACE
+--   Apaga (activo = 0) las redes que el Owner no quiere en el footer. La tabla
+--   las conserva enteras —con su `valor`, su `orden` y su icono— para poder
+--   volver a encenderlas sin rescribir nada; lo unico que cambia es `activo`.
+--
+-- POR QUE SOLO ESTAS
+--   El footer debe mostrar el mismo conjunto que la tienda de referencia
+--   —Facebook, Instagram, YouTube y LinkedIn— con WhatsApp en el puesto que
+--   alli ocupa Twitter, y Telegram primero. Es decir, SEIS:
+--
+--     Telegram, WhatsApp, Facebook, Instagram, LinkedIn, YouTube
+--
+--   GitHub y Discord salen. No es que no sirvan: es que el pie paso de ser un
+--   tablon de enlaces tecnicos a una fila de redes de marca, y cada icono de
+--   mas es una salida de la pagina. Twitter entra en la lista de abajo por si
+--   una base vieja lo tuviera: en el esquema actual no existe, pero apagarlo
+--   dos veces no hace dano.
+--
+-- LO QUE NO HACE
+--   No toca `valor`. Las redes siguen vacias hasta que el Owner ponga su
+--   usuario o su URL; la `0026` solo decide CUALES se dibujan.
+--
+-- IDEMPOTENCIA
+--   Son tres `UPDATE ... WHERE etiqueta = ?`. Reaplicarla deja el mismo estado.
+-- ============================================================================
+
+UPDATE redes_sociales SET activo = 0 WHERE etiqueta IN ('GitHub', 'Discord', 'Twitter');
+
+-- ---------------------------------------------------------------------------
+-- Comprobacion
+-- ---------------------------------------------------------------------------
+--
+-- SELECT etiqueta, activo, orden
+--   FROM redes_sociales
+--  ORDER BY orden;
+--
+-- Esperado: seis filas con activo = 1 (Telegram 1 ... YouTube 6) y las que se
+-- apagaron con activo = 0.

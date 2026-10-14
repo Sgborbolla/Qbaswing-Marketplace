@@ -16,3 +16,8 @@
 2026-10-13 23:06:12 - visto estado redes en marlon solaris (tiene Facebook/Instagram/Twitter/YouTube/LinkedIn)
 2026-10-13 23:07:46 - pedido: quitar twitter, añadir whatsapp en redes sociales del footer/tiendas según configuración
 2026-10-13 23:10:00 - redes sociales gestionables desde panel owner (DB redes_sociales). Footer las lee de API
+2026-10-14 08:53:56 - redes footer a 6 (Telegram, WhatsApp, Facebook, Instagram, LinkedIn, YouTube): REDES_INICIALES en src/lib/plataforma.ts sin GitHub/Discord + migración 0026_redes_footer.sql (activo=0 para GitHub/Discord/Twitter)
+2026-10-14 08:53:56 - i18n: nueva clave nav.salirTienda en los 15 idiomas (src/i18n/diccionario.ts); tsc del diccionario OK
+2026-10-14 08:53:56 - Header.astro: enlace "Salir de la tienda" (icono storefront) visible SOLO en /panel (data-panel + JS por pathname); NO cierra sesión, va a /productos
+2026-10-14 08:53:56 - Base.astro: prop sinVolver oculta la flecha de volver; index.astro pasa sinVolver (home sin flecha)
+2026-10-14 08:53:56 - 0026 validada en SQLite en memoria: 6 activas, GitHub/Discord=0, idempotente. Pendiente: aplicar migración a D1 y git push (Android: vía GitHub Actions)

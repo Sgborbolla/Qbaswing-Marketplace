@@ -67,15 +67,15 @@ export interface RedSocialPlataforma {
  * Se crean vacias al aplicar el esquema. El Owner las completa desde el panel.
  *
  * ============================================================================
- *  EL ORDEN: TELEGRAM PRIMERO, DISCORD AL ULTIMO
+ *  EL ORDEN: TELEGRAM Y WHATSAPP PRIMERO
  * ============================================================================
  * Este orden lo fijo la migracion `0004`, despues de mirar el footer de la
  * pasarela con la que se cobra: https://www.qvapay.com
  *
- * Lo que hace esa pasarela es poner Telegram el primero de sus ocho, y no por
- * costumbre: su canal de soporte (`t.me/qvapaysupport_bot`) y el de ventas son
- * el mismo, y ahi es donde llega la gente. En Cuba pasa igual, asi que aqui se
- * replica la LOGICA y no la lista.
+ * Lo que hace esa pasarela es poner Telegram el primero, y no por costumbre: su
+ * canal de soporte (`t.me/qvapaysupport_bot`) y el de ventas son el mismo, y
+ * ahi es donde llega la gente. En Cuba pasa igual, asi que aqui se replica la
+ * LOGICA y no la lista.
  *
  * Lo que NO se replica es su paleta. Alli el color de marca es un violeta
  * (`#6759ef`) porque son una pasarela de pagos; aca el azul `#004199` viene del
@@ -86,15 +86,12 @@ export interface RedSocialPlataforma {
  *   1. Telegram  el canal de soporte y de venta
  *   2. WhatsApp  el canal real de la compra por transferencia
  *   3-6. Facebook, Instagram, LinkedIn, YouTube  presencia y credibilidad
- *   7. GitHub    el codigo, que es lo que importa en productos digitales
- *   8. Discord   comunidad tecnica: es el mas especifico de la lista y no es
- *                por donde entra un comprador nuevo, pero se queda porque el
- *                Owner lo pidio y porque un enlace al fondo sigue siendo util
  *
- * La version anterior de esta constante tenia Facebook primero y Discord en el
- * puesto 6, que era el peor sitio posible para el: quedaba entre GitHub y
- * Telegram, ni por arriba con los que compran ni por abajo con los que se
- * adhieren.
+ * Son SEIS, y no las ocho de la version anterior. El Owner pidio el mismo
+ * conjunto que la tienda de referencia —Facebook, Instagram, YouTube y
+ * LinkedIn— con WhatsApp en el puesto que alli ocupa Twitter, y Telegram
+ * primero. GitHub y Discord se quitaron: el pie ya no es un tablon de enlaces
+ * tecnicos y cada icono de mas es una salida mas de la pagina.
  */
 /**
  * `valor: ''` esta EXPLICITO en cada red, y no se omite con `Omit`.
@@ -190,25 +187,6 @@ export const REDES_INICIALES: Omit<RedSocialPlataforma, 'id'>[] = [
     activo: true,
     mostrarVacia: false,
     orden: 6,
-  },
-  {
-    etiqueta: 'GitHub',
-    icono: 'code',
-    tipo: 'usuario',
-    base: 'https://github.com/',
-    valor: '',
-    activo: true,
-    mostrarVacia: false,
-    orden: 7,
-  },
-  {
-    etiqueta: 'Discord',
-    icono: 'forum',
-    tipo: 'url',
-    valor: '',
-    activo: true,
-    mostrarVacia: false,
-    orden: 8,
   },
 ]
 
