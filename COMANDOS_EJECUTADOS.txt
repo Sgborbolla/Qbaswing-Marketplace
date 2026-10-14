@@ -14,3 +14,4 @@
 2026-10-13 22:50:49 - volver botón solo aparece si hay historial dentro del sitio; lógica ya implementada en Base.astro
 2026-10-13 23:03:06 - Revisar estado redes API: https://qbaswing-api.sgborbolla.workers.dev/api/plataforma/redes
 2026-10-13 23:06:12 - visto estado redes en marlon solaris (tiene Facebook/Instagram/Twitter/YouTube/LinkedIn)
+2026-10-13 23:07:46 - pedido: quitar twitter, añadir whatsapp en redes sociales del footer/tiendas según configuración
