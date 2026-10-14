@@ -3,3 +3,8 @@
 2026-10-13 21:17:09 - git push origin main OK
 2026-10-13 21:21:12 - aplicadas migraciones 0022-0025 a D1 (OK)
 2026-10-13 21:46:11 - verificado traducciones registro en los 15 bloques de idioma presentes (base + traducidos). Variantes usan fallback.
+2026-10-13 21:56:41 - git push (commit 79aa2c3) OK
+2026-10-13 21:57:45 - astro build falló por WASI deps (satteri) en entorno Android - usar ruta alternativa si necesario
+2026-10-13 21:57:57 - cambios subidos. Migraciones 0022-0025 aplicadas a D1. GitHub Actions desplegará Worker/Pages al recibir push.
+2026-10-13 21:58:44 - GitHub Actions: Migraciones + Worker deploy exitoso (migraciones 0022-25 ya aplicadas, Worker desplegado)
+2026-10-13 22:40:18 - astro check/build fallan por optional deps WASI (satteri) en Android; deploy por GitHub Actions es correcto
