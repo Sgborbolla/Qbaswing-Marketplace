@@ -6,10 +6,12 @@
  * Estados vacíos reales si no existe o falla la carga.
  */
 import Miniatura from '../../components/Miniatura.astro'
+import Precios from '../../components/Precios.astro'
 import Base from '../../layouts/Base.astro'
 import QrCuenta from '../../components/QrCuenta.astro'
 import { formatearFecha, formatearPrecio } from '../../lib/formato'
 import { miniaturaDeCategoria } from '../../lib/miniaturas'
+import { listaDePrecios } from '../../lib/precios-producto'
 
 import { IDIOMAS } from '../../i18n/config'
 import { listarProductos, obtenerMediosPago, obtenerProducto } from '../../lib/api'
@@ -45,7 +47,7 @@ let mensaje = ''
 
 try {
   if (slug) {
-    producto = await obtenerProducto(slug)
+    producto = await obtenerProducto(slug, { idioma: Astro.currentLocale })
   } else {
     error = true
     mensaje = t.ficha.faltaIdentificador
@@ -59,6 +61,11 @@ const titulo = producto ? producto.titulo : error ? t.ficha.errorCarga : t.ficha
 
 const medios = producto ? await obtenerMediosPago() : []
 const mediosListos = medios.filter((m) => (m.dato ?? '').trim() !== '')
+
+// Las monedas en las que se ofrece. Con una sola no hay nada que elegir y se
+// pinta directo; con dos o mas se muestran como botones para que el comprador
+// elija en cual pagar (es lo que se manda al carrito).
+const preciosDisponibles = producto ? listaDePrecios(producto.precios) : []
 
 // La galería: nombre propio para lo que ya viene, y la miniatura de la
 // categoría cuando no hay ninguna imagen. Un producto sin fotos es válido y
@@ -255,9 +262,33 @@ const sinExistencias = producto?.tipo === 'fisico' && (producto.detallesFisicos?
                   })()}
                 </div>
               ) : null}
-              <p class="font-headline text-display text-primary">
-                {formatearPrecio(producto.precio, producto.moneda)}
-              </p>
+
+              {preciosDisponibles.length > 1 ? (
+                <div id="monedas" class="mt-1 flex flex-wrap gap-2" role="group" aria-label={t.ficha.anadirCarrito}>
+                  {preciosDisponibles.map((opcion, i) => (
+                    <button
+                      type="button"
+                      class:list={[
+                        'moneda rounded-full border-2 px-4 py-2 text-body-md font-semibold transition',
+                        i === 0
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-outline-variant/60 text-on-surface hover:border-primary',
+                      ]}
+                      data-moneda={opcion.moneda}
+                      aria-pressed={i === 0 ? 'true' : 'false'}
+                    >
+                      {formatearPrecio(opcion.monto, opcion.moneda)}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <Precios
+                  precios={producto.precios}
+                  variante="ficha"
+                  respaldo={{ monto: producto.precio, moneda: producto.moneda }}
+                />
+              )}
+
               {producto.precioAnterior && producto.precioAnterior > producto.precio && (
                 <p class="mt-1 text-label-sm text-secondary">Gran descuento</p>
               )}
@@ -374,12 +405,32 @@ const sinExistencias = producto?.tipo === 'fisico' && (producto.detallesFisicos?
     })
   })
 
+  // Con una sola moneda no hay botones y se manda `null`: el Worker usa la
+  // moneda base del producto. Con varias, la primera viene marcada desde el
+  // HTML y el comprador puede cambiarla antes de anadir.
+  let monedaElegida: string | null = null
+  const botonesMoneda = document.querySelectorAll<HTMLButtonElement>('.moneda')
+  botonesMoneda.forEach((b, i) => {
+    if (i === 0) monedaElegida = b.dataset.moneda ?? null
+    b.addEventListener('click', () => {
+      monedaElegida = b.dataset.moneda ?? null
+      botonesMoneda.forEach((x) => {
+        x.classList.remove('border-primary', 'bg-primary/5', 'text-primary')
+        x.classList.add('border-outline-variant/60')
+        x.setAttribute('aria-pressed', 'false')
+      })
+      b.classList.add('border-primary', 'bg-primary/5', 'text-primary')
+      b.classList.remove('border-outline-variant/60')
+      b.setAttribute('aria-pressed', 'true')
+    })
+  })
+
   const boton = document.getElementById('anadir-carrito') as HTMLButtonElement | null
   const aviso = document.getElementById('aviso-carrito')
   boton?.addEventListener('click', async () => {
     const productoId = Number(boton.dataset.producto)
     boton.disabled = true
-    const r = await anadir(productoId, 1, varianteId)
+    const r = await anadir(productoId, 1, varianteId, monedaElegida)
     boton.disabled = false
     if (aviso) {
       aviso.textContent = r.ok ? 'Añadido al carrito.' : r.mensaje

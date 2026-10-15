@@ -37,6 +37,17 @@ export interface Env {
    */
   ARCHIVOS: KVNamespace
 
+  /**
+   * Binding de Workers AI, para traducir los productos.
+   *
+   * Opcional a proposito: si el binding no esta declarado (o la cuenta no tiene
+   * Workers AI activado), `env.AI` llega `undefined` y la traduccion simplemente
+   * no ocurre; el producto se sirve en su idioma original. Asi el marketplace no
+   * se cae por no tener una funcion de conveniencia, que es la misma logica que
+   * con los avisos: un canal sin secretos no tumba el resto.
+   */
+  AI?: Ai
+
   /* --- Variables publicas (van en [vars]) --- */
 
   /** Origen del sitio. Sin esto, cualquiera podria llamar la API desde su pagina. */

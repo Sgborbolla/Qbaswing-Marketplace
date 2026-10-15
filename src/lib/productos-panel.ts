@@ -37,6 +37,7 @@
  */
 
 import { pedir, type Respuesta } from './identidad-cliente'
+import type { PreciosProducto } from './precios-producto'
 
 /** Ruta del Worker. Copiada a mano y no importada desde `worker/constantes.ts`. */
 const RUTA = '/api/panel/productos'
@@ -72,6 +73,8 @@ export interface ProductoPropio {
   precio: number
   precio_anterior: number | null
   moneda: MonedaProducto
+  /** Precio en cada una de las tres monedas. `null` = no se ofrece. */
+  precios: PreciosProducto
   publicado: boolean
   estado_publicacion: EstadoPublicacion
   categoria: string
@@ -82,14 +85,15 @@ export interface ProductoPropio {
 /**
  * Lo que se manda en `PATCH`.
  *
- * Los dos campos van siempre, aunque el servidor conservaria los que no
- * lleguen: mandar el formulario entero hace que la respuesta describa lo que
- * quedo guardado, y no solo la mitad que se acaba de tocar.
+ * `precios` lleva las tres monedas a la vez. Mandar `null` en una deja esa
+ * moneda sin precio (el producto deja de ofrecerse en ella); mandar el numero
+ * la fija. Se mandan las tres siempre, aunque el servidor conservaria las que
+ * no lleguen: asi la respuesta describe lo que quedo guardado entero y no solo
+ * la moneda que se acaba de tocar.
  */
 export interface PrecioEnvio {
   id: number
-  precio: number | string
-  moneda: MonedaProducto
+  precios: PreciosProducto
 }
 
 /** Resultado del cambio, para poder pintar lo que quedo sin volver a pedir todo. */
@@ -97,6 +101,7 @@ export interface PrecioGuardado {
   id: number
   precio: number
   moneda: MonedaProducto
+  precios: PreciosProducto
   precio_anterior: number | null
   /**
    * `true` si habia un precio anterior y el servidor lo borro porque deja de
@@ -150,8 +155,8 @@ export interface CuerpoProducto {
   descripcion: string
   descripcion_larga?: string
   categoria: string
-  moneda: MonedaProducto
-  precio: number
+  /** Precio en cada moneda. Basta con rellenar las que se ofrezcan. */
+  precios: PreciosProducto
   vitalicia?: boolean | null
   stack?: string[]
   licencia?: string
@@ -201,6 +206,7 @@ export interface ProductoDetalle {
     precio: number
     precio_anterior: number | null
     moneda: MonedaProducto
+    precios: PreciosProducto
     publicado: number
     estado_publicacion: EstadoPublicacion
     motivo_rechazo: string | null

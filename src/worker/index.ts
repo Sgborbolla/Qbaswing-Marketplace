@@ -56,9 +56,9 @@ import { responderPagos } from './routers/pagos'
 import { responderDescarga } from './routers/descargas'
 
 export default {
-  async fetch(peticion: Request, env: Env): Promise<Response> {
+  async fetch(peticion: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
-      return await enrutar(peticion, env)
+      return await enrutar(peticion, env, ctx)
     } catch (error) {
       // ============================================================================
       //  AQUI SE PERDIA EL CORS DE TODOS LOS ERRORES
@@ -119,7 +119,7 @@ function conCors(respuesta: Response, cors: Record<string, string>): Response {
  * rutas todavia es chico y un mapa de objetos serializado en el bundle no aporta
  * nada. Cuando las rutas pasen de veinte, se cambia a tabla.
  */
-async function enrutar(peticion: Request, env: Env): Promise<Response> {
+async function enrutar(peticion: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(peticion.url)
   const ruta = url.pathname.replace(/\/+$/, '') || '/'
 
@@ -137,7 +137,7 @@ async function enrutar(peticion: Request, env: Env): Promise<Response> {
     return new Response(null, { status: 200, headers: cors })
   }
 
-  const respuesta = await despachar(ruta, peticion, env)
+  const respuesta = await despachar(ruta, peticion, env, ctx)
   return conCors(respuesta, cors)
 }
 
@@ -145,6 +145,7 @@ async function despachar(
   ruta: string,
   peticion: Request,
   env: Env,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   const soloLectura = peticion.method === 'GET' || peticion.method === 'HEAD'
 
@@ -199,14 +200,14 @@ async function despachar(
   // arriba: primero la identidad, porque lo primero que hace es leer la cookie,
   // y antes que el catalogo porque es escritura privada.
   if (ruta === RUTAS.productosPropios) {
-    if (peticion.method === 'POST') return crearProducto(peticion, env)
+    if (peticion.method === 'POST') return crearProducto(peticion, env, ctx)
     return responderPanelProductos(peticion, env)
   }
 
   // Un producto concreto del panel (ficha completa, imagenes y variantes). Va
   // despues del archivo maestro, que comparte prefijo pero es otra cosa.
   if (ruta.startsWith('/api/panel/productos/')) {
-    return responderPanelProducto(peticion, env)
+    return responderPanelProducto(peticion, env, ctx)
   }
 
   // Revision de productos por el Owner (listar, aprobar, rechazar).

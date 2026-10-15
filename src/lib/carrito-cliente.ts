@@ -229,10 +229,18 @@ export function anadir(
   productoId: number,
   cantidad = 1,
   varianteId: number | null = null,
+  moneda: string | null = null,
 ): Promise<Respuesta<{ carrito: ContenidoCarrito }>> {
   return pedir<{ carrito: ContenidoCarrito }>('/api/carrito', {
     method: 'POST',
-    body: JSON.stringify({ producto_id: productoId, cantidad, variante_id: varianteId }),
+    body: JSON.stringify({
+      producto_id: productoId,
+      cantidad,
+      variante_id: varianteId,
+      // Solo se manda si se eligio una. El Worker, si no llega, usa la moneda
+      // base del producto; mandar `null` es lo mismo que no mandarla.
+      ...(moneda ? { moneda } : {}),
+    }),
   }).then((r) => (r.ok ? { ...r, datos: { carrito: contenidoDe(r.datos) } } : r))
 }
 

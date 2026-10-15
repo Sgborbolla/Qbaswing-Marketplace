@@ -43,6 +43,7 @@
 import { enteroDeQuery, json } from '../http'
 import { ErrorApi } from '../constantes'
 import type { Env } from '../entorno'
+import { IDIOMA_ORIGEN, idiomaBaseDe } from '../traduccion'
 
 /**
  * La condicion de visibilidad. Sin punto y coma: va pegada a otras condiciones
@@ -76,11 +77,11 @@ export async function responderCatalogo(
   switch (ruta) {
     case '/api/productos':
       return filtro.slug
-        ? json({ ok: true, producto: await productoPorSlug(env, filtro.slug) })
+        ? json({ ok: true, producto: await productoPorSlug(env, filtro.slug, idiomaDe(peticion)) })
         : json(await listarProductos(peticion, env))
     case '/api/vendedores':
       return filtro.slug
-        ? json({ ok: true, vendedor: await vendedorPorSlug(env, filtro.slug) })
+        ? json({ ok: true, vendedor: await vendedorPorSlug(env, filtro.slug, idiomaDe(peticion)) })
         : json(await listarVendedores(peticion, env))
     case '/api/categorias':
       return json({ ok: true, categorias: await categorias(env) })
@@ -94,6 +95,19 @@ export async function responderCatalogo(
 /* ===========================================================================
  * Productos
  * ======================================================================== */
+
+/**
+ * El idioma base que pide el visitante, o el original si no pide ninguno.
+ *
+ * La API no confia en el codigo tal cual: lo pasa por `idiomaBaseDe`, que
+ * reduce `pt-BR` a `pt` y manda lo desconocido al original. Ese valor se usa
+ * como parametro del JOIN, no como texto en el SQL, asi que no hay injection
+ * aunque llegue cualquier cosa.
+ */
+function idiomaDe(peticion: Request): string {
+  const raiz = new URL(peticion.url).searchParams.get('idioma')
+  return raiz ? idiomaBaseDe(raiz) : IDIOMA_ORIGEN
+}
 
 /**
  * Listado del catalogo.
@@ -156,11 +170,17 @@ async function listarProductos(peticion: Request, env: Env) {
 
   const total = await contar(env, `SELECT COUNT(*) AS n FROM productos p WHERE ${donde}`, valores)
 
+  const idioma = idiomaDe(peticion)
+
   const desplazamiento = (pagina - 1) * porPagina
   const { results } = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.titulo, p.descripcion, p.tipo, p.origen, p.regla,
+    `SELECT p.id, p.slug,
+            COALESCE(t.titulo, p.titulo) AS titulo,
+            COALESCE(t.descripcion, p.descripcion) AS descripcion,
+            p.tipo, p.origen, p.regla,
             p.categoria, p.precio, p.precio_anterior,
             COALESCE(p.moneda_codigo, p.moneda) AS moneda, p.destacado,
+            p.precio_cup, p.precio_usd, p.precio_eur,
             p.vitalicia, p.creado_at,
             v.slug AS vendedor_slug, v.nombre_comercial AS vendedor_nombre,
             (SELECT i.url
@@ -170,11 +190,12 @@ async function listarProductos(peticion: Request, env: Env) {
               LIMIT 1) AS imagen
        FROM productos p
        JOIN vendedores v ON v.id = p.vendedor_id
+       LEFT JOIN producto_traducciones t ON t.producto_id = p.id AND t.idioma = ?
       WHERE ${donde}
       ORDER BY ${ordenSql}
       LIMIT ? OFFSET ?`,
   )
-    .bind(...valores, porPagina, desplazamiento)
+    .bind(idioma, ...valores, porPagina, desplazamiento)
     .all()
 
   return {
@@ -191,11 +212,15 @@ async function listarProductos(peticion: Request, env: Env) {
 }
 
 /** Detalle de un producto. 404 si no existe O si no es visible. */
-async function productoPorSlug(env: Env, slug: string) {
+async function productoPorSlug(env: Env, slug: string, idioma: string) {
   const fila = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.titulo, p.descripcion, p.descripcion_larga,
+    `SELECT p.id, p.slug,
+            COALESCE(t.titulo, p.titulo) AS titulo,
+            COALESCE(t.descripcion, p.descripcion) AS descripcion,
+            COALESCE(t.descripcion_larga, p.descripcion_larga) AS descripcion_larga,
             p.tipo, p.origen, p.regla, p.categoria, p.precio, p.precio_anterior,
             COALESCE(p.moneda_codigo, p.moneda) AS moneda, p.destacado, p.vitalicia,
+            p.precio_cup, p.precio_usd, p.precio_eur,
             p.creado_at, p.actualizado_at,
             v.id AS vendedor_id,
             v.slug AS vendedor_slug, v.nombre_comercial AS vendedor_nombre,
@@ -206,12 +231,13 @@ async function productoPorSlug(env: Env, slug: string) {
             s.modalidad, s.duracion_estimada, s.incluye
        FROM productos p
        JOIN vendedores v ON v.id = p.vendedor_id
+       LEFT JOIN producto_traducciones t ON t.producto_id = p.id AND t.idioma = ?
        LEFT JOIN detalles_digitales d ON d.producto_id = p.id
        LEFT JOIN detalles_fisicos    f ON f.producto_id = p.id
        LEFT JOIN detalles_servicio   s ON s.producto_id = p.id
       WHERE ${WHERE_VISIBLE} AND p.slug = ?`,
   )
-    .bind(slug)
+    .bind(idioma, slug)
     .first<Record<string, unknown>>()
 
   // Mismo 404 para "no existe" y para "existe pero no es visible". Distinguirlos
@@ -366,7 +392,7 @@ async function listarVendedores(peticion: Request, env: Env) {
   return { ok: true, vendedores: results, total, pagina, por_pagina: porPagina }
 }
 
-async function vendedorPorSlug(env: Env, slug: string) {
+async function vendedorPorSlug(env: Env, slug: string, idioma: string) {
   const fila = await env.DB.prepare(
     `SELECT v.id, v.slug, v.nombre, v.nombre_comercial, v.descripcion, v.avatar_url,
             v.ubicacion, v.verificado, v.creado_at
@@ -379,15 +405,19 @@ async function vendedorPorSlug(env: Env, slug: string) {
   if (!fila) throw ErrorApi.noEncontrado('Ese vendedor')
 
   const productos = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.titulo, p.tipo, p.categoria, p.precio,
+    `SELECT p.id, p.slug,
+            COALESCE(t.titulo, p.titulo) AS titulo,
+            p.tipo, p.categoria, p.precio,
             COALESCE(p.moneda_codigo, p.moneda) AS moneda,
+            p.precio_cup, p.precio_usd, p.precio_eur,
             (SELECT i.url FROM producto_imagenes i
               WHERE i.producto_id = p.id ORDER BY i.orden, i.id LIMIT 1) AS imagen
        FROM productos p
+       LEFT JOIN producto_traducciones t ON t.producto_id = p.id AND t.idioma = ?
       WHERE ${WHERE_VISIBLE} AND p.vendedor_id = (SELECT id FROM vendedores WHERE slug = ?)
       ORDER BY p.creado_at DESC, p.id DESC`,
   )
-    .bind(slug)
+    .bind(idioma, slug)
     .all()
 
   const contacto = await contactoVendedor(env, fila.id as number)

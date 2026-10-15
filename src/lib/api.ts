@@ -44,6 +44,7 @@
 
 import type { Categoria, Moneda, SuscripcionEspacios, Transaccion, Usuario } from './tipos'
 import { COMISIONES, repartir, reglaDeOro } from './tipos'
+import { type PreciosProducto, preciosDeFila } from './precios-producto'
 
 /* -------------------------------------------------------------------------
  * Configuracion
@@ -197,10 +198,11 @@ export interface FiltrosCatalogo {
   categoria?: string
   tipo?: 'digital' | 'fisico' | 'servicio'
   busqueda?: string
-  orden?: 'destacados' | 'nuevo' | 'precio_asc' | 'precio_desc'
+  orden?: 'nuevo' | 'precio_asc' | 'precio_desc'
   soloDestacados?: boolean
   pagina?: number
   porPagina?: number
+  idioma?: string
 }
 
 export interface ResultadoPaginado<T> {
@@ -231,8 +233,9 @@ function serializarFiltros(f: FiltrosCatalogo): string {
   if (f.soloDestacados) params.set('destacado', '1')
   if (f.pagina) params.set('pagina', String(f.pagina))
   if (f.porPagina) params.set('por_pagina', String(f.porPagina))
-  const s = params.toString()
-  return s ? `?${s}` : ''
+  if (f.idioma) params.set('idioma', f.idioma)
+  const query = params.toString()
+  return query ? `?${query}` : ''
 }
 
 /**
@@ -255,6 +258,8 @@ export interface ProductoResumen {
   precio: number
   precioAnterior: number | null
   moneda: string
+  /** Precio en cada moneda. `null` = esa moneda no se ofrece. */
+  precios: PreciosProducto
   destacado: boolean
   vitalicia: boolean | null
   fechaPublicacion: string
@@ -277,6 +282,7 @@ function mapearResumen(f: Registro): ProductoResumen {
     precio: f.precio as number,
     precioAnterior: (f.precio_anterior as number | null) ?? null,
     moneda: f.moneda as ProductoResumen['moneda'],
+    precios: preciosDeFila(f),
     destacado: f.destacado === 1,
     vitalicia: (f.vitalicia as boolean | null) ?? null,
     fechaPublicacion: String(f.creado_at),
@@ -375,9 +381,10 @@ export interface RedTienda {
 
 export async function obtenerProducto(
   slug: string,
-  opciones?: OpcionesRequest,
+  opciones?: OpcionesRequest & { idioma?: string },
 ): Promise<Producto> {
-  const ruta = `/api/productos/${encodeURIComponent(slug)}`
+  const base = `/api/productos/${encodeURIComponent(slug)}`
+  const ruta = opciones?.idioma ? `${base}?idioma=${encodeURIComponent(opciones.idioma)}` : base
   const cuerpo = await pedir(ruta, opciones)
   const f = objetoDe(cuerpo, 'producto', ruta)
   return {
@@ -620,9 +627,10 @@ export interface Vendedor extends VendedorResumen {
 
 export async function obtenerVendedor(
   slug: string,
-  opciones?: OpcionesRequest,
+  opciones?: OpcionesRequest & { idioma?: string },
 ): Promise<Vendedor> {
-  const ruta = `/api/vendedores/${encodeURIComponent(slug)}`
+  const base = `/api/vendedores/${encodeURIComponent(slug)}`
+  const ruta = opciones?.idioma ? `${base}?idioma=${encodeURIComponent(opciones.idioma)}` : base
   const cuerpo = await pedir(ruta, opciones)
   const f = objetoDe(cuerpo, 'vendedor', ruta)
   const productos = (cuerpo.productos as Registro[] | undefined) ?? []

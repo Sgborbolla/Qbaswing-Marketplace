@@ -576,17 +576,22 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     caja.append(cabecera)
 
     const datos = el('dl', 'mt-3 grid gap-3 sm:grid-cols-2')
+    const conPrecio = MONEDAS_DE_PRECIO.map((m) => ({
+      moneda: m.valor,
+      monto: producto.precios[m.valor],
+    })).filter((x) => (x.monto ?? 0) > 0)
+
     datos.append(
       fila(
-        'Precio actual',
-        // El 0 no se pinta como 0 CUP: es "sin precio puesto", y el sitio
-        // publico hace exactamente lo mismo, para que lo que se ve aqui y lo
-        // que se ve en el escaparate no cuenten dos historias distintas.
-        producto.precio === 0
+        'Precios',
+        // El 0 y el `null` no se pintan como "0 CUP": son "sin precio en esa
+        // moneda", y el sitio publico hace exactamente lo mismo, para que lo que
+        // se ve aqui y lo que se ve en el escaparate no cuenten dos historias
+        // distintas.
+        conPrecio.length === 0
           ? 'Sin precio (no disponible)'
-          : formatearPrecio(producto.precio, producto.moneda),
+          : conPrecio.map((x) => formatearPrecio(x.monto as number, x.moneda)).join(' · '),
       ),
-      fila('Moneda', producto.moneda),
       fila('Categoria', producto.categoria || 'Sin categoria'),
     )
     if (producto.precio_anterior !== null) {
@@ -594,7 +599,7 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     }
     caja.append(datos)
 
-    if (producto.precio === 0) {
+    if (conPrecio.length === 0) {
       caja.append(
         el(
           'p',
@@ -650,12 +655,15 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
   }
 
   /**
-   * El formulario: dos campos, un envio y el mismo trato que el de cobro.
+   * El formulario: un campo por moneda, un envio.
    *
-   * Se mandan SIEMPRE los dos campos, aunque solo se haya tocado uno. En el
-   * servidor campo ausente significa "dejalo como estaba", y mandar el par
-   * completo hace que la respuesta describa lo que quedo guardado entero, no la
-   * mitad que se acaba de cambiar.
+   * Un producto puede venderse a la vez en CUP, USD y EUR. Cada moneda tiene su
+   * campo. Dejarlo vacio significa "no lo ofrezcas en esta moneda" (el Worker lo
+   * guarda como `null`); escribir un numero lo fija.
+   *
+   * No hay ningun tipo de cambio: el `250` en CUP y el `250` en USD son dos
+   * precios distintos que se teclean a mano. Por eso no hay un solo campo con un
+   * desplegable, que es lo que daria a entender que se convierte solo.
    */
   function formularioDePrecio(
     contenedor: HTMLElement,
@@ -672,57 +680,49 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
       el(
         'h4',
         'font-headline text-body-md font-semibold text-on-surface',
-        `Precio de "${producto.titulo}"`,
+        `Precios de "${producto.titulo}"`,
+      ),
+      el(
+        'p',
+        'text-body-sm text-on-surface-variant',
+        'Pon el precio en las monedas en que quieras venderlo. Deja en blanco las que no ofrezcas: el producto no aparecera en ellas.',
       ),
     )
 
-    const rejilla = el('div', 'grid gap-4 sm:grid-cols-2')
+    type Clave = 'CUP' | 'USD' | 'EUR'
+    const campos: { moneda: Clave; input: HTMLInputElement }[] = []
 
-    // --- Moneda. Primero, porque el aviso de la unidad depende de ella. ---
-    const grupoMoneda = el('div', 'space-y-1')
-    const rotuloMoneda = el('label', 'text-label-md font-medium text-on-surface', 'Moneda')
-    rotuloMoneda.htmlFor = 'precio-moneda'
-    const moneda = el(
-      'select',
-      'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
-    )
-    moneda.id = 'precio-moneda'
     for (const opcion of MONEDAS_DE_PRECIO) {
-      const item = el('option', '', opcion.texto)
-      item.value = opcion.valor
-      moneda.append(item)
+      const grupo = el('div', 'space-y-1')
+      const rotulo = el(
+        'label',
+        'text-label-md font-medium text-on-surface',
+        `${opcion.texto} — ${UNIDADES_DE_MONEDA[opcion.valor]}`,
+      )
+      const input = el(
+        'input',
+        'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
+      )
+      input.type = 'text'
+      input.inputMode = 'numeric'
+      input.id = `precio-${opcion.valor}`
+      rotulo.htmlFor = input.id
+      const actual = producto.precios[opcion.valor]
+      input.value = actual === null || actual === undefined ? '' : String(actual)
+      input.placeholder = 'Sin precio'
+      const ayuda = el('p', 'text-body-sm text-on-surface-variant', '')
+      const decirAyuda = (): void => {
+        ayuda.textContent =
+          input.value.trim() === ''
+            ? 'Sin precio: no se ofrece en esta moneda.'
+            : avisoDeUnidad(opcion.valor, input.value)
+      }
+      input.addEventListener('input', decirAyuda)
+      decirAyuda()
+      grupo.append(rotulo, input, ayuda)
+      formulario.append(grupo)
+      campos.push({ moneda: opcion.valor, input })
     }
-    moneda.value = producto.moneda
-    grupoMoneda.append(rotuloMoneda, moneda)
-    rejilla.append(grupoMoneda)
-
-    // --- Precio, en la misma unidad en que lo guarda la base. ---
-    const grupoPrecio = el('div', 'space-y-1')
-    const rotuloPrecio = el('label', 'text-label-md font-medium text-on-surface', 'Precio')
-    rotuloPrecio.htmlFor = 'precio-valor'
-    const precio = el(
-      'input',
-      'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
-    )
-    precio.type = 'text'
-    precio.inputMode = 'numeric'
-    precio.id = 'precio-valor'
-    precio.value = String(producto.precio)
-    const ayuda = el(
-      'p',
-      'text-body-sm text-on-surface-variant',
-      avisoDeUnidad(producto.moneda, precio.value),
-    )
-    grupoPrecio.append(rotuloPrecio, precio, ayuda)
-    rejilla.append(grupoPrecio)
-
-    formulario.append(rejilla)
-
-    const decirAyuda = (): void => {
-      ayuda.textContent = avisoDeUnidad(moneda.value, precio.value)
-    }
-    precio.addEventListener('input', decirAyuda)
-    moneda.addEventListener('change', decirAyuda)
 
     const mensaje = el(
       'p',
@@ -740,7 +740,7 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
       'inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-body-md font-semibold text-on-primary transition hover:bg-primary-container',
     )
     guardar.type = 'submit'
-    guardar.append(crearIcono('check', 'text-label-md'), el('span', '', 'Guardar precio'))
+    guardar.append(crearIcono('check', 'text-label-md'), el('span', '', 'Guardar precios'))
     const cancelar = el(
       'button',
       'rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-on-surface transition hover:border-primary',
@@ -757,27 +757,29 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     formulario.addEventListener('submit', (evento) => {
       evento.preventDefault()
 
-      // Antes de nada, que el desplegable siga diciendo la verdad. Se comprueba
-      // aqui y no solo al montarlo: el HTML de esta pagina se puede rellenar
-      // desde la consola como cualquier otro, y lo que se manda al servidor
-      // tiene que seguir pasando por el mismo filtro que el servidor aplicara.
-      const monedaElegida = moneda.value
-      if (!esMoneda(monedaElegida)) {
-        decir('Esa moneda no existe aqui. Elige CUP, USD o EUR.')
-        return
+      const precios: Record<Clave, number | null> = { CUP: null, USD: null, EUR: null }
+      for (const { moneda, input } of campos) {
+        const bruto = input.value.trim()
+        if (bruto === '') {
+          precios[moneda] = null
+          continue
+        }
+        const n = Number(bruto)
+        if (!Number.isInteger(n) || n < 0) {
+          decir(`El precio en ${moneda} tiene que ser un numero entero sin decimales, o quedar vacio.`)
+          return
+        }
+        precios[moneda] = n
       }
-      void guardarPrecio(monedaElegida)
+
+      void guardarPrecio(precios)
     })
 
-    async function guardarPrecio(monedaElegida: MonedaProducto): Promise<void> {
+    async function guardarPrecio(precios: Record<Clave, number | null>): Promise<void> {
       guardar.disabled = true
       cancelar.disabled = true
 
-      const respuesta = await cambiarPrecio({
-        id: producto.id,
-        precio: precio.value,
-        moneda: monedaElegida,
-      })
+      const respuesta = await cambiarPrecio({ id: producto.id, precios })
 
       guardar.disabled = false
       cancelar.disabled = false
@@ -791,9 +793,9 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
       huecoDelFormulario.classList.add('hidden')
 
       // El servidor puede haber borrado el precio anterior (el nuevo subio por
-      // encima, o cambio la moneda) y lo avisa. Si no se contara, quien lo tenga
-      // en la cabeza seguiria creyendo que la ficha ensena un "antes" que ya no
-      // esta, y lo comprobaria tarde.
+      // encima, o cambio la moneda base) y lo avisa. Si no se contara, quien lo
+      // tenga en la cabeza seguiria creyendo que la ficha ensena un "antes" que
+      // ya no esta, y lo comprobaria tarde.
       await refrescarPrecios(
         contenedor,
         esVendedor,

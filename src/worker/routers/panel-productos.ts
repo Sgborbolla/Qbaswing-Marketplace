@@ -16,8 +16,17 @@ import {
   urlPublicaDeImagen,
 } from '../../lib/imagenes'
 import { hashSha256 } from '../../lib/almacenamiento'
+import {
+  MONEDAS_PRINCIPALES,
+  type PreciosProducto,
+  esMonedaPrincipal,
+  monedaBaseDe,
+  precioBaseDe,
+  preciosDeFila,
+} from '../../lib/precios-producto'
 import { slugUnico } from '../slug'
 import { usuarioDePeticion, type UsuarioSesion } from './registro'
+import { traducirYGuardar } from '../traduccion'
 
 type Moneda = string
 
@@ -71,6 +80,9 @@ interface ProductoPanel {
   precio: number
   precio_anterior: number | null
   moneda: string
+  precio_cup: number | null
+  precio_usd: number | null
+  precio_eur: number | null
   destacado: number
   publicado: number
   vitalicia: number | null
@@ -107,6 +119,7 @@ async function productoDe(
     `SELECT id, slug, vendedor_id, titulo, descripcion, descripcion_larga, tipo,
             origen, regla, categoria, precio, precio_anterior,
             COALESCE(moneda_codigo, moneda) AS moneda, destacado,
+            precio_cup, precio_usd, precio_eur,
             publicado, vitalicia, estado_publicacion, aprobado_por, aprobado_at,
             motivo_rechazo
        FROM productos
@@ -131,7 +144,11 @@ function baseDeApi(env: Env, peticion: Request): string {
  * Crear
  * ======================================================================== */
 
-export async function crearProducto(peticion: Request, env: Env): Promise<Response> {
+export async function crearProducto(
+  peticion: Request,
+  env: Env,
+  ctx?: ExecutionContext,
+): Promise<Response> {
   const usuario = await sesion(peticion, env)
   const vendedorId = usuario.vendedor_id
   if (vendedorId === null) {
@@ -147,8 +164,11 @@ export async function crearProducto(peticion: Request, env: Env): Promise<Respon
   const descripcion = texto(cuerpo.descripcion, 'descripcion', 10, 500)
   const descripcionLarga = textoOpcional(cuerpo.descripcion_larga, 'descripcion_larga', 5000)
   const categoria = leerCategoria(cuerpo.categoria)
-  const moneda = leerMoneda(cuerpo.moneda, 'CUP')
-  const precio = leerPrecio(cuerpo.precio, 0)
+  const precios = leerPrecios(cuerpo, { CUP: null, USD: null, EUR: null })
+  // El precio base se DERIVA de los tres: no se acepta desde fuera, para que no
+  // pueda contradecirlos. Ordena el catalogo y es lo que se cobra por defecto.
+  const moneda = monedaBaseDe(precios)
+  const precio = precioBaseDe(precios)
   const vitalicia = tipo === 'digital' ? leerBooleano(cuerpo.vitalicia, null) : null
   const detalles = leerDetalles(tipo, cuerpo, null)
 
@@ -159,8 +179,8 @@ export async function crearProducto(peticion: Request, env: Env): Promise<Respon
       `INSERT INTO productos
          (slug, vendedor_id, titulo, descripcion, descripcion_larga, tipo, origen,
           regla, categoria, precio, moneda, moneda_codigo, vitalicia, publicado,
-          estado_publicacion)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'borrador')`,
+          estado_publicacion, precio_cup, precio_usd, precio_eur)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'borrador', ?, ?, ?)`,
     ).bind(
       slug,
       vendedorId,
@@ -175,6 +195,9 @@ export async function crearProducto(peticion: Request, env: Env): Promise<Respon
       bucketDe(moneda),
       moneda,
       vitalicia,
+      precios.CUP,
+      precios.USD,
+      precios.EUR,
     ),
     env.DB.prepare(
       sqlDetalle(tipo, '(SELECT id FROM productos WHERE slug = ?)'),
@@ -190,6 +213,11 @@ export async function crearProducto(peticion: Request, env: Env): Promise<Respon
     throw new ErrorApi('no_creado', 'No se pudo crear el producto.', 500)
   }
 
+  // Traduccion en segundo plano: la persona que guarda recibe la respuesta ya,
+  // y el Worker sigue traduciendo a los 13 idiomas base despues de responder.
+  // Sin `ctx` (por ejemplo en una prueba) simplemente no se traduce.
+  ctx?.waitUntil(traducirYGuardar(env, creado.id, { titulo, descripcion, descripcionLarga }))
+
   return json({ ok: true, producto: await detalleProducto(env, creado.id) }, 201)
 }
 
@@ -200,6 +228,7 @@ export async function crearProducto(peticion: Request, env: Env): Promise<Respon
 export async function responderPanelProducto(
   peticion: Request,
   env: Env,
+  ctx?: ExecutionContext,
 ): Promise<Response> {
   const usuario = await sesion(peticion, env)
 
@@ -219,13 +248,16 @@ export async function responderPanelProducto(
       await productoDe(env, usuario, id)
       return json({ ok: true, producto: await detalleProducto(env, id) })
     }
-    if (metodo === 'PUT') return editar(peticion, env, usuario, id)
+    if (metodo === 'PUT') return editar(peticion, env, usuario, id, ctx)
     if (metodo === 'DELETE') return borrar(env, usuario, id)
     throw ErrorApi.metodoNoPermitido('Ese metodo no existe aqui.', ['GET', 'PUT', 'DELETE'])
   }
 
-  if (accion === 'publicar' && metodo === 'POST') return publicar(env, usuario, id)
+  if (accion === 'publicar' && metodo === 'POST') return publicar(env, usuario, id, ctx)
   if (accion === 'despublicar' && metodo === 'POST') return despublicar(env, usuario, id)
+  // Vuelve a traducir el producto. Sirve para rellenar los que se publicaron
+  // antes de tener Workers AI, o para rehacerlo tras editar el original.
+  if (accion === 'traducir' && metodo === 'POST') return traducirProducto(env, usuario, id)
 
   if (accion === 'imagenes') {
     if (metodo === 'POST') return subirImagen(peticion, env, usuario, id)
@@ -249,6 +281,7 @@ async function detalleProducto(env: Env, id: number): Promise<Record<string, unk
     `SELECT id, slug, vendedor_id, titulo, descripcion, descripcion_larga, tipo,
             origen, regla, categoria, precio, precio_anterior,
             COALESCE(moneda_codigo, moneda) AS moneda, destacado,
+            precio_cup, precio_usd, precio_eur,
             publicado, vitalicia, estado_publicacion, aprobado_por, aprobado_at,
             motivo_rechazo, creado_at, actualizado_at
        FROM productos
@@ -281,6 +314,7 @@ async function detalleProducto(env: Env, id: number): Promise<Record<string, unk
 
   return {
     ...producto,
+    precios: preciosDeFila(producto),
     detalles,
     imagenes: imagenes.results ?? [],
     variantes: variantes.results ?? [],
@@ -313,6 +347,7 @@ async function editar(
   env: Env,
   usuario: UsuarioSesion,
   id: number,
+  ctx?: ExecutionContext,
 ): Promise<Response> {
   const existente = await productoDe(env, usuario, id)
   const cuerpo = (await cuerpoJson(peticion)) as Record<string, unknown>
@@ -329,8 +364,9 @@ async function editar(
     existente.descripcion_larga,
   )
   const categoria = leerCategoria(cuerpo.categoria, existente.categoria)
-  const moneda = leerMoneda(cuerpo.moneda, existente.moneda)
-  const precio = leerPrecio(cuerpo.precio, existente.precio)
+  const precios = leerPrecios(cuerpo, preciosDeFila(existente))
+  const moneda = monedaBaseDe(precios)
+  const precio = precioBaseDe(precios)
   const vitalicia =
     existente.tipo === 'digital'
       ? leerBooleano(cuerpo.vitalicia, existente.vitalicia)
@@ -358,7 +394,9 @@ async function editar(
   await env.DB.prepare(
     `UPDATE productos
         SET titulo = ?, descripcion = ?, descripcion_larga = ?, categoria = ?,
-            precio = ?, moneda = ?, moneda_codigo = ?, precio_anterior = ?,
+            precio = ?, moneda = ?, moneda_codigo = ?,
+            precio_cup = ?, precio_usd = ?, precio_eur = ?,
+            precio_anterior = ?,
             vitalicia = ?, publicado = ?, estado_publicacion = ?, motivo_rechazo = ?
       WHERE id = ?`,
   )
@@ -370,6 +408,9 @@ async function editar(
       precio,
       bucketDe(moneda),
       moneda,
+      precios.CUP,
+      precios.USD,
+      precios.EUR,
       precioAnterior,
       vitalicia,
       publicado,
@@ -383,6 +424,10 @@ async function editar(
   await env.DB.prepare(sqlDetalle(tipoEditar, '?'))
     .bind(id, ...valoresDetalle(tipoEditar, detalles))
     .run()
+
+  // El original cambio: se retraduce en segundo plano para que los idiomas no
+  // se queden mostrando el texto viejo.
+  ctx?.waitUntil(traducirYGuardar(env, id, { titulo, descripcion, descripcionLarga }))
 
   return json({ ok: true, producto: await detalleProducto(env, id) })
 }
@@ -429,7 +474,12 @@ async function borrar(env: Env, usuario: UsuarioSesion, id: number): Promise<Res
  * Publicar / retirar
  * ======================================================================== */
 
-async function publicar(env: Env, usuario: UsuarioSesion, id: number): Promise<Response> {
+async function publicar(
+  env: Env,
+  usuario: UsuarioSesion,
+  id: number,
+  ctx?: ExecutionContext,
+): Promise<Response> {
   const producto = await productoDe(env, usuario, id)
 
   if (producto.tipo === 'fisico') {
@@ -472,6 +522,16 @@ async function publicar(env: Env, usuario: UsuarioSesion, id: number): Promise<R
     }
   }
 
+  // Al publicar se asegura la traduccion: cubre los productos creados antes de
+  // que existiera la traduccion automatica, que si no se quedarian en espanol.
+  ctx?.waitUntil(
+    traducirYGuardar(env, id, {
+      titulo: producto.titulo,
+      descripcion: producto.descripcion,
+      descripcionLarga: producto.descripcion_larga,
+    }),
+  )
+
   return json({ ok: true, producto: await detalleProducto(env, id) })
 }
 
@@ -479,6 +539,32 @@ async function despublicar(env: Env, usuario: UsuarioSesion, id: number): Promis
   await productoDe(env, usuario, id)
   await env.DB.prepare('UPDATE productos SET publicado = 0 WHERE id = ?').bind(id).run()
   return json({ ok: true, producto: await detalleProducto(env, id) })
+}
+
+/**
+ * Vuelve a traducir un producto propio, esperando el resultado.
+ *
+ * A diferencia del guardado (que traduce en segundo plano), aqui se espera
+ * porque quien llama quiere saber si quedo traducido: es el boton de "rehacer la
+ * traduccion", y responder antes de terminar diria que si cuando todavia no.
+ * Si no hay IA, responde `traducido: false` en vez de fallar: no tener Workers
+ * AI no es un error del producto.
+ */
+async function traducirProducto(
+  env: Env,
+  usuario: UsuarioSesion,
+  id: number,
+): Promise<Response> {
+  const producto = await productoDe(env, usuario, id)
+  const hayIa = Boolean(env.AI)
+  if (hayIa) {
+    await traducirYGuardar(env, id, {
+      titulo: producto.titulo,
+      descripcion: producto.descripcion,
+      descripcionLarga: producto.descripcion_larga,
+    })
+  }
+  return json({ ok: true, traducido: hayIa })
 }
 
 function traducirError(error: unknown): Error {
@@ -907,6 +993,68 @@ function leerPrecio(valor: unknown, previo: number): number {
   if (n < 0) throw ErrorApi.invalido('precio', 'El precio no puede ser negativo.')
   // Sin tope artificial. Lo que importa es que se pueda representar y calcular.
   return Math.trunc(n) === n ? n : n // se conserva como numero; redondeo por moneda
+}
+
+/**
+ * Los tres precios de un producto, ya validados.
+ *
+ * Acepta dos formas por compatibilidad:
+ *
+ *   - `precios: { CUP, USD, EUR }` (la forma nueva). Cada clave que venga se
+ *     valida; las que no vengan conservan su valor anterior.
+ *   - `precio` + `moneda` (la forma vieja, de un solo precio). Se escribe en la
+ *     columna de esa moneda y las otras quedan como estaban. Un `moneda` que no
+ *     sea CUP/USD/EUR (por ejemplo MXN) no tiene columna propia: se guarda solo
+ *     en el precio base, que es lo que habia antes de la migracion 0029.
+ *
+ * Un precio `null`, `''` o ausente dentro del objeto significa "quitar esa
+ * moneda". `0` se guarda tal cual y el sitio lo pinta como "sin precio".
+ */
+function leerPrecios(cuerpo: Record<string, unknown>, previo: PreciosProducto): PreciosProducto {
+  const crudo = cuerpo.precios
+
+  if (crudo === undefined) {
+    if (cuerpo.precio === undefined && cuerpo.moneda === undefined) return previo
+    const moneda = leerMoneda(cuerpo.moneda, monedaBaseDe(previo))
+    const precio = leerPrecio(cuerpo.precio, precioBaseDe(previo))
+    if (!esMonedaPrincipal(moneda)) return previo
+    return { ...previo, [moneda]: precio }
+  }
+
+  if (typeof crudo !== 'object' || crudo === null || Array.isArray(crudo)) {
+    throw ErrorApi.invalido('precios', 'Los precios tienen que venir como un objeto con CUP, USD y EUR.')
+  }
+
+  const objeto = crudo as Record<string, unknown>
+  const salida: PreciosProducto = { ...previo }
+  let vioAlguno = false
+  for (const m of MONEDAS_PRINCIPALES) {
+    if (!(m in objeto)) continue
+    vioAlguno = true
+    salida[m] = leerPrecioOpcional(objeto[m], m)
+  }
+  if (!vioAlguno) {
+    throw ErrorApi.invalido('precios', 'Los precios tienen que venir como un objeto con CUP, USD y EUR.')
+  }
+  return salida
+}
+
+/** Un precio de una moneda concreta: entero >= 0, o `null` si se quita. */
+function leerPrecioOpcional(valor: unknown, campo: string): number | null {
+  if (valor === undefined || valor === null) return null
+  if (valor === '') return null
+  const n = typeof valor === 'number' ? valor : Number(String(valor).trim())
+  if (!Number.isFinite(n)) {
+    throw ErrorApi.invalido(campo, 'Ese precio no es un numero valido.')
+  }
+  if (!Number.isInteger(n)) {
+    throw ErrorApi.invalido(campo, 'El precio es un numero entero, sin decimales.')
+  }
+  if (n < 0) throw ErrorApi.invalido(campo, 'El precio no puede ser negativo.')
+  if (n > TOPE_PRECIO) {
+    throw ErrorApi.invalido(campo, 'Ese precio es demasiado grande para poder calcularlo.')
+  }
+  return n
 }
 
 function leerOpcion(

@@ -70,6 +70,18 @@ binding = "ARCHIVOS"
 id = "d17446bd79644534baad1a185830ad6e"
 
 # -----------------------------------------------------------------------------
+# Inteligencia artificial (traduccion de los productos)
+# -----------------------------------------------------------------------------
+# `binding = "AI"` coincide con `Env.AI` en `src/worker/entorno.ts`. Se usa para
+# traducir titulo y descripciones al guardar un producto (ver
+# `src/worker/traduccion.ts`). NO lleva cuenta ni clave: Workers AI se factura en
+# la cuenta de Cloudflare y hay que activarlo una vez en el panel (Workers AI ->
+# aceptar terminos). Si no esta activado, `env.AI` llega undefined y el producto
+# se sirve sin traducir; nada mas se cae.
+[ai]
+binding = "AI"
+
+# -----------------------------------------------------------------------------
 # Observabilidad
 # -----------------------------------------------------------------------------
 [observability]

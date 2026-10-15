@@ -139,6 +139,13 @@ import { cuerpoJson, json } from '../http'
 import { crearAlmacenamientoKV, ErrorAlmacenamiento } from '../../lib/almacenamiento-kv'
 import { usuarioDePeticion } from './registro'
 import { bucketDe, esMonedaValida } from '../../lib/monedas'
+import {
+  MONEDAS_PRINCIPALES,
+  type PreciosProducto,
+  esMonedaPrincipal,
+  monedaBaseDe,
+  precioBaseDe,
+} from '../../lib/precios-producto'
 
 /*
  * La moneda de un producto la elige el vendedor entre las del mundo (ver
@@ -199,6 +206,7 @@ async function listar(env: Env, vendedorId: number | null): Promise<Response> {
   const filas = await env.DB.prepare(
     `SELECT id, slug, titulo, precio, precio_anterior,
             COALESCE(moneda_codigo, moneda) AS moneda,
+            precio_cup, precio_usd, precio_eur,
             publicado, estado_publicacion, categoria, regla, actualizado_at
        FROM productos
       WHERE vendedor_id = ?
@@ -212,6 +220,9 @@ async function listar(env: Env, vendedorId: number | null): Promise<Response> {
       precio: number
       precio_anterior: number | null
       moneda: string
+      precio_cup: number | null
+      precio_usd: number | null
+      precio_eur: number | null
       publicado: number
       estado_publicacion: string
       categoria: string
@@ -226,6 +237,11 @@ async function listar(env: Env, vendedorId: number | null): Promise<Response> {
     precio: f.precio,
     precio_anterior: f.precio_anterior,
     moneda: f.moneda,
+    precios: {
+      CUP: f.precio_cup ?? null,
+      USD: f.precio_usd ?? null,
+      EUR: f.precio_eur ?? null,
+    },
     publicado: f.publicado === 1,
     estado_publicacion: f.estado_publicacion,
     categoria: f.categoria,
@@ -258,17 +274,31 @@ async function cambiar(
   }
 
   const existente = await env.DB.prepare(
-    `SELECT precio, precio_anterior, COALESCE(moneda_codigo, moneda) AS moneda
+    `SELECT precio, precio_anterior, COALESCE(moneda_codigo, moneda) AS moneda,
+            precio_cup, precio_usd, precio_eur
        FROM productos
       WHERE id = ? AND vendedor_id = ?`,
   )
     .bind(id, vendedorId)
-    .first<{ precio: number; precio_anterior: number | null; moneda: string }>()
+    .first<{
+      precio: number
+      precio_anterior: number | null
+      moneda: string
+      precio_cup: number | null
+      precio_usd: number | null
+      precio_eur: number | null
+    }>()
 
   if (!existente) throw ErrorApi.noEncontrado('Ese producto')
 
-  const precio = leerPrecio(cuerpo.precio, existente.precio)
-  const moneda = leerMoneda(cuerpo.moneda, existente.moneda)
+  const previo: PreciosProducto = {
+    CUP: existente.precio_cup ?? null,
+    USD: existente.precio_usd ?? null,
+    EUR: existente.precio_eur ?? null,
+  }
+  const precios = leerPrecios(cuerpo, previo)
+  const precio = precioBaseDe(precios)
+  const moneda = monedaBaseDe(precios)
 
   /*
    * Las dos razones por las que el precio de antes deja de poder quedarse.
@@ -291,11 +321,24 @@ async function cambiar(
         SET precio = ?,
             moneda = ?,
             moneda_codigo = ?,
+            precio_cup = ?,
+            precio_usd = ?,
+            precio_eur = ?,
             precio_anterior = ?,
             actualizado_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE id = ? AND vendedor_id = ?`,
   )
-    .bind(precio, bucketDe(moneda), moneda, precioAnterior, id, vendedorId)
+    .bind(
+      precio,
+      bucketDe(moneda),
+      moneda,
+      precios.CUP,
+      precios.USD,
+      precios.EUR,
+      precioAnterior,
+      id,
+      vendedorId,
+    )
     .run()
 
   // Dos consultas con el mismo `WHERE`, pero la primera podia encontrar la fila
@@ -310,6 +353,7 @@ async function cambiar(
       id,
       precio,
       moneda,
+      precios,
       precio_anterior: precioAnterior,
       precioAnteriorBorrado: precioAnterior === null && existente.precio_anterior !== null,
     },
@@ -386,6 +430,61 @@ function leerMoneda(actual: unknown, previo: string): string {
   }
 
   return valor
+}
+
+/**
+ * Los tres precios de un producto propio, ya validados.
+ *
+ * Es la misma regla que en `panel-productos.ts`, copiada a proposito: los dos
+ * routers validan por separado y no comparten una funcion porque tienen
+ * mensajes de error distintos y este archivo no importa del otro.
+ *
+ * Se aceptan las dos formas por compatibilidad: `precios: { CUP, USD, EUR }`
+ * (la nueva) y `precio` + `moneda` (la vieja, de un solo precio). En la forma
+ * vieja, una moneda que no sea CUP/USD/EUR no tiene columna propia y se guarda
+ * solo en el precio base.
+ */
+function leerPrecios(cuerpo: Record<string, unknown>, previo: PreciosProducto): PreciosProducto {
+  const crudo = cuerpo.precios
+
+  if (crudo === undefined) {
+    if (cuerpo.precio === undefined && cuerpo.moneda === undefined) return previo
+    const moneda = leerMoneda(cuerpo.moneda, monedaBaseDe(previo))
+    const precio = leerPrecio(cuerpo.precio, precioBaseDe(previo))
+    if (!esMonedaPrincipal(moneda)) return previo
+    return { ...previo, [moneda]: precio }
+  }
+
+  if (typeof crudo !== 'object' || crudo === null || Array.isArray(crudo)) {
+    throw ErrorApi.invalido('precios', 'Los precios tienen que venir como un objeto con CUP, USD y EUR.')
+  }
+
+  const objeto = crudo as Record<string, unknown>
+  const salida: PreciosProducto = { ...previo }
+  let vioAlguno = false
+  for (const m of MONEDAS_PRINCIPALES) {
+    if (!(m in objeto)) continue
+    vioAlguno = true
+    salida[m] = leerPrecioOpcional(objeto[m], m)
+  }
+  if (!vioAlguno) {
+    throw ErrorApi.invalido('precios', 'Los precios tienen que venir como un objeto con CUP, USD y EUR.')
+  }
+  return salida
+}
+
+/** Un precio de una moneda concreta: entero >= 0, o `null` si se quita. */
+function leerPrecioOpcional(valor: unknown, campo: string): number | null {
+  if (valor === undefined || valor === null || valor === '') return null
+  const n = typeof valor === 'number' ? valor : Number(String(valor).trim())
+  if (!Number.isFinite(n)) {
+    throw ErrorApi.invalido(campo, 'Ese precio no es un numero valido.')
+  }
+  if (!Number.isInteger(n)) {
+    throw ErrorApi.invalido(campo, 'El precio es un numero entero, sin decimales.')
+  }
+  if (n < 0) throw ErrorApi.invalido(campo, 'El precio no puede ser negativo.')
+  return n
 }
 
 /* ===========================================================================

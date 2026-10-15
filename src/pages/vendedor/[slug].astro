@@ -3,8 +3,9 @@
  * Vendedor individual.
  */
 import Miniatura from '../../components/Miniatura.astro'
+import Precios from '../../components/Precios.astro'
 import Base from '../../layouts/Base.astro'
-import { formatearPrecio, recortar } from '../../lib/formato'
+import { recortar } from '../../lib/formato'
 import { miniaturaDeCategoria } from '../../lib/miniaturas'
 
 import { IDIOMAS } from '../../i18n/config'
@@ -69,7 +70,7 @@ let mensaje = ''
 
 try {
   if (slug) {
-    vendedor = await obtenerVendedor(slug)
+    vendedor = await obtenerVendedor(slug, { idioma: Astro.currentLocale })
   } else {
     error = true
     mensaje = t.vendedor.faltaIdentificador
@@ -146,7 +147,7 @@ const titulo = vendedor ? vendedor.nombreComercial || vendedor.nombre : t.produc
                     </div>
                     <div class="flex flex-1 flex-col p-4">
                       <h3 class="font-headline text-title-md font-semibold text-on-surface">{recortar(p.titulo, 10)}</h3>
-                      <p class="mt-4 font-headline text-title-lg font-semibold text-primary">{formatearPrecio(p.precio, p.moneda)}</p>
+                      <Precios precios={p.precios} respaldo={{ monto: p.precio, moneda: p.moneda }} />
                     </div>
                   </a>
                 ))}

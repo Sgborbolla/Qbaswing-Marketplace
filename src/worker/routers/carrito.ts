@@ -44,6 +44,12 @@ import { json } from '../http'
 import { usuarioDePeticion } from './registro'
 import { avisarVendedor } from '../avisos'
 import { bucketDe } from '../../lib/monedas'
+import {
+  type MonedaPrincipal,
+  type PreciosProducto,
+  esMonedaPrincipal,
+  monedaBaseDe,
+} from '../../lib/precios-producto'
 
 /** Escribe un numero aleatorio en hexadecimal, para el token de carrito anonimo. */
 function tokenNuevo(): string {
@@ -127,7 +133,21 @@ const SQL_CARRITO = `
     ci.variante_id,
     p.slug,
     p.titulo,
-    p.precio AS precio_actual,
+    /*
+      El precio actual del producto EN LA MONEDA DE LA LINEA.
+
+      Un producto puede tener precio en CUP, USD y EUR a la vez. Comparar el
+      precio congelado (que esta en la moneda que el comprador eligio) contra el
+      precio base del producto daria un "cambio de precio" falso en cuanto las
+      dos monedas no coincidieran. Por eso se mira la columna de SU moneda y solo
+      se cae al precio base si esa moneda no tiene precio propio.
+    */
+    CASE COALESCE(ci.moneda_codigo, ci.moneda)
+      WHEN 'CUP' THEN COALESCE(p.precio_cup, p.precio)
+      WHEN 'USD' THEN COALESCE(p.precio_usd, p.precio)
+      WHEN 'EUR' THEN COALESCE(p.precio_eur, p.precio)
+      ELSE p.precio
+    END AS precio_actual,
     p.publicado,
     pv.nombre AS variante_nombre,
     v.slug AS vendedor_slug
@@ -234,6 +254,19 @@ function entero(cuerpo: Record<string, unknown>, campo: string, min = 1, max = 9
     throw new ErrorApi('dato_invalido', 'La cantidad esta fuera de lo permitido.', 400)
   }
   return n
+}
+
+/**
+ * La moneda que elige el comprador al anadir, o `null` si no eligio ninguna.
+ *
+ * Se acepta solo CUP, USD o EUR. Cualquier otra cosa (un texto, un codigo
+ * desconocido, `null`) se trata como "no eligio" y se usa el precio base, que es
+ * lo mas util: una peticion vieja, sin este campo, tiene que seguir funcionando.
+ */
+function leerMonedaPedida(valor: unknown): MonedaPrincipal | null {
+  if (valor === undefined || valor === null || valor === '') return null
+  const v = typeof valor === 'string' ? valor.trim().toUpperCase() : ''
+  return esMonedaPrincipal(v) ? v : null
 }
 
 /**
@@ -378,10 +411,15 @@ export async function responderCarrito(
       cuerpo.variante_id === undefined || cuerpo.variante_id === null
         ? null
         : entero(cuerpo, 'variante_id', 1, 2_000_000_000)
+    // Moneda opcional: si no viene, se usa el precio base del producto. Si
+    // viene, tiene que ser una de las tres principales y el producto tiene que
+    // tener precio en ella.
+    const monedaPedida = leerMonedaPedida(cuerpo.moneda)
 
     const producto = await env.DB.prepare(
       `SELECT id, vendedor_id, titulo, precio,
-              COALESCE(moneda_codigo, moneda) AS moneda, publicado
+              COALESCE(moneda_codigo, moneda) AS moneda,
+              precio_cup, precio_usd, precio_eur, publicado
          FROM productos WHERE id = ?`,
     )
       .bind(productoId)
@@ -391,6 +429,9 @@ export async function responderCarrito(
         titulo: string
         precio: number
         moneda: string
+        precio_cup: number | null
+        precio_usd: number | null
+        precio_eur: number | null
         publicado: number
       }>()
 
@@ -398,6 +439,17 @@ export async function responderCarrito(
     // permitiria a alguien recorrer ids y saber que productos hay publicados.
     if (!producto || producto.publicado !== 1) {
       throw new ErrorApi('no_disponible', 'Ese producto no se puede anadir.', 404)
+    }
+
+    const precios: PreciosProducto = {
+      CUP: producto.precio_cup ?? null,
+      USD: producto.precio_usd ?? null,
+      EUR: producto.precio_eur ?? null,
+    }
+    const moneda = monedaPedida ?? monedaBaseDe(precios)
+    const precioUnitario = (precios[moneda] ?? 0) > 0 ? (precios[moneda] as number) : producto.precio
+    if (precioUnitario <= 0) {
+      throw new ErrorApi('no_disponible', 'Ese producto todavia no tiene precio.', 409)
     }
 
     // La variante tiene que ser DE ESE producto. Sin esta comprobacion se
@@ -443,9 +495,9 @@ export async function responderCarrito(
         productoId,
         varianteId,
         cantidad,
-        producto.precio,
-        bucketDe(producto.moneda),
-        producto.moneda,
+        precioUnitario,
+        bucketDe(moneda),
+        moneda,
       )
       .run()
 

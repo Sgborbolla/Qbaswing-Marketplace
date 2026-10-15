@@ -7,6 +7,7 @@
  */
 import Icono from '../components/Icono.astro'
 import Miniatura from '../components/Miniatura.astro'
+import Precios from '../components/Precios.astro'
 import Base from '../layouts/Base.astro'
 import { formatearPrecio, recortar } from '../lib/formato'
 import { miniaturaDeCategoria } from '../lib/miniaturas'
@@ -35,7 +36,7 @@ let categorias: Array<{ nombre: string; productos: number }> = []
 
 try {
   const [res, cats] = await Promise.all([
-    listarProductos(filtros),
+    listarProductos({ ...filtros, idioma: Astro.currentLocale }),
     listarCategorias().catch(() => []),
   ])
   productos = res.items
@@ -241,9 +242,7 @@ const urlDePagina = (n: number): string => {
                       })()}
                     </div>
                   ) : null}
-                  <p class="font-headline text-title-lg font-semibold text-primary">
-                    {formatearPrecio(p.precio, p.moneda)}
-                  </p>
+                  <Precios precios={p.precios} respaldo={{ monto: p.precio, moneda: p.moneda }} />
                 </div>
               </div>
             </a>

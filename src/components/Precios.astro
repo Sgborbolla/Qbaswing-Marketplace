@@ -1,0 +1,55 @@
+---
+/**
+ * Los precios de un producto, en las monedas que se ofrezcan.
+ *
+ * ============================================================================
+ *  QUE PINTA Y QUE NO
+ * ============================================================================
+ * Un producto puede estar a la vez en CUP, USD y EUR. Este componente pinta
+ * SOLO las monedas que tienen precio (las demas no se ofrecen) y en el orden
+ * CUP, USD, EUR. El primero se destaca: es el "precio base", el mismo numero con
+ * el que el catalogo ordena y filtra.
+ *
+ * La regla de que monedas entran vive en `listaDePrecios`, no aqui. Las
+ * tarjetas y la ficha tienen que decidir lo mismo y, si cada una repitiera el
+ * filtro, un dia una pintaria un `0` como si fuera gratis.
+ *
+ * `respaldo` existe para una fila vieja sin las tres columnas: en vez de dejar
+ * el hueco vacio, se pinta el precio base que ya traia el producto.
+ */
+import { formatearPrecio } from '../lib/formato'
+import { listaDePrecios, type PreciosProducto } from '../lib/precios-producto'
+
+interface Props {
+  precios: PreciosProducto
+  /** `tarjeta`: una linea compacta. `ficha`: cada precio en su renglon. */
+  variante?: 'tarjeta' | 'ficha'
+  /** Precio de reserva si no hay ninguno de los tres. */
+  respaldo?: { monto: number; moneda: string }
+}
+
+const { precios, variante = 'tarjeta', respaldo } = Astro.props
+const conPrecio = listaDePrecios(precios)
+const items = conPrecio.length > 0 ? conPrecio : respaldo ? [respaldo] : []
+---
+
+{items.length > 0 &&
+  (variante === 'ficha' ? (
+    <div class="flex flex-col">
+      {items.map((precio, i) => (
+        <p
+          class={
+            i === 0
+              ? 'font-headline text-display text-primary'
+              : 'text-body-md text-on-surface-variant'
+          }
+        >
+          {formatearPrecio(precio.monto, precio.moneda)}
+        </p>
+      ))}
+    </div>
+  ) : (
+    <p class="font-headline text-title-lg font-semibold text-primary">
+      {items.map((precio) => formatearPrecio(precio.monto, precio.moneda)).join(' · ')}
+    </p>
+  ))}

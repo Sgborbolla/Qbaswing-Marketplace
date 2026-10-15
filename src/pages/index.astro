@@ -95,9 +95,10 @@
  */
 import Icono from '../components/Icono.astro'
 import Miniatura from '../components/Miniatura.astro'
+import Precios from '../components/Precios.astro'
 import Base from '../layouts/Base.astro'
 import { diccionarioDe, rellenar } from '../i18n/diccionario'
-import { precioONoDisponible } from '../lib/formato'
+import { formatearPrecio, precioONoDisponible } from '../lib/formato'
 import { miniaturaDeCategoria } from '../lib/miniaturas'
 import { COMISIONES } from '../lib/tipos'
 import { TIRA } from '../data/tira'
@@ -114,7 +115,7 @@ const { listarProductos, listarPaquetes, listarCategorias } = await import('../l
  * El respaldo es el valor vacio real de cada tipo, no un dato inventado.
  */
 const [catalogo, paquetes, categorias] = await Promise.all([
-  listarProductos({ soloDestacados: true, porPagina: 8 }).catch(() => null),
+  listarProductos({ soloDestacados: true, porPagina: 8, idioma: Astro.currentLocale }).catch(() => null),
   listarPaquetes().catch(() => null),
   listarCategorias().catch(() => null),
 ])
@@ -896,8 +897,7 @@ const ICONO = {
                     {p.precioAnterior && p.precioAnterior > p.precio ? (
                       <div class="flex items-baseline gap-2">
                         <span class="text-body-sm text-on-surface-variant/60 line-through">
-                          {p.precioAnterior.toLocaleString('es-CU')}{' '}
-                          <span class="text-body-xs font-normal">{p.moneda}</span>
+                          {formatearPrecio(p.precioAnterior, p.moneda)}
                         </span>
                         {(() => {
                           const pct = Math.round(((p.precioAnterior - p.precio) / p.precioAnterior) * 100)
@@ -909,10 +909,7 @@ const ICONO = {
                         })()}
                       </div>
                     ) : null}
-                    <p class="font-headline text-title-lg font-semibold text-primary">
-                      {p.precio.toLocaleString('es-CU')}{' '}
-                      <span class="text-body-sm font-normal text-on-surface-variant">{p.moneda}</span>
-                    </p>
+                    <Precios precios={p.precios} respaldo={{ monto: p.precio, moneda: p.moneda }} />
                   </div>
                 </div>
               </a>
