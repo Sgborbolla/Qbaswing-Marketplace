@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config'
+import sitemap from '@astrojs/sitemap'
 import tailwindcss from '@tailwindcss/vite'
 
 // Este archivo es JavaScript puro a proposito: Astro lo carga antes de
@@ -11,6 +12,8 @@ import { FALLBACK, IDIOMA_POR_DEFECTO, IDIOMAS } from './src/i18n/config.ts'
 export default defineConfig({
   site: process.env.PUBLIC_SITE_URL ?? 'https://qbaswing-marketplace.pages.dev',
   trailingSlash: 'never',
+
+  integrations: [sitemap()],
 
   i18n: {
     locales: [...IDIOMAS],

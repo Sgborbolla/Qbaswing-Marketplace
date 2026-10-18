@@ -38,6 +38,7 @@
     "wrangler": "^4.147.0"
   },
   "dependencies": {
+    "@astrojs/sitemap": "^3.7.4",
     "qrcode": "^1.5.4"
   }
 }

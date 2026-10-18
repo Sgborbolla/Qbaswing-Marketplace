@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://qbaswing-marketplace.pages.dev/sitemap-index.xml
