@@ -603,16 +603,30 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
         'Ver en la tienda',
       )
       ver.href = `/producto/${producto.slug}/`
+      const editar = botonSecundario('Editar')
+      editar.addEventListener('click', () => {
+        window.location.href = `/panel/editar/?producto=${producto.id}`
+      })
       const apagar = botonSecundario('Despublicar')
       apagar.addEventListener('click', () => void alDespublicar(producto, contenedor))
-      acciones.append(ver, apagar)
+      acciones.append(ver, editar, apagar)
     } else if (producto.estado_publicacion !== 'pendiente') {
       // En `pendiente` no hay boton: el producto ya esta enviado y esperando
       // al Owner, y pulsar "Publicar" otra vez no acelera nada. Si el Owner lo
       // rechaza, el estado pasa a `rechazado` y el boton vuelve a aparecer.
+      const editar = botonSecundario('Editar')
+      editar.addEventListener('click', () => {
+        window.location.href = `/panel/editar/?producto=${producto.id}`
+      })
       const publicar = botonSecundario('Publicar')
       publicar.addEventListener('click', () => void alPublicar(producto, contenedor))
-      acciones.append(publicar)
+      acciones.append(editar, publicar)
+    } else {
+      const editar = botonSecundario('Editar')
+      editar.addEventListener('click', () => {
+        window.location.href = `/panel/editar/?producto=${producto.id}`
+      })
+      acciones.append(editar)
     }
 
     caja.append(acciones)

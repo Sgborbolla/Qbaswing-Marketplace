@@ -1,0 +1,444 @@
+---
+/**
+ * Editar un producto: `/panel/editar/?producto=<id>`.
+ *
+ * ============================================================================
+ *  POR QUE ESTA PAGINA
+ * ============================================================================
+ * El Worker ya acepta `PUT /api/panel/productos/:id` y `GET /api/panel/productos/:id`,
+ * y el panel ya permite publicar/despublicar. Lo que faltaba es el lugar para
+ * corregir titulo, descripcion, categoria, precios y los datos segun el tipo
+ * (digital/fisico/servicio). La subida del Archivo Maestro queda en
+ * `/vender/?producto=<id>`, para no duplicar esa logica.
+ *
+ * ============================================================================
+ *  REQUISITOS Y RESTRICCIONES
+ * ============================================================================
+ * Requiere sesion: si no hay sesion, la peticion a la API devolvera 401 y
+ * el cliente redirige a `/iniciar-sesion`. Solo el vendedor propietario puede
+ * editarlo (lo exige el Worker).
+ *
+ * No se repiten validaciones aqui: los limites, las opciones y el hecho de que
+ * un digital aprobado vuelva a `pendiente` en la Regla A se deciden en el
+ * servidor, exactamente igual que al crear.
+ */
+import Base from '../../layouts/Base.astro'
+import { CATEGORIAS_PRODUCTO } from '../../lib/categorias-producto'
+
+const grupos = [
+  { id: 'fisico', etiqueta: 'Físicos' },
+  { id: 'digital', etiqueta: 'Digitales' },
+  { id: 'servicio', etiqueta: 'Servicios' },
+] as const
+---
+<Base
+  title="Editar producto"
+  descripcion="Edita los datos de tu producto y guarda los cambios."
+>
+  <section class="container-page max-w-3xl py-space-xl">
+    <h1 class="font-headline text-title-lg font-semibold text-on-surface">
+      Editar producto
+    </h1>
+    <p class="mt-2 text-body-md text-on-surface-variant">
+      Los cambios se guardan directamente. Los productos digitales aprobados de la Regla A
+      pasaran a pendiente hasta que el Owner los vuelva a aprobar.
+    </p>
+
+    <form id="editar-producto" class="mt-8 space-y-6">
+      <div>
+        <label for="campo-tipo" class="block text-label-md font-medium text-on-surface">
+          Tipo de producto
+        </label>
+        <select
+          id="campo-tipo"
+          disabled
+          class="mt-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        >
+          <option value="digital">Digital (archivo descargable)</option>
+          <option value="fisico">Fisico (con envio)</option>
+          <option value="servicio">Servicio</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="campo-titulo" class="block text-label-md font-medium text-on-surface">
+          Titulo
+        </label>
+        <input
+          id="campo-titulo"
+          type="text"
+          required
+          minlength="3"
+          maxlength="120"
+          class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        />
+      </div>
+
+      <div>
+        <label for="campo-descripcion" class="block text-label-md font-medium text-on-surface">
+          Descripcion
+        </label>
+        <textarea
+          id="campo-descripcion"
+          required
+          minlength="10"
+          maxlength="500"
+          rows="4"
+          class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        ></textarea>
+      </div>
+
+      <div>
+        <label for="campo-categoria" class="block text-label-md font-medium text-on-surface">
+          Categoria
+        </label>
+        <select
+          id="campo-categoria"
+          required
+          class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        >
+          {
+            grupos.map((g) => (
+              <optgroup label={g.etiqueta} data-grupo={g.id}>
+                {CATEGORIAS_PRODUCTO.filter((c) => c.grupo === g.id).map((c) => (
+                  <option value={c.valor}>{c.etiqueta}</option>
+                ))}
+              </optgroup>
+            ))
+          }
+        </select>
+      </div>
+
+      <fieldset>
+        <legend class="text-label-md font-medium text-on-surface">Precios</legend>
+        <p class="mt-1 text-body-sm text-on-surface-variant">
+          Al menos una moneda debe tener precio. Escribe el valor en la unidad menor.
+        </p>
+        <div class="mt-3 grid gap-4 sm:grid-cols-3">
+          <div>
+            <label for="precio-cup" class="block text-label-md font-medium text-on-surface">
+              CUP (pesos)
+            </label>
+            <input
+              id="precio-cup"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+            />
+          </div>
+          <div>
+            <label for="precio-usd" class="block text-label-md font-medium text-on-surface">
+              USD (centavos)
+            </label>
+            <input
+              id="precio-usd"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+            />
+          </div>
+          <div>
+            <label for="precio-eur" class="block text-label-md font-medium text-on-surface">
+              EUR (centimos)
+            </label>
+            <input
+              id="precio-eur"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+            />
+          </div>
+        </div>
+      </fieldset>
+
+      <div id="grupo-digital" class="space-y-6">
+        <div>
+          <label for="campo-licencia" class="block text-label-md font-medium text-on-surface">
+            Licencia (opcional)
+          </label>
+          <input
+            id="campo-licencia"
+            type="text"
+            maxlength="120"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+        <div>
+          <label for="campo-version" class="block text-label-md font-medium text-on-surface">
+            Version (opcional)
+          </label>
+          <input
+            id="campo-version"
+            type="text"
+            maxlength="60"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+      </div>
+
+      <div id="grupo-fisico" class="hidden space-y-6">
+        <div>
+          <label for="campo-stock" class="block text-label-md font-medium text-on-surface">
+            Existencias
+          </label>
+          <input
+            id="campo-stock"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+        <div>
+          <label for="campo-envio" class="block text-label-md font-medium text-on-surface">
+            Envio
+          </label>
+          <input
+            id="campo-envio"
+            type="text"
+            maxlength="200"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+        <div>
+          <label for="campo-proceso" class="block text-label-md font-medium text-on-surface">
+            Tiempo de preparacion
+          </label>
+          <input
+            id="campo-proceso"
+            type="text"
+            maxlength="120"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+      </div>
+
+      <div id="grupo-servicio" class="hidden space-y-6">
+        <div>
+          <label for="campo-modalidad" class="block text-label-md font-medium text-on-surface">
+            Modalidad
+          </label>
+          <select
+            id="campo-modalidad"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          >
+            <option value="remoto">A distancia</option>
+            <option value="presencial">Presencial</option>
+            <option value="hibrido">Hibrido</option>
+          </select>
+        </div>
+        <div>
+          <label for="campo-duracion" class="block text-label-md font-medium text-on-surface">
+            Duracion estimada (opcional)
+          </label>
+          <input
+            id="campo-duracion"
+            type="text"
+            maxlength="80"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4 pt-2">
+        <button
+          id="editar-enviar"
+          type="submit"
+          class="rounded-full bg-primary px-6 py-2.5 text-body-md font-semibold text-on-primary transition hover:bg-primary-container"
+        >
+          Guardar cambios
+        </button>
+        <a href="/panel/" class="text-body-md font-semibold text-primary hover:underline">
+          Ir a mi panel
+        </a>
+      </div>
+
+      <p id="editar-estado" class="text-body-sm text-on-surface-variant" role="status"></p>
+    </form>
+
+    <div id="editar-exito" class="mt-8 hidden space-y-3 rounded-2xl border border-primary/40 bg-primary-container/40 p-6">
+      <p class="font-headline text-title-md font-semibold text-on-primary-container">
+        Cambios guardados
+      </p>
+      <p id="exito-detalle" class="text-body-md text-on-primary-container">
+        Puede que el producto vuelva a revision si era un digital aprobado (Regla A).
+      </p>
+      <a
+        href="/panel/"
+        class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-body-md font-semibold text-on-primary transition hover:bg-primary-container"
+      >
+        Volver a mi panel
+      </a>
+    </div>
+  </section>
+
+  <script>
+    import { detalleProducto, guardarProducto, type CuerpoProducto } from '../../lib/productos-panel'
+
+    const form = document.getElementById('editar-producto') as HTMLFormElement | null
+    const estado = document.getElementById('editar-estado')
+    const exito = document.getElementById('editar-exito')
+
+    const tipoEl = document.getElementById('campo-tipo') as HTMLSelectElement | null
+    const tituloEl = document.getElementById('campo-titulo') as HTMLInputElement | null
+    const descEl = document.getElementById('campo-descripcion') as HTMLTextAreaElement | null
+    const categoriaEl = document.getElementById('campo-categoria') as HTMLSelectElement | null
+
+    const cupEl = document.getElementById('precio-cup') as HTMLInputElement | null
+    const usdEl = document.getElementById('precio-usd') as HTMLInputElement | null
+    const eurEl = document.getElementById('precio-eur') as HTMLInputElement | null
+
+    const licenciaEl = document.getElementById('campo-licencia') as HTMLInputElement | null
+    const versionEl = document.getElementById('campo-version') as HTMLInputElement | null
+
+    const stockEl = document.getElementById('campo-stock') as HTMLInputElement | null
+    const envioEl = document.getElementById('campo-envio') as HTMLInputElement | null
+    const procesoEl = document.getElementById('campo-proceso') as HTMLInputElement | null
+
+    const modalidadEl = document.getElementById('campo-modalidad') as HTMLSelectElement | null
+    const duracionEl = document.getElementById('campo-duracion') as HTMLInputElement | null
+
+    let productoId: number | null = null
+
+    function numero(id: string): number | null {
+      const bruto = (document.getElementById(id) as HTMLInputElement | null)?.value ?? ''
+      if (bruto.trim() === '') return null
+      const n = Math.floor(Number(bruto))
+      return Number.isFinite(n) && n >= 0 ? n : null
+    }
+
+    function texto(id: string): string {
+      return (document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null)?.value.trim() ?? ''
+    }
+
+    function sincronizarTipo(tipo: string): void {
+      document.getElementById('grupo-digital')?.classList.toggle('hidden', tipo !== 'digital')
+      document.getElementById('grupo-fisico')?.classList.toggle('hidden', tipo !== 'fisico')
+      document.getElementById('grupo-servicio')?.classList.toggle('hidden', tipo !== 'servicio')
+    }
+
+    async function cargar(): Promise<void> {
+      const q = new URLSearchParams(location.search)
+      const idStr = q.get('producto')
+      const idNum = idStr ? Number(idStr) : NaN
+      if (!idStr || Number.isNaN(idNum)) {
+        if (estado) estado.textContent = 'Falta el ID del producto en la URL.'
+        return
+      }
+      productoId = idNum
+
+      if (estado) estado.textContent = 'Cargando...'
+
+      const respuesta = await detalleProducto(idNum)
+      if (!respuesta.ok) {
+        if (respuesta.status === 401) {
+          location.href = '/iniciar-sesion/'
+          return
+        }
+        if (estado) estado.textContent = respuesta.mensaje
+        return
+      }
+
+      const p = respuesta.datos.producto
+      if (tipoEl) {
+        tipoEl.value = p.tipo
+        sincronizarTipo(p.tipo)
+      }
+      if (tituloEl) tituloEl.value = p.titulo
+      if (descEl) descEl.value = p.descripcion
+      if (categoriaEl) {
+        let existe = false
+        for (const opt of categoriaEl.querySelectorAll('option')) {
+          if (opt.value === p.categoria) {
+            existe = true
+            break
+          }
+        }
+        if (existe) categoriaEl.value = p.categoria
+      }
+
+      if (cupEl) cupEl.value = p.precios.CUP === null ? '' : String(p.precios.CUP)
+      if (usdEl) usdEl.value = p.precios.USD === null ? '' : String(p.precios.USD)
+      if (eurEl) eurEl.value = p.precios.EUR === null ? '' : String(p.precios.EUR)
+
+      const det: any = p.detalles ?? {}
+      if (licenciaEl) licenciaEl.value = det.licencia ?? ''
+      if (versionEl) versionEl.value = det.version ?? ''
+      if (stockEl) stockEl.value = det.stock ?? '0'
+      if (envioEl) envioEl.value = det.envio ?? ''
+      if (procesoEl) procesoEl.value = det.processing_time ?? det.processingTime ?? ''
+      if (modalidadEl) modalidadEl.value = det.modalidad ?? 'remoto'
+      if (duracionEl) duracionEl.value = det.duracion_estimada ?? det.duracionEstimada ?? ''
+
+      if (estado) estado.textContent = ''
+    }
+
+    form?.addEventListener('submit', (e) => {
+      e.preventDefault()
+      void guardar()
+    })
+
+    async function guardar(): Promise<void> {
+      if (productoId === null) return
+      const boton = document.getElementById('editar-enviar')
+      if (boton instanceof HTMLButtonElement) boton.disabled = true
+      if (estado) estado.textContent = 'Guardando...'
+
+      const cup = numero('precio-cup')
+      const usd = numero('precio-usd')
+      const eur = numero('precio-eur')
+      if (cup === null && usd === null && eur === null) {
+        if (estado) estado.textContent = 'Pon al menos un precio en una moneda.'
+        if (boton instanceof HTMLButtonElement) boton.disabled = false
+        return
+      }
+
+      const tipo = tipoEl?.value as 'digital' | 'fisico' | 'servicio'
+      const cuerpo: CuerpoProducto = {
+        tipo,
+        titulo: texto('campo-titulo'),
+        descripcion: texto('campo-descripcion'),
+        categoria: categoriaEl?.value ?? '',
+        precios: { CUP: cup, USD: usd, EUR: eur },
+      }
+
+      if (tipo === 'digital') {
+        cuerpo.licencia = texto('campo-licencia')
+        cuerpo.version = texto('campo-version')
+      }
+      if (tipo === 'fisico') {
+        const s = Number(stockEl?.value ?? 0)
+        cuerpo.stock = Number.isFinite(s) ? s : 0
+        cuerpo.envio = texto('campo-envio')
+        cuerpo.processing_time = texto('campo-proceso')
+      }
+      if (tipo === 'servicio') {
+        cuerpo.modalidad = modalidadEl?.value ?? 'remoto'
+        cuerpo.duracion_estimada = texto('campo-duracion')
+      }
+
+      const resp = await guardarProducto(productoId, cuerpo)
+      if (!resp.ok) {
+        if (resp.status === 401) {
+          location.href = '/iniciar-sesion/'
+          return
+        }
+        if (estado) estado.textContent = resp.mensaje
+        if (boton instanceof HTMLButtonElement) boton.disabled = false
+        return
+      }
+
+      form?.classList.add('hidden')
+      exito?.classList.remove('hidden')
+    }
+
+    void cargar()
+  </script>
+</Base>
