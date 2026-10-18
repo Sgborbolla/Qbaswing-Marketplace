@@ -60,6 +60,12 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
 </div>
 
 <script>
+  import {
+    aprobarProducto,
+    productosEnRevision,
+    rechazarProducto,
+    type ProductoEnRevision,
+  } from '../lib/aprobaciones-owner'
   import { miCuenta, type DatosCuentaCliente, type UsuarioCliente } from '../lib/identidad-cliente'
   import {
     anadirMedio,
@@ -116,12 +122,18 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
    * Worker lo niega igualmente (pide rol `owner`), pero no llegara un
    * formulario a una pantalla que no deberia tenerlo.
    *
-   * `productos` esta en `panel` y `owner`, que son las variantes que ya tienen
-   * tienda, y no en `cuenta` (quien no vende no gestiona nada). Su lista es la
-   * misma que la de `precios`, pero la seccion es otra: los precios se tocan
-   * cada poco y la publicacion se toca cuando algo cambia, y mezclarlas
-   * convertiria la tabla de precios en un panel de botones.
-   */
+    * `productos` esta en `panel` y `owner`, que son las variantes que ya tienen
+    * tienda, y no en `cuenta` (quien no vende no gestiona nada). Su lista es la
+    * misma que la de `precios`, pero la seccion es otra: los precios se tocan
+    * cada poco y la publicacion se toca cuando algo cambia, y mezclarlas
+    * convertiria la tabla de precios en un panel de botones.
+    *
+    * `aprobaciones` esta SOLO en `owner`. Es la otra cara de `productos`: alli
+    * el vendedor ve lo que tiene y lo envia; aqui el Owner ve lo que le llega
+    * y decide. La ruta `/api/owner/productos` pide rol de Owner tambien para
+    * leer, asi que un vendedor no puede abrirla por accidente aunque conozca
+    * la direccion.
+    */
   const SECCIONES: Record<Variante, string[]> = {
     cuenta: ['identidad', 'precios', 'exencion', 'sesiones'],
     panel: ['identidad', 'tienda', 'productos', 'precios', 'medios', 'exencion', 'sesiones'],
@@ -130,6 +142,7 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
       'exencion',
       'tienda',
       'productos',
+      'aprobaciones',
       'precios',
       'tarifas',
       'medios',
@@ -642,6 +655,210 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     const caja = el('div', 'rounded-xl border border-primary/40 bg-primary-container/40 p-4')
     caja.append(el('p', 'text-body-md text-on-primary-container', mensaje))
     return caja
+  }
+
+  /**
+   * La cola de aprobacion del Owner.
+   *
+   * `productos` enseña lo que el vendedor tiene; esta enseña lo que le llega
+   * al Owner. Son las dos caras del mismo circuito de la Regla A: el vendedor
+   * pulsa "Publicar" y el producto aparece aqui, y lo que el Owner decida
+   * aqui es lo que el vendedor vera despues en su lista.
+   */
+  function seccionAprobaciones(): HTMLElement {
+    const caja = tarjeta('Aprobaciones pendientes', 'verified_user')
+    const cuerpo = el('div', 'mt-4 space-y-4')
+    cuerpo.append(
+      el('p', 'text-body-md text-on-surface-variant', 'Cargando los productos pendientes...'),
+    )
+    caja.append(cuerpo)
+    void refrescarAprobaciones(cuerpo)
+    return caja
+  }
+
+  /**
+   * Vuelve a pedir la cola y repinta la caja.
+   *
+   * Igual que en `refrescarProductos`: `aviso` se anade ENCIMA de la lista sin
+   * borrarla, y `fallo` decide el color. La lista es solo de pendientes,
+   * porque un producto aprobado o rechazado sale de la cola y no tiene lugar
+   * donde volver a verse desde aqui.
+   */
+  async function refrescarAprobaciones(
+    contenedor: HTMLElement,
+    aviso?: string,
+    fallo = false,
+  ): Promise<void> {
+    const respuesta = await productosEnRevision()
+
+    if (!respuesta.ok) {
+      contenedor.replaceChildren(
+        cajaDeError(respuesta.mensaje, () => void refrescarAprobaciones(contenedor)),
+      )
+      return
+    }
+
+    const productos = respuesta.datos.productos
+    const pieza = el('div', 'space-y-4')
+
+    if (aviso) pieza.append(fallo ? cajaDeError(aviso) : cajaDeAviso(aviso))
+
+    if (productos.length === 0) {
+      pieza.append(
+        vacio(
+          'No hay productos esperando aprobacion. Los digitales externos (Regla A) aparecen aqui cuando su autor los envia.',
+        ),
+      )
+      contenedor.replaceChildren(pieza)
+      return
+    }
+
+    const lista = el('ul', 'space-y-3')
+    for (const producto of productos) {
+      lista.append(filaDeAprobacion(producto, contenedor))
+    }
+    pieza.append(lista)
+
+    contenedor.replaceChildren(pieza)
+  }
+
+  /**
+   * Un producto pendiente: quien lo subio, que es, y aprobar o rechazar.
+   *
+   * No lleva enlace a la ficha publica porque el producto todavia no esta
+   * publicado: `/producto/<slug>/` devolveria 404. Lo que se decide aqui se
+   * decide con lo que hay en la pantalla.
+   */
+  function filaDeAprobacion(
+    producto: ProductoEnRevision,
+    contenedor: HTMLElement,
+  ): HTMLElement {
+    const caja = el('li', 'rounded-xl border border-outline-variant/60 bg-surface-container-low p-4')
+
+    const cabecera = el('div', 'flex flex-wrap items-center justify-between gap-2')
+    cabecera.append(
+      el('h3', 'font-headline text-body-md font-semibold text-on-surface', producto.titulo),
+      insignia('Pendiente', false),
+    )
+    caja.append(cabecera)
+
+    // Quien lo subio, en la misma linea que el tipo, la regla y el precio. El
+    // Owner no aprueba "un producto": aprueba algo de alguien, y eso tiene
+    // que estar a la vista antes de pulsar el boton.
+    caja.append(
+      el(
+        'p',
+        'mt-1 text-body-sm text-on-surface-variant',
+        `${producto.vendedor_nombre} · ${producto.tipo} · Regla ${producto.regla} · ${formatearPrecio(producto.precio, producto.moneda)}`,
+      ),
+      el('p', 'mt-2 text-body-sm text-on-surface-variant', producto.descripcion),
+    )
+
+    const acciones = el('div', 'mt-3 flex flex-wrap items-center gap-2')
+
+    const aprobar = botonSecundario('Aprobar')
+    aprobar.addEventListener('click', () => void alAprobar(producto, contenedor))
+    acciones.append(aprobar)
+
+    // El rechazo no es un clic: pide el motivo, que es lo que el vendedor
+    // vera en su panel. Un rechazo sin motivo le diria al vendedor que algo
+    // falto sin decir que.
+    const rechazar = el(
+      'button',
+      'rounded-full border border-error/40 px-4 py-1.5 text-label-md font-semibold text-error transition hover:bg-error-container/40',
+      'Rechazar',
+    )
+    rechazar.type = 'button'
+    rechazar.addEventListener('click', () => abrirRechazo(producto, contenedor, caja))
+    acciones.append(rechazar)
+
+    caja.append(acciones)
+    return caja
+  }
+
+  async function alAprobar(producto: ProductoEnRevision, contenedor: HTMLElement): Promise<void> {
+    const respuesta = await aprobarProducto(producto.id)
+    if (!respuesta.ok) {
+      await refrescarAprobaciones(contenedor, respuesta.mensaje, true)
+      return
+    }
+    await refrescarAprobaciones(
+      contenedor,
+      `"${producto.titulo}" esta aprobado y ya aparece en la tienda.`,
+    )
+  }
+
+  /** Abre el campo del motivo dentro de la propia fila, sin repintar la lista. */
+  function abrirRechazo(
+    producto: ProductoEnRevision,
+    contenedor: HTMLElement,
+    caja: HTMLElement,
+  ): void {
+    // Un segundo clic en "Rechazar" no abre un segundo formulario encima.
+    if (caja.querySelector('[data-rechazo]')) return
+
+    const hueco = el('div', 'mt-3 space-y-2')
+    hueco.dataset.rechazo = ''
+
+    const area = document.createElement('textarea')
+    area.className =
+      'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface'
+    area.placeholder = 'Motivo del rechazo (lo vera el vendedor)'
+    area.maxLength = 300
+    area.rows = 2
+
+    hueco.append(
+      el('label', 'block text-label-md font-medium text-on-surface', 'Motivo del rechazo'),
+      area,
+    )
+
+    // El error del propio campo, no el de la caja: si el motivo esta corto,
+    // lo que hay que arreglar es esto, y repintar la lista borraria lo que ya
+    // se escribio.
+    const aviso = el('p', 'hidden text-body-sm text-on-error-container')
+
+    const acciones = el('div', 'flex flex-wrap items-center gap-2')
+
+    const confirmar = el(
+      'button',
+      'rounded-full border border-error/40 px-4 py-1.5 text-label-md font-semibold text-error transition hover:bg-error-container/40',
+      'Confirmar rechazo',
+    )
+    confirmar.type = 'button'
+    confirmar.addEventListener('click', () => {
+      const texto = area.value.trim()
+      if (texto.length < 3) {
+        aviso.textContent = 'Escribe el motivo del rechazo.'
+        aviso.classList.remove('hidden')
+        area.focus()
+        return
+      }
+      void alRechazar(producto, contenedor, texto)
+    })
+
+    const cancelar = botonSecundario('Cancelar')
+    cancelar.addEventListener('click', () => hueco.remove())
+
+    acciones.append(confirmar, cancelar)
+    hueco.append(aviso, acciones)
+    caja.append(hueco)
+    area.focus()
+  }
+
+  async function alRechazar(
+    producto: ProductoEnRevision,
+    contenedor: HTMLElement,
+    motivo: string,
+  ): Promise<void> {
+    const respuesta = await rechazarProducto(producto.id, motivo)
+    if (!respuesta.ok) {
+      await refrescarAprobaciones(contenedor, respuesta.mensaje, true)
+      return
+    }
+    await refrescarAprobaciones(
+      contenedor,
+      `"${producto.titulo}" quedo rechazado. El vendedor vera el motivo en su panel.`,
+    )
   }
 
   /**
@@ -1699,6 +1916,12 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
           // lo que se hace con cada producto: aqui se gestiona, alla se pone
           // precio.
           zona.append(seccionProductos())
+          break
+        case 'aprobaciones':
+          // La otra cara de `productos`: aqui se ve lo que le llega al Owner
+          // y alli lo que el vendedor tiene. Su lista vive en
+          // `/api/owner/productos`, que pide rol de Owner tambien para leer.
+          zona.append(seccionAprobaciones())
           break
         case 'medios':
           // Se pinta sola y no recibe nada: sus datos no estan en `datos`, que
