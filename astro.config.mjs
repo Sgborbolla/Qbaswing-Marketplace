@@ -11,7 +11,12 @@ import { FALLBACK, IDIOMA_POR_DEFECTO, IDIOMAS } from './src/i18n/config.ts'
 
 export default defineConfig({
   site: process.env.PUBLIC_SITE_URL ?? 'https://qbaswing-marketplace.pages.dev',
-  trailingSlash: 'never',
+  // Cloudflare Pages redirige `/productos` -> `/productos/` (308) porque la
+  // salida es `productos/index.html`. Con 'never' la canonical y el sitemap
+  // declaraban la URL SIN barra y el navegador acababa en la CON barra: dos
+  // URLs distintas para la misma pagina. 'always' alinea la declaracion con
+  // lo que el hosting ya sirve.
+  trailingSlash: 'always',
 
   integrations: [
     sitemap({
@@ -22,7 +27,7 @@ export default defineConfig({
         const { pathname } = new URL(pagina)
         const conLocale = IDIOMAS.find((i) => pathname === `/${i}` || pathname.startsWith(`/${i}/`))
         const ruta = conLocale ? pathname.slice(pathname.indexOf('/', 1) || pathname.length) : pathname
-        return !/^\/(carrito|pagar|success|cancel|cuenta|owner|vender|panel|iniciar-sesion)(\/|$)/.test(ruta)
+        return !/^\/(404|carrito|pagar|success|cancel|cuenta|owner|vender|panel|iniciar-sesion)(\/|$)/.test(ruta)
       },
     }),
   ],
