@@ -13,7 +13,19 @@ export default defineConfig({
   site: process.env.PUBLIC_SITE_URL ?? 'https://qbaswing-marketplace.pages.dev',
   trailingSlash: 'never',
 
-  integrations: [sitemap()],
+  integrations: [
+    sitemap({
+      // Fuera del sitemap las paginas de flujo (carrito, caja, panel, cuenta):
+      // Google no debe gastar rastreo en URLs que nadie busca y que ademas
+      // requieren sesion o son paso intermedio de una compra.
+      filter: (pagina) => {
+        const { pathname } = new URL(pagina)
+        const conLocale = IDIOMAS.find((i) => pathname === `/${i}` || pathname.startsWith(`/${i}/`))
+        const ruta = conLocale ? pathname.slice(pathname.indexOf('/', 1) || pathname.length) : pathname
+        return !/^\/(carrito|pagar|success|cancel|cuenta|owner|vender|panel|iniciar-sesion)(\/|$)/.test(ruta)
+      },
+    }),
+  ],
 
   i18n: {
     locales: [...IDIOMAS],
