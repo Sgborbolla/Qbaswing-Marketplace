@@ -2,24 +2,29 @@
  * Las monedas con las que se puede cobrar.
  *
  * ============================================================================
- *  POR QUE UNA LISTA Y NO TEXTO LIBRE
+ *  SOLO TRES: CUP, USD Y EUR
  * ============================================================================
- * Un vendedor de Mexico cobra en pesos, uno de Argentina en pesos argentinos,
- * uno de Brasil en reales. El marketplace no puede obligar a nadie a poner sus
- * precios en CUP o USD: quien no ve su moneda, no vende. Por eso esta lista.
+ * Son las tres en las que de verdad se puede cobrar en este sitio:
  *
- * Pero SI es una lista cerrada y no un campo de texto:
+ *   - CUP y USD son la moneda de casa (Cuba) y la de fuera; EUR completa el
+ *     trio de las que cualquier cliente necesita ver.
+ *   - QvaPay y TropiPay, los dos cobradores, liquidan en CUP, USD o EUR.
+ *   - El sitio NO tiene tipo de cambio (a proposito, ver `PanelCuenta.astro`).
+ *     Una cuarta moneda exigiria inventar un cambio que alguien tendria que
+ *     actualizar todos los dias, y un cambio mal puesto es un precio mal cobrado.
  *
- *   1. El precio se guarda en ENTEROS de la unidad menor. Para escribir bien
- *      "10,50" hay que dividir entre 100; para CLP, JPY o KRW NO se divide. Si
- *      el simbolo fuera texto libre, nadie sabria cuantos decimales tiene y un
- *      "1000" podria ser mil pesos o diez pesos con cincuenta. El numero que ve
- *      el comprador saldria mal, y el precio es justo lo que decide la compra.
+ * Por eso es una lista cerrada y no texto libre:
  *
- *   2. Los pagos y la comision de la plataforma se liquidan en CUP, USD o EUR
- *      (las que soportan QvaPay y TropiPay). Cada moneda sabe a cual de esas
- *      tres se «acerca» para contabilidad: es el `bucket`. Un precio en MXN se
- *      contabiliza como USD; uno en la misma moneda cubana, como CUP.
+ *   1. El precio se guarda en ENTEROS de la unidad menor. CUP no tiene
+ *      centimos y USD si: si el simbolo fuera texto libre, nadie sabria cuantos
+ *      decimales tiene y un "1000" podria ser mil pesos o diez pesos con
+ *      cincuenta. El numero que ve el comprador saldria mal, y el precio es
+ *      justo lo que decide la compra.
+ *
+ *   2. Los pagos y la comision de la plataforma se liquidan en estas tres
+ *      monedas, y cada una sabe a cual de ellas se "acerca" para contabilidad:
+ *      es el `bucket`. CUP va a CUP, EUR va a EUR, y todo lo demas (que aqui no
+ *      hay) iria a USD.
  *
  *   3. Un texto libre acaba con veinte formas de escribir lo mismo: "usd",
  *      "USD", "dolares", "$". La lista fija el codigo una vez.
@@ -28,8 +33,7 @@
  *  LOS DECIMALES
  * ============================================================================
  * `decimales` es cuantos digitos van DESPUES de la coma en la unidad principal.
- * Casi todas usan 2. Las que no: el peso cubano se maneja en enteros (0), y el
- * yen, el won, el peso chileno y el guaraní no tienen centimos (0).
+ * Casi todas usan 2. Las que no: el peso cubano se maneja en enteros (0).
  *
  * Este numero NO es decorativo: `formatearPrecio` lo usa para dividir el entero
  * guardado. Cambiarlo mal es mostrar un precio cien veces mas caro.
@@ -37,9 +41,8 @@
  * ============================================================================
  *  EL ORDEN
  * ============================================================================
- * CUP y USD primero porque son las de esta casa; EUR detras; despues el resto
- * por lo usadas que son en el comercio internacional. El selector del panel
- * respeta este orden, asi que quien vende en Cuba ve lo suyo arriba.
+ * CUP y USD primero porque son las de esta casa; EUR detras. El selector del
+ * panel respeta este orden, asi que quien vende en Cuba ve lo suyo arriba.
  */
 
 export interface Moneda {
@@ -47,7 +50,7 @@ export interface Moneda {
   codigo: string
   /** Como se lee en voz alta. Para el desplegable del panel. */
   nombre: string
-  /** El simbolo que va detras del numero. `$`, `€`, `R$`... */
+  /** El simbolo que va detras del numero. `$`, `€`... */
   simbolo: string
   /** Decimales de la unidad principal. `0` para las que no llevan centimos. */
   decimales: 0 | 2
@@ -60,35 +63,6 @@ export const MONEDAS: readonly Moneda[] = [
   { codigo: 'CUP', nombre: 'Peso cubano', simbolo: 'CUP', decimales: 0 },
   { codigo: 'USD', nombre: 'Dólar estadounidense', simbolo: 'USD', decimales: 2 },
   { codigo: 'EUR', nombre: 'Euro', simbolo: 'EUR', decimales: 2 },
-  { codigo: 'MXN', nombre: 'Peso mexicano', simbolo: 'MXN', decimales: 2 },
-  { codigo: 'ARS', nombre: 'Peso argentino', simbolo: 'ARS', decimales: 2 },
-  { codigo: 'COP', nombre: 'Peso colombiano', simbolo: 'COP', decimales: 2 },
-  { codigo: 'CLP', nombre: 'Peso chileno', simbolo: 'CLP', decimales: 0 },
-  { codigo: 'PEN', nombre: 'Sol peruano', simbolo: 'S/', decimales: 2 },
-  { codigo: 'BRL', nombre: 'Real brasileño', simbolo: 'R$', decimales: 2 },
-  { codigo: 'UYU', nombre: 'Peso uruguayo', simbolo: '$U', decimales: 2 },
-  { codigo: 'BOB', nombre: 'Boliviano', simbolo: 'Bs', decimales: 2 },
-  { codigo: 'PYG', nombre: 'Guaraní paraguayo', simbolo: '₲', decimales: 0 },
-  { codigo: 'VES', nombre: 'Bolívar venezolano', simbolo: 'Bs.', decimales: 2 },
-  { codigo: 'DOP', nombre: 'Peso dominicano', simbolo: 'RD$', decimales: 2 },
-  { codigo: 'GBP', nombre: 'Libra esterlina', simbolo: 'GBP', decimales: 2 },
-  { codigo: 'CAD', nombre: 'Dólar canadiense', simbolo: 'CAD', decimales: 2 },
-  { codigo: 'CHF', nombre: 'Franco suizo', simbolo: 'CHF', decimales: 2 },
-  { codigo: 'JPY', nombre: 'Yen japonés', simbolo: '¥', decimales: 0 },
-  { codigo: 'CNY', nombre: 'Yuan chino', simbolo: '¥', decimales: 2 },
-  { codigo: 'KRW', nombre: 'Won surcoreano', simbolo: '₩', decimales: 0 },
-  { codigo: 'INR', nombre: 'Rupia india', simbolo: '₹', decimales: 2 },
-  { codigo: 'RUB', nombre: 'Rublo ruso', simbolo: '₽', decimales: 2 },
-  { codigo: 'TRY', nombre: 'Lira turca', simbolo: '₺', decimales: 2 },
-  { codigo: 'ZAR', nombre: 'Rand sudafricano', simbolo: 'ZAR', decimales: 2 },
-  { codigo: 'NGN', nombre: 'Naira nigeriana', simbolo: '₦', decimales: 2 },
-  { codigo: 'EGP', nombre: 'Libra egipcia', simbolo: 'E£', decimales: 2 },
-  { codigo: 'AED', nombre: 'Dírham emiratí', simbolo: 'AED', decimales: 2 },
-  { codigo: 'SAR', nombre: 'Riyal saudí', simbolo: 'SAR', decimales: 2 },
-  { codigo: 'AUD', nombre: 'Dólar australiano', simbolo: 'AUD', decimales: 2 },
-  { codigo: 'SEK', nombre: 'Corona sueca', simbolo: 'SEK', decimales: 2 },
-  { codigo: 'NOK', nombre: 'Corona noruega', simbolo: 'NOK', decimales: 2 },
-  { codigo: 'PLN', nombre: 'Esloti polaco', simbolo: 'PLN', decimales: 2 },
 ] as const
 
 /** El indice por codigo, para no recorrer la lista en cada precio. */
@@ -125,11 +99,8 @@ export function simboloDe(codigo: string | null | undefined): string {
 /**
  * A que moneda fuerte se contabiliza.
  *
- * CUP y EUR se quedan en la suya. Todo lo demas cae en USD, que es la moneda
- * en la que QvaPay y TropiPay liquidan y sobre la que se calcula la comision.
- * Es una aproximacion contable honesta: convertir de verdad exigiria un tipo de
- * cambio, y el tipo de cambio cambia todos los dias. Lo que el comprador paga,
- * eso si, es exactamente lo que dice la ficha.
+ * CUP y EUR se quedan en la suya; USD va a USD, que es la moneda en la que
+ * QvaPay y TropiPay liquidan y sobre la que se calcula la comision.
  */
 export function bucketDe(codigo: string | null | undefined): BucketMoneda {
   const c = monedaDe(codigo).codigo

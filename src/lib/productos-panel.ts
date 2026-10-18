@@ -23,17 +23,14 @@
  * ============================================================================
  *  LAS UNIDADES, QUE ES DONDE ESTA EL PELIGRO
  * ============================================================================
- * El precio que se manda y el que se recibe estan en la MISMA unidad en que lo
- * guarda la base: enteros de la unidad menor. `250` CUP, `1000` USD. Convertir
- * a texto ("10,00 USD") es cosa de `formatearPrecio`, que ya sabe que USD van
- * divididos entre 100.
+ * El precio que se manda esta en la unidad en que se LEE: `250` para CUP,
+ * `12.50` para USD, `11` para EUR. El Worker lo convierte a la unidad menor
+ * (enteros) antes de guardar, usando cuantos decimales tiene cada moneda.
  *
- * Esto se escribe aqui porque es lo contrario de lo que cualquier formulario de
- * precio hace por costumbre: un campo de precio normal manda `"10.00"` y
- * espera que el servidor lo multiplique. Si se hiciera asi en esta ruta sin
- * tocar la base, un producto de 10 dolares se guardaria como `10` y apareceria
- * en el catalogo costando diez CENTAVOS. La asimetria entre lo que se teclea y
- * lo que se guarda esta resuelta en el formulario, no aqui.
+ * La conversion vive en el servidor y no aqui a proposito: quien rellena el
+ * formulario teclea lo que ve en la tienda, y convertir en el navegador
+ * significaria que un campo manipulado desde la consola pudiera mandar
+ * centavos donde se esperaban dolares. Aqui solo se manda lo tecleado.
  */
 
 import { pedir, type Respuesta } from './identidad-cliente'

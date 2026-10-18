@@ -46,29 +46,13 @@ const LOCALE = 'es-CU'
  *
  * `Intl` deduciria los de `CUP` y `EUR` bien, pero el de `CUP` sale como `CUP`
  * y el de `EUR` como `€`, y una lista de precios donde uno lleva simbolo y los
- * otros tres llevan codigo se lee como dos sistemas distintos. Se escribe la
+ * otros llevan codigo se lee como dos sistemas distintos. Se escribe la
  * lista entera para que el mismo tratamiento.
  *
  * La lista completa vive en `monedas.ts`; esto es un atajo por codigo.
  */
 export const SIMBOLO_MONEDA: Record<string, string> = Object.fromEntries(
-  [
-    'CUP',
-    'USD',
-    'EUR',
-    'MXN',
-    'ARS',
-    'COP',
-    'CLP',
-    'PEN',
-    'BRL',
-    'UYU',
-    'VES',
-    'GBP',
-    'JPY',
-    'CNY',
-    'RUB',
-  ].map((c) => [c, simboloDe(c)]),
+  ['CUP', 'USD', 'EUR'].map((c) => [c, simboloDe(c)]),
 )
 
 /**
@@ -89,12 +73,11 @@ const FORMATO_DOS_DECIMALES = new Intl.NumberFormat(LOCALE, {
  * ============================================================================
  *  POR QUE RECIBE CUALQUIER CODIGO
  * ============================================================================
- * Antes solo aceptaba `'CUP' | 'USD' | 'EUR'`. Ahora cada vendedor cobra en la
- * moneda de su pais (ver `monedas.ts`), asi que aqui entra cualquier codigo de
- * esa lista. Los decimales NO se adivinan: los dice la ficha de la moneda,
- * porque el precio se guarda en enteros de la unidad menor y hay monedas que no
- * tienen centimos (CUP, CLP, JPY...). Dividir siempre entre 100 pondria un yen
- * de 1000 a diez.
+ * Se pasa el codigo (`'CUP' | 'USD' | 'EUR'`) y no un simbolo, para que la
+ * misma funcion pinte lo que venga de la API sin que cada pagina decida. Los
+ * decimales NO se adivinan: los dice la ficha de la moneda, porque el precio se
+ * guarda en enteros de la unidad menor y CUP no tiene centimos. Dividir siempre
+ * entre 100 pondria un precio de 1000 CUP como 10,00.
  *
  * Un codigo desconocido no rompe: `monedaDe` devuelve la de por defecto, que es
  * mejor que dejar el precio sin escribir.

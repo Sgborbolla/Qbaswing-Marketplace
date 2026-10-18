@@ -112,7 +112,8 @@ const grupos = [
       <fieldset>
         <legend class="text-label-md font-medium text-on-surface">Precios</legend>
         <p class="mt-1 text-body-sm text-on-surface-variant">
-          Al menos una moneda debe tener precio. Escribe el valor en la unidad menor.
+          Al menos una moneda debe tener precio. Escribe el valor como se lee:
+          250 en CUP, 12.50 en USD, 11 en EUR. En CUP no hay centimos.
         </p>
         <div class="mt-3 grid gap-4 sm:grid-cols-3">
           <div>
@@ -130,27 +131,27 @@ const grupos = [
           </div>
           <div>
             <label for="precio-usd" class="block text-label-md font-medium text-on-surface">
-              USD (centavos)
+              USD (dólares)
             </label>
             <input
               id="precio-usd"
               type="number"
               min="0"
-              step="1"
-              inputmode="numeric"
+              step="0.01"
+              inputmode="decimal"
               class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
             />
           </div>
           <div>
             <label for="precio-eur" class="block text-label-md font-medium text-on-surface">
-              EUR (centimos)
+              EUR (euros)
             </label>
             <input
               id="precio-eur"
               type="number"
               min="0"
-              step="1"
-              inputmode="numeric"
+              step="0.01"
+              inputmode="decimal"
               class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
             />
           </div>
@@ -310,7 +311,7 @@ const grupos = [
     function numero(id: string): number | null {
       const bruto = (document.getElementById(id) as HTMLInputElement | null)?.value ?? ''
       if (bruto.trim() === '') return null
-      const n = Math.floor(Number(bruto))
+      const n = Number(bruto.replace(',', '.'))
       return Number.isFinite(n) && n >= 0 ? n : null
     }
 
@@ -364,9 +365,11 @@ const grupos = [
         if (existe) categoriaEl.value = p.categoria
       }
 
+      // La base guarda enteros en la unidad menor (USD 1250 = $12.50) y aqui
+      // se teclea en la unidad que se lee. CUP no se divide; USD y EUR entre 100.
       if (cupEl) cupEl.value = p.precios.CUP === null ? '' : String(p.precios.CUP)
-      if (usdEl) usdEl.value = p.precios.USD === null ? '' : String(p.precios.USD)
-      if (eurEl) eurEl.value = p.precios.EUR === null ? '' : String(p.precios.EUR)
+      if (usdEl) usdEl.value = p.precios.USD === null ? '' : (p.precios.USD / 100).toFixed(2)
+      if (eurEl) eurEl.value = p.precios.EUR === null ? '' : (p.precios.EUR / 100).toFixed(2)
 
       const det: any = p.detalles ?? {}
       if (licenciaEl) licenciaEl.value = det.licencia ?? ''

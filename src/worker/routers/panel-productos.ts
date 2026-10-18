@@ -1,4 +1,4 @@
-import { ErrorApi, TOPE_PRECIO } from '../constantes'
+import { ErrorApi } from '../constantes'
 import type { Env } from '../entorno'
 import { cuerpoJson, json } from '../http'
 import { esCategoriaValida } from '../../lib/categorias-producto'
@@ -6,7 +6,7 @@ import { obtenerArchivoMaestro } from '../../lib/entrega'
 import {
   MONEDAS as MONEDAS_MUNDO,
   bucketDe,
-  esMonedaValida,
+  decimalesDe,
 } from '../../lib/monedas'
 import {
   MAX_BYTES_IMAGEN,
@@ -18,7 +18,6 @@ import {
 } from '../../lib/imagenes'
 import { hashSha256 } from '../../lib/almacenamiento'
 import {
-  MONEDAS_PRINCIPALES,
   type PreciosProducto,
   esMonedaPrincipal,
   monedaBaseDe,
@@ -991,14 +990,14 @@ function leerOrigen(valor: unknown): Origen {
 function leerMoneda(valor: unknown, previo: string): Moneda {
   if (valor === undefined) return previo
   const v = typeof valor === 'string' ? valor.trim().toUpperCase() : ''
-  // Cada vendedor cobra en la moneda de su pais (ver `src/lib/monedas.ts`). La
-  // lista es cerrada a proposito: el precio se guarda en enteros de la unidad
-  // menor y cada moneda sabe cuantos decimales tiene.
-  if (!esMonedaValida(v)) throw ErrorApi.invalido('moneda', 'Esa moneda no esta en la lista.')
+  // Solo se puede cobrar en CUP, USD o EUR: son las tres en las que QvaPay y
+  // TropiPay liquidan, y el sitio no tiene tipo de cambio. Una cuarta moneda
+  // exigiria un cambio que alguien tendria que mantener a mano todos los dias.
+  if (!esMonedaPrincipal(v)) throw ErrorApi.invalido('moneda', 'Solo se puede cobrar en CUP, USD o EUR.')
   return v
 }
 
-function leerPrecio(valor: unknown, previo: number): number {
+function leerPrecio(valor: unknown, previo: number, moneda: string): number {
   if (valor === undefined) return previo
   if (valor === null || valor === '') {
     throw ErrorApi.invalido('precio', 'Pon el precio. Si no lo sabes, deja 0.')
@@ -1008,21 +1007,38 @@ function leerPrecio(valor: unknown, previo: number): number {
     throw ErrorApi.invalido('precio', 'El precio tiene que ser un numero valido.')
   }
   if (n < 0) throw ErrorApi.invalido('precio', 'El precio no puede ser negativo.')
-  // Sin tope artificial. Lo que importa es que se pueda representar y calcular.
-  return Math.trunc(n) === n ? n : n // se conserva como numero; redondeo por moneda
+  // Sin tope de venta: hasta que el numero deje de ser representable.
+  return aUnidadMenor(n, moneda, 'precio')
 }
 
 /**
- * Los tres precios de un producto, ya validados.
+ * De la unidad que teclea el vendedor a la unidad que se guarda.
+ *
+ * El vendedor escribe "12.50" (doce con cincuenta) y la base guarda 1250
+ * centavos. En CUP no hay centimos: "12.5" se redondea a 13, porque su unidad
+ * minima ya es el entero. El tope no es de negocio sino de aritmetica: si el
+ * resultado deja de ser un entero seguro, ni la suma ni el cobro serian fiables.
+ */
+function aUnidadMenor(valor: number, moneda: string, campo: string): number {
+  const monto = Math.round(valor * 10 ** decimalesDe(moneda))
+  if (!Number.isSafeInteger(monto)) {
+    throw ErrorApi.invalido(campo, 'Ese precio es demasiado grande para poder calcularlo.')
+  }
+  return monto
+}
+
+/**
+ * Los tres precios de un producto, ya convertidos a la unidad menor y
+ * validados.
  *
  * Acepta dos formas por compatibilidad:
  *
- *   - `precios: { CUP, USD, EUR }` (la forma nueva). Cada clave que venga se
- *     valida; las que no vengan conservan su valor anterior.
- *   - `precio` + `moneda` (la forma vieja, de un solo precio). Se escribe en la
- *     columna de esa moneda y las otras quedan como estaban. Un `moneda` que no
- *     sea CUP/USD/EUR (por ejemplo MXN) no tiene columna propia: se guarda solo
- *     en el precio base, que es lo que habia antes de la migracion 0029.
+ *   - `precios: { CUP: 500, USD: 12.5, EUR: 11 }` (la forma nueva). Solo CUP,
+ *     USD o EUR, con o sin decimales, escritos en la unidad que se lee en la
+ *     calle ($12.50, no 1250 centavos). Cada clave que venga se valida; las que
+ *     no vengan conservan su valor anterior.
+ *   - `precio` + `moneda` (la forma vieja, de un solo precio). Se convierte y
+ *     se escribe en esa moneda; las demas quedan como estaban.
  *
  * Un precio `null`, `''` o ausente dentro del objeto significa "quitar esa
  * moneda". `0` se guarda tal cual y el sitio lo pinta como "sin precio".
@@ -1033,45 +1049,47 @@ function leerPrecios(cuerpo: Record<string, unknown>, previo: PreciosProducto): 
   if (crudo === undefined) {
     if (cuerpo.precio === undefined && cuerpo.moneda === undefined) return previo
     const moneda = leerMoneda(cuerpo.moneda, monedaBaseDe(previo))
-    const precio = leerPrecio(cuerpo.precio, precioBaseDe(previo))
-    if (!esMonedaPrincipal(moneda)) return previo
+    const precio = leerPrecio(cuerpo.precio, precioBaseDe(previo), moneda)
     return { ...previo, [moneda]: precio }
   }
 
   if (typeof crudo !== 'object' || crudo === null || Array.isArray(crudo)) {
-    throw ErrorApi.invalido('precios', 'Los precios tienen que venir como un objeto con CUP, USD y EUR.')
+    throw ErrorApi.invalido(
+      'precios',
+      'Los precios tienen que venir como un objeto, por ejemplo { "CUP": 500, "USD": 12.5 }.',
+    )
   }
 
   const objeto = crudo as Record<string, unknown>
   const salida: PreciosProducto = { ...previo }
   let vioAlguno = false
-  for (const m of MONEDAS_PRINCIPALES) {
-    if (!(m in objeto)) continue
+  for (const [codigo, valor] of Object.entries(objeto)) {
+    const moneda = codigo.trim().toUpperCase()
+    if (!esMonedaPrincipal(moneda)) {
+      throw ErrorApi.invalido('precios', `La moneda "${codigo}" no se acepta: solo CUP, USD o EUR.`)
+    }
     vioAlguno = true
-    salida[m] = leerPrecioOpcional(objeto[m], m)
+    salida[moneda] = leerPrecioOpcional(valor, moneda)
   }
   if (!vioAlguno) {
-    throw ErrorApi.invalido('precios', 'Los precios tienen que venir como un objeto con CUP, USD y EUR.')
+    throw ErrorApi.invalido(
+      'precios',
+      'Los precios tienen que venir como un objeto, por ejemplo { "CUP": 500, "USD": 12.5 }.',
+    )
   }
   return salida
 }
 
-/** Un precio de una moneda concreta: entero >= 0, o `null` si se quita. */
-function leerPrecioOpcional(valor: unknown, campo: string): number | null {
+/** Un precio de una moneda: en unidad mayor (con decimales), o `null` si se quita. */
+function leerPrecioOpcional(valor: unknown, moneda: string): number | null {
   if (valor === undefined || valor === null) return null
   if (valor === '') return null
   const n = typeof valor === 'number' ? valor : Number(String(valor).trim())
   if (!Number.isFinite(n)) {
-    throw ErrorApi.invalido(campo, 'Ese precio no es un numero valido.')
+    throw ErrorApi.invalido(moneda, 'Ese precio no es un numero valido.')
   }
-  if (!Number.isInteger(n)) {
-    throw ErrorApi.invalido(campo, 'El precio es un numero entero, sin decimales.')
-  }
-  if (n < 0) throw ErrorApi.invalido(campo, 'El precio no puede ser negativo.')
-  if (n > TOPE_PRECIO) {
-    throw ErrorApi.invalido(campo, 'Ese precio es demasiado grande para poder calcularlo.')
-  }
-  return n
+  if (n < 0) throw ErrorApi.invalido(moneda, 'El precio no puede ser negativo.')
+  return aUnidadMenor(n, moneda, moneda)
 }
 
 function leerOpcion(

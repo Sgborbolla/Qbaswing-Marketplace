@@ -10,6 +10,11 @@
  * se trata igual que `NULL` a la hora de pintar, porque el sitio ya usa el 0
  * como "sin precio puesto" (`PanelCuenta.astro`).
  *
+ * Estas tres y no más: son las que de verdad se pueden cobrar. QvaPay y
+ * TropiPay liquidan en CUP, USD o EUR, y el sitio no tiene tipo de cambio (a
+ * proposito, ver `PanelCuenta.astro`). Ofrecer una cuarta moneda exigiria
+ * inventar un cambio que alguien tendria que mantener todos los dias.
+ *
  * ============================================================================
  *  EL PRECIO BASE
  * ============================================================================

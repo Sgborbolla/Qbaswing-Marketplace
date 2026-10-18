@@ -43,7 +43,7 @@ export interface Orden {
   pasarela: string
   /** Bucket de comision: `CUP` | `USD` | `EUR`. */
   moneda: string
-  /** Moneda real del vendedor (puede ser `MXN`, `ARS`...). */
+  /** Moneda real del vendedor: `CUP`, `USD` o `EUR`. */
   monedaCodigo: string
   regla: string
   subtotal: number

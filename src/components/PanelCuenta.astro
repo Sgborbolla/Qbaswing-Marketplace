@@ -481,18 +481,54 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
   }
 
   /**
-   * La unidad en que se teclea el precio, segun la moneda.
+   * La unidad en que se teclea el precio de un PAQUETE, segun la moneda.
    *
-   * CUP se guarda y se escribe en pesos. USD y EUR se guardan en centavos y
-   * centimos: un producto de 10 dolares es `1000` en la base. Esa diferencia no
-   * se puede convertir al cambiar la moneda, porque el sitio no tiene ningun
-   * tipo de cambio y no va a inventar uno para hacer el calculo por detras.
-   * Lo unico honesto es decirlo.
+   * Los paquetes se guardan y se escriben en la unidad menor: USD y EUR en
+   * centavos y centimos, y un paquete de 10 dolares es `1000` en la base. Esa
+   * diferencia no se puede convertir al cambiar la moneda, porque el sitio no
+   * tiene ningun tipo de cambio y no va a inventar uno para hacer el calculo por
+   * detras. Lo unico honesto es decirlo. (Los PRODUCTOS escriben en la unidad de
+   * la calle; ver `UNIDADES_DE_PRODUCTO`.)
    */
   const UNIDADES_DE_MONEDA: Record<MonedaProducto, string> = {
     CUP: 'pesos enteros',
     USD: 'centavos',
     EUR: 'centimos',
+  }
+
+  /**
+   * Como se escribe el precio de un PRODUCTO: en la unidad que se lee.
+   *
+   * El producto se teclea como se ve en la tienda ($12.50, no 1250 centavos) y
+   * el Worker lo guarda en la unidad menor por detras. CUP no tiene centimos,
+   * asi que ahi solo entran enteros. Las tarifas de los paquetes NO usan esto:
+   * esas siguen en su unidad de siempre (ver `formularioDeTarifa`).
+   */
+  const UNIDADES_DE_PRODUCTO: Record<MonedaProducto, string> = {
+    CUP: 'pesos enteros',
+    USD: 'dolares con centavos (12.50)',
+    EUR: 'euros con centimos (11)',
+  }
+
+  /** Decimales que se guardan por detras para cada moneda de un producto. */
+  function por100(moneda: MonedaProducto): number {
+    return moneda === 'CUP' ? 1 : 100
+  }
+
+  /**
+   * Lo que significara el numero tecleado en el formulario de productos.
+   *
+   * Se escribe en unidad de calle y se guarda en unidad menor, asi que el aviso
+   * multiplica antes de llamar a `formatearPrecio`, que espera la unidad
+   * guardada. Es la misma idea que `avisoDeUnidad`, pero para esta unidad.
+   */
+  function avisoDePrecioProducto(moneda: MonedaProducto, valor: string): string {
+    const n = Number(valor.trim().replace(',', '.'))
+    if (!Number.isFinite(n) || n < 0) {
+      return `Se teclea en ${UNIDADES_DE_PRODUCTO[moneda]}.`
+    }
+    const enLaTienda = formatearPrecio(Math.round(n * por100(moneda)), moneda)
+    return `En la tienda se veria como ${enLaTienda}.`
   }
 
   /**
@@ -1073,7 +1109,7 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
       el(
         'p',
         'text-body-sm text-on-surface-variant',
-        'Pon el precio en las monedas en que quieras venderlo. Deja en blanco las que no ofrezcas: el producto no aparecera en ellas.',
+        'Pon el precio en las monedas en que quieras venderlo, como se lee: 250 en CUP, 12.50 en USD, 11 en EUR. Deja en blanco las que no ofrezcas: el producto no aparecera en ellas.',
       ),
     )
 
@@ -1085,25 +1121,33 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
       const rotulo = el(
         'label',
         'text-label-md font-medium text-on-surface',
-        `${opcion.texto} — ${UNIDADES_DE_MONEDA[opcion.valor]}`,
+        `${opcion.texto} (${UNIDADES_DE_PRODUCTO[opcion.valor]})`,
       )
       const input = el(
         'input',
         'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
       )
       input.type = 'text'
-      input.inputMode = 'numeric'
+      // CUP no admite punto; USD y EUR si, porque llevan centimos.
+      input.inputMode = opcion.valor === 'CUP' ? 'numeric' : 'decimal'
       input.id = `precio-${opcion.valor}`
       rotulo.htmlFor = input.id
       const actual = producto.precios[opcion.valor]
-      input.value = actual === null || actual === undefined ? '' : String(actual)
+      // La base guarda la unidad menor (USD 1250 = $12.50) y aqui se teclea la
+      // de la calle: CUP no se divide, USD y EUR si.
+      input.value =
+        actual === null || actual === undefined
+          ? ''
+          : opcion.valor === 'CUP'
+            ? String(actual)
+            : (actual / 100).toFixed(2)
       input.placeholder = 'Sin precio'
       const ayuda = el('p', 'text-body-sm text-on-surface-variant', '')
       const decirAyuda = (): void => {
         ayuda.textContent =
           input.value.trim() === ''
             ? 'Sin precio: no se ofrece en esta moneda.'
-            : avisoDeUnidad(opcion.valor, input.value)
+            : avisoDePrecioProducto(opcion.valor, input.value)
       }
       input.addEventListener('input', decirAyuda)
       decirAyuda()
@@ -1152,9 +1196,13 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
           precios[moneda] = null
           continue
         }
-        const n = Number(bruto)
-        if (!Number.isInteger(n) || n < 0) {
-          decir(`El precio en ${moneda} tiene que ser un numero entero sin decimales, o quedar vacio.`)
+        const n = Number(bruto.replace(',', '.'))
+        if (!Number.isFinite(n) || n < 0) {
+          decir(`El precio en ${moneda} tiene que ser un numero positivo (12.50 vale), o quedar vacio.`)
+          return
+        }
+        if (moneda === 'CUP' && !Number.isInteger(n)) {
+          decir('En CUP no hay centimos: escribe pesos enteros, sin decimales.')
           return
         }
         precios[moneda] = n
