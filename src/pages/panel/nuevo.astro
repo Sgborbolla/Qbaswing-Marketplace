@@ -1,0 +1,463 @@
+---
+/**
+ * Crear un producto: `/panel/nuevo`.
+ *
+ * ============================================================================
+ *  POR QUE ESTA PAGINA Y NO OTRO FORMARIO
+ * ============================================================================
+ * El Worker acepta `POST /api/panel/productos` desde hace tiempo y el panel ya
+ * lista los productos con sus botones de publicar; lo que faltaba era donde
+ * teclear el primer titulo. Sin esto, el resto del circuito (publicar,
+ * aprobar, comprar, descargar) no llega a probarse porque nadie puede crear
+ * nada.
+ *
+ * ============================================================================
+ *  LO QUE NO HACE ESTA PAGINA
+ * ============================================================================
+ * No sube imagenes ni el archivo maestro. Las imagenes se anaden desde la
+ * edicion, y el maestro en `/vender?producto=<id>`, donde ya vive la subida.
+ * Aqui solo se crea el borrador, y eso se dice sin rodeos.
+ */
+import Base from '../../layouts/Base.astro'
+import { CATEGORIAS_PRODUCTO } from '../../lib/categorias-producto'
+
+const grupos = [
+  { id: 'fisico', etiqueta: 'Físicos' },
+  { id: 'digital', etiqueta: 'Digitales' },
+  { id: 'servicio', etiqueta: 'Servicios' },
+] as const
+---
+
+<Base
+  title="Subir producto"
+  descripcion="Crea un producto para tu tienda: digital, físico o servicio."
+>
+  <section class="container-page max-w-3xl py-space-xl">
+    <h1 class="font-headline text-title-lg font-semibold text-on-surface">
+      Subir producto
+    </h1>
+    <p class="mt-2 text-body-md text-on-surface-variant">
+      El producto nace como borrador: no aparece en la tienda hasta que lo
+      publiques desde tu panel. Los digitales necesitan además el Archivo
+      Maestro antes de poder publicarse.
+    </p>
+
+    <p
+      id="sin-tienda"
+      class="mt-5 hidden rounded-xl border border-error/40 bg-error-container/40 p-4 text-body-md text-on-error-container"
+      role="alert"
+    >
+      Esta cuenta todavía no tiene tienda. Pide ser vendedor desde tu panel y
+      vuelve aqui cuando la tengas: sin tienda no se pueden subir productos.
+    </p>
+
+    <form id="crear-producto" class="mt-8 space-y-6">
+      <div>
+        <label for="campo-tipo" class="block text-label-md font-medium text-on-surface">
+          Tipo de producto
+        </label>
+        <select
+          id="campo-tipo"
+          class="mt-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        >
+          <option value="digital">Digital (archivo descargable)</option>
+          <option value="fisico">Físico (con envío)</option>
+          <option value="servicio">Servicio</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="campo-titulo" class="block text-label-md font-medium text-on-surface">
+          Título
+        </label>
+        <input
+          id="campo-titulo"
+          type="text"
+          required
+          minlength="3"
+          maxlength="120"
+          placeholder="Plantilla de facturación para negocios"
+          class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        />
+      </div>
+
+      <div>
+        <label for="campo-descripcion" class="block text-label-md font-medium text-on-surface">
+          Descripción
+        </label>
+        <textarea
+          id="campo-descripcion"
+          required
+          minlength="10"
+          maxlength="500"
+          rows="4"
+          placeholder="Qué es, para quién sirve y qué incluye."
+          class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        ></textarea>
+      </div>
+
+      <div>
+        <label for="campo-categoria" class="block text-label-md font-medium text-on-surface">
+          Categoría
+        </label>
+        <select
+          id="campo-categoria"
+          required
+          class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        >
+          {
+            grupos.map((g) => (
+              <optgroup label={g.etiqueta} data-grupo={g.id}>
+                {CATEGORIAS_PRODUCTO.filter((c) => c.grupo === g.id).map((c) => (
+                  <option value={c.valor}>{c.etiqueta}</option>
+                ))}
+              </optgroup>
+            ))
+          }
+        </select>
+      </div>
+
+      <fieldset>
+        <legend class="text-label-md font-medium text-on-surface">Precios</legend>
+        <p class="mt-1 text-body-sm text-on-surface-variant">
+          Ofrece el producto en las monedas que quieras, al menos una. Se escriben
+          en la unidad menor: 250 pesos son 250 CUP, y $10.00 USD son 1000.
+        </p>
+        <div class="mt-3 grid gap-4 sm:grid-cols-3">
+          <div>
+            <label for="precio-cup" class="block text-label-md font-medium text-on-surface">
+              CUP (pesos)
+            </label>
+            <input
+              id="precio-cup"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+            />
+          </div>
+          <div>
+            <label for="precio-usd" class="block text-label-md font-medium text-on-surface">
+              USD (centavos)
+            </label>
+            <input
+              id="precio-usd"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+            />
+          </div>
+          <div>
+            <label for="precio-eur" class="block text-label-md font-medium text-on-surface">
+              EUR (céntimos)
+            </label>
+            <input
+              id="precio-eur"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+            />
+          </div>
+        </div>
+      </fieldset>
+
+      <div id="grupo-digital" class="space-y-6">
+        <div>
+          <label for="campo-origen" class="block text-label-md font-medium text-on-surface">
+            Digital propio o externo
+          </label>
+          <select
+            id="campo-origen"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          >
+            <option value="qbaswing">
+              Propio: el archivo se guarda aquí y se publica al instante
+            </option>
+            <option value="externo">
+              Externo: lo alojas tú y pasa por revisión del Owner
+            </option>
+          </select>
+        </div>
+        <div>
+          <label for="campo-licencia" class="block text-label-md font-medium text-on-surface">
+            Licencia (opcional)
+          </label>
+          <input
+            id="campo-licencia"
+            type="text"
+            maxlength="120"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+        <div>
+          <label for="campo-version" class="block text-label-md font-medium text-on-surface">
+            Versión (opcional)
+          </label>
+          <input
+            id="campo-version"
+            type="text"
+            maxlength="60"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+      </div>
+
+      <div id="grupo-fisico" class="hidden space-y-6">
+        <div>
+          <label for="campo-stock" class="block text-label-md font-medium text-on-surface">
+            Existencias
+          </label>
+          <input
+            id="campo-stock"
+            type="number"
+            min="0"
+            step="1"
+            value="0"
+            inputmode="numeric"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+          <p class="mt-1 text-body-sm text-on-surface-variant">
+            Con cero existencias el producto no se puede publicar.
+          </p>
+        </div>
+        <div>
+          <label for="campo-envio" class="block text-label-md font-medium text-on-surface">
+            Envío
+          </label>
+          <input
+            id="campo-envio"
+            type="text"
+            maxlength="200"
+            placeholder="A toda Cuba por correos; La Habana en mano."
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+        <div>
+          <label for="campo-proceso" class="block text-label-md font-medium text-on-surface">
+            Tiempo de preparación
+          </label>
+          <input
+            id="campo-proceso"
+            type="text"
+            maxlength="120"
+            placeholder="2 días hábiles"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+      </div>
+
+      <div id="grupo-servicio" class="hidden space-y-6">
+        <div>
+          <label for="campo-modalidad" class="block text-label-md font-medium text-on-surface">
+            Modalidad
+          </label>
+          <select
+            id="campo-modalidad"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          >
+            <option value="remoto">A distancia</option>
+            <option value="presencial">Presencial</option>
+            <option value="hibrido">Híbrido</option>
+          </select>
+        </div>
+        <div>
+          <label for="campo-duracion" class="block text-label-md font-medium text-on-surface">
+            Duración estimada (opcional)
+          </label>
+          <input
+            id="campo-duracion"
+            type="text"
+            maxlength="80"
+            placeholder="2 semanas"
+            class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+          />
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4 pt-2">
+        <button
+          id="crear-enviar"
+          type="submit"
+          class="rounded-full bg-primary px-6 py-2.5 text-body-md font-semibold text-on-primary transition hover:bg-primary-container"
+        >
+          Crear borrador
+        </button>
+        <a href="/panel/" class="text-body-md font-semibold text-primary hover:underline">
+          Ir a mi panel
+        </a>
+      </div>
+
+      <p id="crear-estado" class="text-body-sm text-on-surface-variant" role="status"></p>
+    </form>
+
+    <div id="crear-exito" class="mt-8 hidden space-y-4 rounded-2xl border border-primary/40 bg-primary-container/40 p-6">
+      <p class="font-headline text-title-md font-semibold text-on-primary-container">
+        Producto creado
+      </p>
+      <p id="exito-detalle" class="text-body-md text-on-primary-container"></p>
+      <div class="flex flex-wrap gap-4">
+        <a
+          id="exito-maestro"
+          href="/vender/"
+          class="hidden rounded-full bg-primary px-5 py-2 text-body-md font-semibold text-on-primary transition hover:bg-primary-container"
+        >
+          Subir el Archivo Maestro
+        </a>
+        <a
+          href="/panel/"
+          class="rounded-full border border-outline-variant px-5 py-2 text-body-md font-semibold text-on-surface transition hover:border-primary"
+        >
+          Publicar desde mi panel
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    import { miCuenta } from '../../lib/identidad-cliente'
+    import { crearProducto, type CuerpoProducto, type TipoProducto } from '../../lib/productos-panel'
+
+    const tipoEl = document.getElementById('campo-tipo') as HTMLSelectElement | null
+    const categoriaEl = document.getElementById('campo-categoria') as HTMLSelectElement | null
+    const form = document.getElementById('crear-producto') as HTMLFormElement | null
+    const estado = document.getElementById('crear-estado')
+    const sinTienda = document.getElementById('sin-tienda')
+    const exito = document.getElementById('crear-exito')
+    const exitoDetalle = document.getElementById('exito-detalle')
+    const exitoMaestro = document.getElementById('exito-maestro')
+
+    if (form && tipoEl && categoriaEl) {
+      // El estrechamiento de `if` no llega al interior de las funciones
+      // declaradas dentro, que es donde se usan estas tres variables. Con
+      // copias locales ya comprobadas no hace falta repetir la comprobacion.
+      const formulario = form
+      const campoTipo = tipoEl
+      const campoCategoria = categoriaEl
+
+      // Sin tienda el Worker rechaza la creacion; decirlo antes de teclear
+      // medio formulario evita el disgusto del ultimo clic.
+      void miCuenta().then((r) => {
+        if (r.ok && !r.datos.tienda) {
+          formulario.classList.add('hidden')
+          sinTienda?.classList.remove('hidden')
+        }
+      })
+
+      function sincronizarTipo(): void {
+        const tipo = campoTipo.value
+        document.getElementById('grupo-digital')?.classList.toggle('hidden', tipo !== 'digital')
+        document.getElementById('grupo-fisico')?.classList.toggle('hidden', tipo !== 'fisico')
+        document.getElementById('grupo-servicio')?.classList.toggle('hidden', tipo !== 'servicio')
+
+        // Las categorias se agrupan por tipo: al cambiar de tipo se ocultan los
+        // grupos ajenos y se reeleg la primera de las visibles, porque la
+        // seleccion anterior puede quedar escondida.
+        let primera: HTMLOptionElement | null = null
+        for (const grupo of campoCategoria.querySelectorAll('optgroup')) {
+          const visible = grupo.dataset.grupo === tipo
+          grupo.hidden = !visible
+          if (visible && !primera) primera = grupo.querySelector('option')
+        }
+        if (primera) campoCategoria.value = primera.value
+      }
+
+      campoTipo.addEventListener('change', sincronizarTipo)
+      sincronizarTipo()
+
+      formulario.addEventListener('submit', (evento) => {
+        evento.preventDefault()
+        void enviar()
+      })
+
+      async function enviar(): Promise<void> {
+        const boton = document.getElementById('crear-enviar')
+        if (boton instanceof HTMLButtonElement) boton.disabled = true
+        if (estado) estado.textContent = 'Creando...'
+
+        const tipo = campoTipo.value as TipoProducto
+        const cup = numero('precio-cup')
+        const usd = numero('precio-usd')
+        const eur = numero('precio-eur')
+
+        if (cup === null && usd === null && eur === null) {
+          if (estado) estado.textContent = 'Pon al menos un precio en una moneda.'
+          if (boton instanceof HTMLButtonElement) boton.disabled = false
+          return
+        }
+
+        const cuerpo: CuerpoProducto = {
+          tipo,
+          titulo: texto('campo-titulo'),
+          descripcion: texto('campo-descripcion'),
+          categoria: campoCategoria.value,
+          precios: { CUP: cup, USD: usd, EUR: eur },
+        }
+
+        if (tipo === 'digital') {
+          const origen = (document.getElementById('campo-origen') as HTMLSelectElement | null)
+            ?.value as 'qbaswing' | 'externo' | undefined
+          if (origen) cuerpo.origen = origen
+          cuerpo.licencia = texto('campo-licencia')
+          cuerpo.version = texto('campo-version')
+        }
+
+        if (tipo === 'fisico') {
+          const stock = Number(
+            (document.getElementById('campo-stock') as HTMLInputElement | null)?.value ?? 0,
+          )
+          cuerpo.stock = Number.isFinite(stock) ? stock : 0
+          cuerpo.envio = texto('campo-envio')
+          cuerpo.processing_time = texto('campo-proceso')
+        }
+
+        if (tipo === 'servicio') {
+          cuerpo.modalidad =
+            (document.getElementById('campo-modalidad') as HTMLSelectElement | null)?.value ??
+            'remoto'
+          cuerpo.duracion_estimada = texto('campo-duracion')
+        }
+
+        const respuesta = await crearProducto(cuerpo)
+
+        if (!respuesta.ok) {
+          // El Worker escribe el mensaje en castellano y nombra el campo
+          // fallido; aqui solo se pinta.
+          if (estado) estado.textContent = respuesta.mensaje
+          if (boton instanceof HTMLButtonElement) boton.disabled = false
+          return
+        }
+
+        const id = respuesta.datos.producto.id
+        formulario.classList.add('hidden')
+        exito?.classList.remove('hidden')
+        if (exitoDetalle) {
+          exitoDetalle.textContent =
+            tipo === 'digital'
+              ? 'Es un borrador. Sube ahora el Archivo Maestro y después publícalo desde tu panel.'
+              : 'Es un borrador. Publícalo desde tu panel cuando quieras que aparezca en la tienda.'
+        }
+        if (tipo === 'digital' && exitoMaestro instanceof HTMLAnchorElement) {
+          exitoMaestro.href = `/vender/?producto=${id}`
+          exitoMaestro.classList.remove('hidden')
+        }
+      }
+
+      function texto(id: string): string {
+        return (document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null)
+          ?.value.trim() ?? ''
+      }
+
+      function numero(id: string): number | null {
+        const bruto = (document.getElementById(id) as HTMLInputElement | null)?.value ?? ''
+        if (bruto.trim() === '') return null
+        const n = Math.floor(Number(bruto))
+        return Number.isFinite(n) && n >= 0 ? n : null
+      }
+    }
+  </script>
+</Base>
