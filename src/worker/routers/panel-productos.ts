@@ -2,6 +2,7 @@ import { ErrorApi, TOPE_PRECIO } from '../constantes'
 import type { Env } from '../entorno'
 import { cuerpoJson, json } from '../http'
 import { esCategoriaValida } from '../../lib/categorias-producto'
+import { obtenerArchivoMaestro } from '../../lib/entrega'
 import {
   MONEDAS as MONEDAS_MUNDO,
   bucketDe,
@@ -481,6 +482,22 @@ async function publicar(
   ctx?: ExecutionContext,
 ): Promise<Response> {
   const producto = await productoDe(env, usuario, id)
+
+  // Un digital sin Archivo Maestro es una venta que no se puede entregar: el
+  // comprador pagaria y la pagina de descargas no tendria nada que servirle.
+  // Se exige aqui, en el unico punto donde el producto pasa de borrador a
+  // visible, y no al crearlo, porque el archivo se sube despues desde la
+  // edicion del producto.
+  if (producto.tipo === 'digital') {
+    const maestro = await obtenerArchivoMaestro(id, env.DB)
+    if (!maestro) {
+      throw new ErrorApi(
+        'sin_archivo_maestro',
+        'Este producto es digital y todavia no tiene Archivo Maestro. Sube el archivo desde la edicion del producto: sin archivo no hay descarga que entregar.',
+        409,
+      )
+    }
+  }
 
   if (producto.tipo === 'fisico') {
     const detalle = await detalleDe(env, id, 'fisico')

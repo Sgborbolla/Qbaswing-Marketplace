@@ -333,6 +333,24 @@ const pasos = [
         return
       }
 
+      // El tope de KV también lo comprueba el Worker, pero avisarlo aquí
+      // evita subir 30 MB para que el servidor diga que no.
+      const MB = 1024 * 1024
+      if (almacenEl.value === 'kv' && archivo.size > 25 * MB) {
+        estado.textContent = `KV admite hasta 25 MB y este archivo pesa ${(archivo.size / MB).toFixed(1)} MB. Elige Google Drive, Pixeldrain o GoFile.`
+        return
+      }
+
+      if (archivo.size > 100 * MB) {
+        const seguir = window.confirm(
+          `Este archivo pesa ${(archivo.size / MB).toFixed(1)} MB. Una subida así puede tardar bastante, y si la conexión se corta hay que empezar de nuevo. ¿Subirlo igualmente?`,
+        )
+        if (!seguir) {
+          estado.textContent = 'Subida cancelada.'
+          return
+        }
+      }
+
       const ruta = ENDPOINTS[almacenEl.value]
       if (!ruta) {
         estado.textContent = 'Esa ruta todavía no está disponible.'
