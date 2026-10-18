@@ -112,8 +112,9 @@ const grupos = [
       <fieldset>
         <legend class="text-label-md font-medium text-on-surface">Precios</legend>
         <p class="mt-1 text-body-sm text-on-surface-variant">
-          Al menos una moneda debe tener precio. Escribe el valor como se lee:
-          250 en CUP, 12.50 en USD, 11 en EUR. En CUP no hay centimos.
+          Al menos una moneda debe tener precio. Escribe el valor como se lee y
+          sin tope: 8000 en CUP, 12.50 en USD, 8 en EUR. Cada moneda se pone
+          sola, sin conversion.
         </p>
         <div class="mt-3 grid gap-4 sm:grid-cols-3">
           <div>
@@ -124,8 +125,8 @@ const grupos = [
               id="precio-cup"
               type="number"
               min="0"
-              step="1"
-              inputmode="numeric"
+              step="0.01"
+              inputmode="decimal"
               class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
             />
           </div>
@@ -339,7 +340,8 @@ const grupos = [
 
       const respuesta = await detalleProducto(idNum)
       if (!respuesta.ok) {
-        if (respuesta.status === 401) {
+        // El Worker manda `no_dentro` (401) cuando la sesion ya no vale.
+        if (respuesta.codigo === 'no_dentro') {
           location.href = '/iniciar-sesion/'
           return
         }
@@ -365,9 +367,9 @@ const grupos = [
         if (existe) categoriaEl.value = p.categoria
       }
 
-      // La base guarda enteros en la unidad menor (USD 1250 = $12.50) y aqui
-      // se teclea en la unidad que se lee. CUP no se divide; USD y EUR entre 100.
-      if (cupEl) cupEl.value = p.precios.CUP === null ? '' : String(p.precios.CUP)
+      // La base guarda enteros en la unidad menor (1250 = 12.50) y aqui se
+      // teclea en la unidad que se lee: las tres monedas se dividen igual.
+      if (cupEl) cupEl.value = p.precios.CUP === null ? '' : (p.precios.CUP / 100).toFixed(2)
       if (usdEl) usdEl.value = p.precios.USD === null ? '' : (p.precios.USD / 100).toFixed(2)
       if (eurEl) eurEl.value = p.precios.EUR === null ? '' : (p.precios.EUR / 100).toFixed(2)
 
@@ -429,7 +431,7 @@ const grupos = [
 
       const resp = await guardarProducto(productoId, cuerpo)
       if (!resp.ok) {
-        if (resp.status === 401) {
+        if (resp.codigo === 'no_dentro') {
           location.href = '/iniciar-sesion/'
           return
         }

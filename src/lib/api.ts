@@ -198,7 +198,7 @@ export interface FiltrosCatalogo {
   categoria?: string
   tipo?: 'digital' | 'fisico' | 'servicio'
   busqueda?: string
-  orden?: 'nuevo' | 'precio_asc' | 'precio_desc'
+  orden?: 'destacados' | 'nuevo' | 'precio_asc' | 'precio_desc'
   soloDestacados?: boolean
   pagina?: number
   porPagina?: number
@@ -229,7 +229,9 @@ function serializarFiltros(f: FiltrosCatalogo): string {
   if (f.categoria) params.set('categoria', f.categoria)
   if (f.tipo) params.set('tipo', f.tipo)
   if (f.busqueda) params.set('q', f.busqueda)
-  if (f.orden) params.set('ordenar', f.orden)
+  // 'destacados' no se manda: es el orden por defecto del Worker (destacados
+  // primero), y mandarle `ordenar=destacados` solo lo haria ignorar.
+  if (f.orden && f.orden !== 'destacados') params.set('ordenar', f.orden)
   if (f.soloDestacados) params.set('destacado', '1')
   if (f.pagina) params.set('pagina', String(f.pagina))
   if (f.porPagina) params.set('por_pagina', String(f.porPagina))

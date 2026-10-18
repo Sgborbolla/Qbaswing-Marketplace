@@ -92,6 +92,7 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     type PaqueteTarifa,
   } from '../lib/tarifas-owner'
   import { formatearPrecio } from '../lib/formato'
+  import { decimalesDe } from '../lib/monedas'
 
   type Variante = 'cuenta' | 'panel' | 'owner'
 
@@ -462,7 +463,9 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
    * mantiene iguales es el `CHECK` de la migracion, que es el unico sitio
    * donde se decide que monedas existen.
    */
-  const MONEDAS_DE_PRECIO: { valor: MonedaProducto; texto: string }[] = [
+  type ClaveDePrecio = 'CUP' | 'USD' | 'EUR'
+
+  const MONEDAS_DE_PRECIO: { valor: ClaveDePrecio; texto: string }[] = [
     { valor: 'CUP', texto: 'CUP (Peso cubano)' },
     { valor: 'USD', texto: 'USD (Dolar estadounidense)' },
     { valor: 'EUR', texto: 'EUR (Euro)' },
@@ -483,15 +486,14 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
   /**
    * La unidad en que se teclea el precio de un PAQUETE, segun la moneda.
    *
-   * Los paquetes se guardan y se escriben en la unidad menor: USD y EUR en
-   * centavos y centimos, y un paquete de 10 dolares es `1000` en la base. Esa
-   * diferencia no se puede convertir al cambiar la moneda, porque el sitio no
-   * tiene ningun tipo de cambio y no va a inventar uno para hacer el calculo por
-   * detras. Lo unico honesto es decirlo. (Los PRODUCTOS escriben en la unidad de
-   * la calle; ver `UNIDADES_DE_PRODUCTO`.)
+   * Los paquetes se guardan y se escriben en la unidad menor: centimos en las
+   * tres monedas, y un paquete de 10 dolares es `1000` en la base. La base es
+   * INTEGER y no admite punto, por eso el teclado de este formulario es sin
+   * decimales: 250,50 se escribe `25050`. (Los PRODUCTOS escriben en la unidad
+   * de la calle; ver `UNIDADES_DE_PRODUCTO`.)
    */
   const UNIDADES_DE_MONEDA: Record<MonedaProducto, string> = {
-    CUP: 'pesos enteros',
+    CUP: 'centimos',
     USD: 'centavos',
     EUR: 'centimos',
   }
@@ -499,20 +501,20 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
   /**
    * Como se escribe el precio de un PRODUCTO: en la unidad que se lee.
    *
-   * El producto se teclea como se ve en la tienda ($12.50, no 1250 centavos) y
-   * el Worker lo guarda en la unidad menor por detras. CUP no tiene centimos,
-   * asi que ahi solo entran enteros. Las tarifas de los paquetes NO usan esto:
-   * esas siguen en su unidad de siempre (ver `formularioDeTarifa`).
+   * El producto se teclea como se ve en la tienda (22.86, no 2286 centimos) y
+   * el Worker lo guarda en la unidad menor por detras. Las tres monedas son
+   * iguales: todas con decimales y sin tope. Las tarifas de los paquetes NO
+   * usan esto: esas se escriben en la unidad menor (ver `formularioDeTarifa`).
    */
   const UNIDADES_DE_PRODUCTO: Record<MonedaProducto, string> = {
-    CUP: 'pesos enteros',
+    CUP: 'pesos con centimos (22.86)',
     USD: 'dolares con centavos (12.50)',
-    EUR: 'euros con centimos (11)',
+    EUR: 'euros con centimos (11.50)',
   }
 
-  /** Decimales que se guardan por detras para cada moneda de un producto. */
-  function por100(moneda: MonedaProducto): number {
-    return moneda === 'CUP' ? 1 : 100
+  /** Unidades de la moneda por unidad de la calle: por 100 en las tres. */
+  function porUnidadMenor(moneda: MonedaProducto): number {
+    return 10 ** decimalesDe(moneda)
   }
 
   /**
@@ -527,7 +529,7 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     if (!Number.isFinite(n) || n < 0) {
       return `Se teclea en ${UNIDADES_DE_PRODUCTO[moneda]}.`
     }
-    const enLaTienda = formatearPrecio(Math.round(n * por100(moneda)), moneda)
+    const enLaTienda = formatearPrecio(Math.round(n * porUnidadMenor(moneda)), moneda)
     return `En la tienda se veria como ${enLaTienda}.`
   }
 
@@ -1074,7 +1076,6 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
       return `Se teclea en ${UNIDADES_DE_MONEDA[monedaElegida]}.`
     }
     const enLaTienda = formatearPrecio(numero, monedaElegida)
-    if (monedaElegida === 'CUP') return `En la tienda se veria como ${enLaTienda}.`
     return `Se teclea en ${UNIDADES_DE_MONEDA[monedaElegida]}: en la tienda se veria como ${enLaTienda}.`
   }
 
@@ -1109,11 +1110,11 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
       el(
         'p',
         'text-body-sm text-on-surface-variant',
-        'Pon el precio en las monedas en que quieras venderlo, como se lee: 250 en CUP, 12.50 en USD, 11 en EUR. Deja en blanco las que no ofrezcas: el producto no aparecera en ellas.',
+        'Pon el precio en las monedas en que quieras venderlo, como se lee y sin tope: 8000 en CUP, 10.50 en USD, 8 en EUR. Cada moneda se pone sola, sin conversion. Deja en blanco las que no ofrezcas: el producto no aparecera en ellas.',
       ),
     )
 
-    type Clave = 'CUP' | 'USD' | 'EUR'
+    type Clave = ClaveDePrecio
     const campos: { moneda: Clave; input: HTMLInputElement }[] = []
 
     for (const opcion of MONEDAS_DE_PRECIO) {
@@ -1128,19 +1129,17 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
         'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
       )
       input.type = 'text'
-      // CUP no admite punto; USD y EUR si, porque llevan centimos.
-      input.inputMode = opcion.valor === 'CUP' ? 'numeric' : 'decimal'
+      // Las tres monedas llevan centimos, asi que las tres admiten punto.
+      input.inputMode = 'decimal'
       input.id = `precio-${opcion.valor}`
       rotulo.htmlFor = input.id
       const actual = producto.precios[opcion.valor]
-      // La base guarda la unidad menor (USD 1250 = $12.50) y aqui se teclea la
-      // de la calle: CUP no se divide, USD y EUR si.
+      // La base guarda la unidad menor (1250 = 12.50) y aqui se teclea la de
+      // la calle: se divide por la unidad de cada moneda, igual en las tres.
       input.value =
         actual === null || actual === undefined
           ? ''
-          : opcion.valor === 'CUP'
-            ? String(actual)
-            : (actual / 100).toFixed(2)
+          : (actual / porUnidadMenor(opcion.valor)).toFixed(2)
       input.placeholder = 'Sin precio'
       const ayuda = el('p', 'text-body-sm text-on-surface-variant', '')
       const decirAyuda = (): void => {
@@ -1198,11 +1197,7 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
         }
         const n = Number(bruto.replace(',', '.'))
         if (!Number.isFinite(n) || n < 0) {
-          decir(`El precio en ${moneda} tiene que ser un numero positivo (12.50 vale), o quedar vacio.`)
-          return
-        }
-        if (moneda === 'CUP' && !Number.isInteger(n)) {
-          decir('En CUP no hay centimos: escribe pesos enteros, sin decimales.')
+          decir(`El precio en ${moneda} tiene que ser un numero positivo (22.86 vale), o quedar vacio.`)
           return
         }
         precios[moneda] = n
@@ -1408,7 +1403,8 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
    * que si hay, debajo de cada campo, es `avisoDeUnidad` con el resultado ya
    * calculado: es la unica forma de que quien teclea `10` en USD vea delante
    * que eso son diez CENTAVOS y no diez dolares. Es el error mas caro que se
-   * puede cometer aqui y sale sin ruido.
+   * puede cometer aqui y sale sin ruido. En las tres monedas la tecnica es la
+   * misma: la columna es la unidad menor.
    *
    * Se mandan los tres campos SIEMPRE, aunque solo se haya tocado uno. En el
    * servidor campo ausente conserva el valor anterior, y mandar el conjunto
@@ -1453,10 +1449,10 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
         'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface focus:border-primary focus:outline-none',
       )
       campo.type = 'text'
-      // `numeric` y no `decimal`: en las tres monedas lo que se teclea es un
-      // entero (pesos, centavos o centimos) y no lleva punto. El teclado de un
-      // movil con `decimal` ofreceria uno, y un `10.5` en USD son CENTAVOS con
-      // decimales, que la columna no admite y el Worker rechaza.
+      // `numeric` y no `decimal`: lo que se teclea aqui es un entero de la
+      // unidad menor (centimos en las tres monedas: 25050 = 250,50) y no
+      // lleva punto. El teclado de un movil con `decimal` ofreceria uno, y un
+      // `10.5` serian centimos con decimales, que la columna no admite.
       campo.inputMode = 'numeric'
       campo.id = id
       campo.value = actuales[moneda] === null ? '' : String(actuales[moneda])

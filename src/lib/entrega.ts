@@ -376,7 +376,7 @@ async function obtenerTokenDrive(env: Env): Promise<string> {
   return j.access_token
 }
 
-export async function obtenerArchivoMaestro(productoId: number, db: D1Database): Promise<ArchivoProducto | null> {
+export async function obtenerArchivoMaestro(productoId: number, db: Env['DB']): Promise<ArchivoProducto | null> {
   const f = await db.prepare(`SELECT id, producto_id, almacen, clave, nombre_descarga, content_type, bytes, hash_sha256, creado_at, actualizado_at FROM archivos_producto WHERE producto_id = ?`).bind(productoId).first<ArchivoProducto>()
   return f ?? null
 }

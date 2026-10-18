@@ -54,9 +54,11 @@ interface Props {
   referencia?: string | null
   /** Texto de red, solo para cripto. */
   red?: string | null
+  /** Indicaciones del que configuro el medio: referencia, horario, etc. */
+  instrucciones?: string | null
 }
 
-const { dato, etiqueta, titular, color, referencia, red } = Astro.props
+const { dato, etiqueta, titular, color, referencia, red, instrucciones } = Astro.props
 
 // El numero se muestra en grupos de cuatro. No es decoracion: sixteen digitos
 // pegados en una linea soneillegibles y la gente se equivoca al contarlos, y un
@@ -93,6 +95,7 @@ const idQr = `qr-${crypto.randomUUID()}`
 
     <div class="min-w-0 flex-1">
       {titular && <p class="text-body-sm text-on-surface-variant">{titular}</p>}
+      {instrucciones && <p class="mt-1 text-body-sm text-on-surface-variant">{instrucciones}</p>}
 
       {/*
         El numero va en `<code>` y NO en un input. En un input se puede editar,

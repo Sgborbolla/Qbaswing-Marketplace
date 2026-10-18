@@ -56,11 +56,12 @@ export const SIMBOLO_MONEDA: Record<string, string> = Object.fromEntries(
 )
 
 /**
- * Dos decimales fijos, para las monedas que se guardan en la unidad menor.
+ * Dos decimales fijos. Las tres monedas se guardan en la unidad menor y las
+ * tres se pintan igual: 500,00 CUP, 12,00 USD, 11,00 EUR.
  *
  * No se le pasa esto a `formatearNumero` porque esa funcion recorta los
  * decimales cuando el numero resulta entero: 10 dolares saldria escrito "10"
- * y no "10,00". Recortar solo vale para las monedas sin centimos.
+ * y no "10,00". Recortar solo valdria para una moneda sin centimos.
  */
 const FORMATO_DOS_DECIMALES = new Intl.NumberFormat(LOCALE, {
   minimumFractionDigits: 2,
@@ -76,8 +77,8 @@ const FORMATO_DOS_DECIMALES = new Intl.NumberFormat(LOCALE, {
  * Se pasa el codigo (`'CUP' | 'USD' | 'EUR'`) y no un simbolo, para que la
  * misma funcion pinte lo que venga de la API sin que cada pagina decida. Los
  * decimales NO se adivinan: los dice la ficha de la moneda, porque el precio se
- * guarda en enteros de la unidad menor y CUP no tiene centimos. Dividir siempre
- * entre 100 pondria un precio de 1000 CUP como 10,00.
+ * guarda en enteros de la unidad menor (por 100). Si una moneda futura no
+ * tuviera centimos, su ficha diria 0 y habria que partir de la suya, no de 100.
  *
  * Un codigo desconocido no rompe: `monedaDe` devuelve la de por defecto, que es
  * mejor que dejar el precio sin escribir.

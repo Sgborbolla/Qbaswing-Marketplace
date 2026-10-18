@@ -164,10 +164,10 @@ import Miniatura from '../../components/Miniatura.astro'
 
   function leerRedes() {
     if (!contenedorRedes) return []
-    return Array.from(contenedorRedes.children).map((hijo) => {
+    return Array.from(contenedorRedes.children).map((hijo, i) => {
       const sel = hijo.querySelector('.red-select') as HTMLSelectElement
       const url = hijo.querySelector('.red-url') as HTMLInputElement
-      return { red: sel.value, url: url.value.trim() }
+      return { red: sel.value, url: url.value.trim(), orden: i }
     })
   }
 

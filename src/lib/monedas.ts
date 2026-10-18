@@ -15,10 +15,10 @@
  *
  * Por eso es una lista cerrada y no texto libre:
  *
- *   1. El precio se guarda en ENTEROS de la unidad menor. CUP no tiene
- *      centimos y USD si: si el simbolo fuera texto libre, nadie sabria cuantos
- *      decimales tiene y un "1000" podria ser mil pesos o diez pesos con
- *      cincuenta. El numero que ve el comprador saldria mal, y el precio es
+ *   1. El precio se guarda en ENTEROS de la unidad menor (la principal por
+ *      100): 12,50 USD son 1250 y 22,86 CUP son 2286. Si el simbolo fuera texto
+ *      libre, nadie sabria cuantos decimales tiene y un "1000" podria ser mil
+ *      pesos o diez. El numero que ve el comprador saldria mal, y el precio es
  *      justo lo que decide la compra.
  *
  *   2. Los pagos y la comision de la plataforma se liquidan en estas tres
@@ -33,7 +33,8 @@
  *  LOS DECIMALES
  * ============================================================================
  * `decimales` es cuantos digitos van DESPUES de la coma en la unidad principal.
- * Casi todas usan 2. Las que no: el peso cubano se maneja en enteros (0).
+ * Las tres usan 2: el peso cubano tiene centimos, igual que el dolar y el euro,
+ * y un precio puede ser 22,86 CUP igual que 22,86 USD. No hay distincion.
  *
  * Este numero NO es decorativo: `formatearPrecio` lo usa para dividir el entero
  * guardado. Cambiarlo mal es mostrar un precio cien veces mas caro.
@@ -60,7 +61,7 @@ export interface Moneda {
 export type BucketMoneda = 'CUP' | 'USD' | 'EUR'
 
 export const MONEDAS: readonly Moneda[] = [
-  { codigo: 'CUP', nombre: 'Peso cubano', simbolo: 'CUP', decimales: 0 },
+  { codigo: 'CUP', nombre: 'Peso cubano', simbolo: 'CUP', decimales: 2 },
   { codigo: 'USD', nombre: 'Dólar estadounidense', simbolo: 'USD', decimales: 2 },
   { codigo: 'EUR', nombre: 'Euro', simbolo: 'EUR', decimales: 2 },
 ] as const
