@@ -74,7 +74,9 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
   import type { NombreIcono } from '../lib/iconos'
   import {
     cambiarPrecio,
+    despublicarProducto,
     misProductos,
+    publicarProducto,
     type MonedaProducto,
     type ProductoPropio,
   } from '../lib/productos-panel'
@@ -113,14 +115,21 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
    * un formulario que le dejaria cambiar el precio de lo que paga el. El
    * Worker lo niega igualmente (pide rol `owner`), pero no llegara un
    * formulario a una pantalla que no deberia tenerlo.
+   *
+   * `productos` esta en `panel` y `owner`, que son las variantes que ya tienen
+   * tienda, y no en `cuenta` (quien no vende no gestiona nada). Su lista es la
+   * misma que la de `precios`, pero la seccion es otra: los precios se tocan
+   * cada poco y la publicacion se toca cuando algo cambia, y mezclarlas
+   * convertiria la tabla de precios en un panel de botones.
    */
   const SECCIONES: Record<Variante, string[]> = {
     cuenta: ['identidad', 'precios', 'exencion', 'sesiones'],
-    panel: ['identidad', 'tienda', 'precios', 'medios', 'exencion', 'sesiones'],
+    panel: ['identidad', 'tienda', 'productos', 'precios', 'medios', 'exencion', 'sesiones'],
     owner: [
       'identidad',
       'exencion',
       'tienda',
+      'productos',
       'precios',
       'tarifas',
       'medios',
@@ -485,6 +494,154 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     pendiente: 'Pendiente de aprobacion',
     aprobado: 'Publicado',
     rechazado: 'Rechazado',
+  }
+
+  /**
+   * La seccion de gestion: publicar un producto o aparlarlo de la tienda.
+   *
+   * Pide la misma lista que `precios` (su ruta, su sesion) y por el mismo
+   * motivo se pinta sola: nada de esto vive en `GET /api/cuenta`.
+   */
+  function seccionProductos(): HTMLElement {
+    const caja = tarjeta('Tus productos', 'public')
+    const cuerpo = el('div', 'mt-4 space-y-4')
+    cuerpo.append(el('p', 'text-body-md text-on-surface-variant', 'Cargando tus productos...'))
+    caja.append(cuerpo)
+    void refrescarProductos(cuerpo)
+    return caja
+  }
+
+  /**
+   * Vuelve a pedirlos y repinta la caja entera, igual que en `precios`.
+   *
+   * `aviso` se anade encima de la lista sin borrarla: es lo que acaba de pasar
+   * (un publicar, un despublicar) o el motivo que escribio el Worker cuando no
+   * pudo. `fallo` decide el color: "Publicado" y "No podes publicar un producto
+   * agotado" no son la misma noticia y no pueden pintarse igual.
+   */
+  async function refrescarProductos(
+    contenedor: HTMLElement,
+    aviso?: string,
+    fallo = false,
+  ): Promise<void> {
+    const respuesta = await misProductos()
+
+    if (!respuesta.ok) {
+      contenedor.replaceChildren(
+        cajaDeError(respuesta.mensaje, () => void refrescarProductos(contenedor)),
+      )
+      return
+    }
+
+    const productos = respuesta.datos.productos
+    const pieza = el('div', 'space-y-4')
+
+    if (aviso) pieza.append(fallo ? cajaDeError(aviso) : cajaDeAviso(aviso))
+
+    if (productos.length === 0) {
+      pieza.append(
+        vacio(
+          'Todavia no tienes productos. Aqui estaran para publicarlos o apagarlos de la tienda cuando los tengas.',
+        ),
+      )
+      contenedor.replaceChildren(pieza)
+      return
+    }
+
+    const lista = el('ul', 'space-y-3')
+    for (const producto of productos) {
+      lista.append(filaDeGestion(producto, contenedor))
+    }
+    pieza.append(lista)
+
+    contenedor.replaceChildren(pieza)
+  }
+
+  /** Un producto: en que paso del circuito esta, y lo que se puede hacer con el. */
+  function filaDeGestion(producto: ProductoPropio, contenedor: HTMLElement): HTMLElement {
+    const caja = el('li', 'rounded-xl border border-outline-variant/60 bg-surface-container-low p-4')
+
+    const cabecera = el('div', 'flex flex-wrap items-center justify-between gap-2')
+    cabecera.append(
+      el('h3', 'font-headline text-body-md font-semibold text-on-surface', producto.titulo),
+      insignia(
+        ESTADOS_DE_PUBLICACION[producto.estado_publicacion] ?? producto.estado_publicacion,
+        producto.publicado,
+      ),
+    )
+
+    // La insignia dice en que paso del circuito esta; esta linea dice si la
+    // gente lo puede comprar ahora, que no es lo mismo: un producto aprobado y
+    // apagado sigue aprobado, y dejar la insignia en verde seria mentirle.
+    const ahora = producto.publicado
+      ? 'Visible en la tienda.'
+      : producto.estado_publicacion === 'aprobado'
+        ? 'Aprobado, pero fuera de la tienda.'
+        : 'Fuera de la tienda.'
+
+    caja.append(cabecera, el('p', 'mt-1 text-body-sm text-on-surface-variant', ahora))
+
+    const acciones = el('div', 'mt-3 flex flex-wrap items-center gap-2')
+
+    if (producto.publicado) {
+      const ver = el(
+        'a',
+        'text-label-md font-semibold text-primary transition hover:underline',
+        'Ver en la tienda',
+      )
+      ver.href = `/producto/${producto.slug}/`
+      const apagar = botonSecundario('Despublicar')
+      apagar.addEventListener('click', () => void alDespublicar(producto, contenedor))
+      acciones.append(ver, apagar)
+    } else if (producto.estado_publicacion !== 'pendiente') {
+      // En `pendiente` no hay boton: el producto ya esta enviado y esperando
+      // al Owner, y pulsar "Publicar" otra vez no acelera nada. Si el Owner lo
+      // rechaza, el estado pasa a `rechazado` y el boton vuelve a aparecer.
+      const publicar = botonSecundario('Publicar')
+      publicar.addEventListener('click', () => void alPublicar(producto, contenedor))
+      acciones.append(publicar)
+    }
+
+    caja.append(acciones)
+    return caja
+  }
+
+  async function alPublicar(producto: ProductoPropio, contenedor: HTMLElement): Promise<void> {
+    const respuesta = await publicarProducto(producto.id)
+    if (!respuesta.ok) {
+      await refrescarProductos(contenedor, respuesta.mensaje, true)
+      return
+    }
+
+    // Replica la division del Worker: la Regla A (digital externo) espera al
+    // Owner y las demas se publican solas. Decir "publicado" a un producto que
+    // quedo en `pendiente` se leeria como error cuando la insignia cambiara.
+    const esperaAlOwner = producto.regla === 'A' && producto.estado_publicacion !== 'aprobado'
+    await refrescarProductos(
+      contenedor,
+      esperaAlOwner
+        ? 'Enviado. Tu producto aparece en la tienda cuando el Owner lo apruebe.'
+        : 'Publicado. Ya se puede comprar.',
+    )
+  }
+
+  async function alDespublicar(producto: ProductoPropio, contenedor: HTMLElement): Promise<void> {
+    const respuesta = await despublicarProducto(producto.id)
+    if (!respuesta.ok) {
+      await refrescarProductos(contenedor, respuesta.mensaje, true)
+      return
+    }
+    await refrescarProductos(
+      contenedor,
+      'Fuera de la tienda. Nadie puede comprarlo hasta que lo publiques otra vez.',
+    )
+  }
+
+  /** Un aviso que no es un error: lo que acaba de pasar, en verde. */
+  function cajaDeAviso(mensaje: string): HTMLElement {
+    const caja = el('div', 'rounded-xl border border-primary/40 bg-primary-container/40 p-4')
+    caja.append(el('p', 'text-body-md text-on-primary-container', mensaje))
+    return caja
   }
 
   /**
@@ -1535,6 +1692,13 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
           break
         case 'tienda':
           zona.append(seccionTienda(datos.tienda))
+          break
+        case 'productos':
+          // Su lista viene de la misma ruta que `precios` y se pinta sola por
+          // lo mismo: en `datos` no esta ni lo uno ni lo otro. La diferencia es
+          // lo que se hace con cada producto: aqui se gestiona, alla se pone
+          // precio.
+          zona.append(seccionProductos())
           break
         case 'medios':
           // Se pinta sola y no recibe nada: sus datos no estan en `datos`, que
