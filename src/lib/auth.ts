@@ -253,11 +253,13 @@ export async function hashDeToken(token: string, secreto: string): Promise<strin
  *             cualquier error de XSS en el sitio roba la sesion de todo el
  *             mundo con un bucle de peticiones.
  *   Secure    solo viaja por HTTPS. En HTTP se manda en claro y se lee en la red.
- *   SameSite  `Lax` evita que un enlace externo lleve la cookie de vuelta al
- *             sitio, que es la tecnica de CSRF mas comun. `Strict` tampoco
- *             sirve para QvaPay: la pasarela vuelve por redireccion, y con
- *             `Strict` la cookie no volveria y el usuario tendria que entrar
- *             otra vez a proposito.
+ *   SameSite  `None` porque el sitio y la API viven en origenes distintos
+ *             (`pages.dev` contra `workers.dev`). Con `Lax` el navegador NO
+ *             manda la cookie en los `fetch` del panel: quien entra recibe
+ *             `no_dentro` y lo devuelve al login en bucle. Ese era el bug de
+ *             "me redirige al login". A cambio, `None` pierde la proteccion
+ *             CSRF que daba `Lax`, asi que el Worker valida el cabecera
+ *             `Origin` en todo lo que no sea GET/HEAD (ver `enrutar`).
  *   Path=/    la cookie vale en todo el sitio, que es lo que se necesita para
  *             que el panel y la pagina de descargas compartan sesion.
  */
@@ -267,7 +269,7 @@ export function cookieDeSesion(token: string, vigenciaSeg: number = VIGENCIA_SES
     'Path=/',
     'HttpOnly',
     'Secure',
-    'SameSite=Lax',
+    'SameSite=None',
     `Max-Age=${vigenciaSeg}`,
   ].join('; ')
 }
@@ -283,7 +285,7 @@ export function cookieDeSesion(token: string, vigenciaSeg: number = VIGENCIA_SES
  * cookie.
  */
 export function cookieDeBorrado(): string {
-  return [`${NOMBRE_COOKIE_SESION}=`, 'Path=/', 'HttpOnly', 'Secure', 'SameSite=Lax', 'Max-Age=0'].join('; ')
+  return [`${NOMBRE_COOKIE_SESION}=`, 'Path=/', 'HttpOnly', 'Secure', 'SameSite=None', 'Max-Age=0'].join('; ')
 }
 
 /** Lee la cookie de sesion de una peticion. `null` si no viene o si esta vacia. */

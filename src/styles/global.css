@@ -551,3 +551,104 @@
     .lg\:col-9 { grid-column: span 9 / span 9; }
   }
 }
+
+/* ============================================================================
+   Descripcion de producto con formato (estilo Amazon).
+   El HTML viene de `src/lib/descripcion.ts` en el build: el vendedor escribe
+   texto y aqui se decide como se ve. Sin `@layer` a proposito: son reglas
+   planas para que manden sobre las utilidades de Tailwind heredadas del
+   contenedor.
+   =========================================================================== */
+.descripcion-rica {
+  position: relative;
+  color: var(--color-on-surface-variant);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  overflow-wrap: break-word;
+}
+.descripcion-rica p {
+  margin: 1em 0;
+}
+.descripcion-rica p:first-child {
+  margin-top: 0;
+}
+.descripcion-rica p:last-child {
+  margin-bottom: 0;
+}
+.descripcion-rica h3,
+.descripcion-rica h4 {
+  margin: 1.75em 0 0.6em;
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid var(--color-outline-variant);
+  color: var(--color-on-surface);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.descripcion-rica h3 {
+  font-size: 1.25rem;
+}
+.descripcion-rica h4 {
+  font-size: 1.1rem;
+}
+.descripcion-rica h3:first-child,
+.descripcion-rica h4:first-child {
+  margin-top: 0;
+}
+.descripcion-rica ul,
+.descripcion-rica ol {
+  margin: 1em 0;
+  padding-left: 1.5rem;
+}
+.descripcion-rica ul {
+  list-style: disc;
+}
+.descripcion-rica ol {
+  list-style: decimal;
+}
+.descripcion-rica li {
+  margin: 0.45em 0;
+}
+.descripcion-rica li::marker {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.descripcion-rica a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.descripcion-rica a:hover {
+  color: var(--color-secondary);
+}
+.descripcion-rica strong {
+  color: var(--color-on-surface);
+  font-weight: 700;
+}
+.descripcion-rica code {
+  padding: 0.1em 0.35em;
+  border-radius: 0.35em;
+  background: var(--color-surface-container-high);
+  font-size: 0.9em;
+}
+.descripcion-rica img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.25em auto;
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgb(0 25 69 / 0.18);
+}
+.descripcion-rica hr {
+  border: 0;
+  border-top: 1px solid var(--color-outline-variant);
+  margin: 1.5em 0;
+}
+
+/* Lo que esta tras "Leer mas": recorte con degradado en vez de corte seco
+   con el color de la tarjeta, que varia segun el tema. */
+.descripcion-rica.colapsada {
+  max-height: 17rem;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 68%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 68%, transparent 100%);
+}

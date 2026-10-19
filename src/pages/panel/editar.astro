@@ -89,6 +89,23 @@ const grupos = [
       </div>
 
       <div>
+        <label for="campo-larga" class="block text-label-md font-medium text-on-surface">
+          Descripcion completa
+        </label>
+        <textarea
+          id="campo-larga"
+          maxlength="5000"
+          rows="8"
+          class="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md text-on-surface"
+        ></textarea>
+        <p class="mt-1 text-label-sm text-on-surface-variant">
+          Opcional. Se ve debajo de las fotos con formato, como en Amazon: titulo con
+          lineas de ===== debajo, listas con guiones, **negrita** y *cursiva*.
+          Si la dejas vacia se usa la descripcion corta.
+        </p>
+      </div>
+
+      <div>
         <label for="campo-categoria" class="block text-label-md font-medium text-on-surface">
           Categoria
         </label>
@@ -291,6 +308,7 @@ const grupos = [
     const tipoEl = document.getElementById('campo-tipo') as HTMLSelectElement | null
     const tituloEl = document.getElementById('campo-titulo') as HTMLInputElement | null
     const descEl = document.getElementById('campo-descripcion') as HTMLTextAreaElement | null
+    const largaEl = document.getElementById('campo-larga') as HTMLTextAreaElement | null
     const categoriaEl = document.getElementById('campo-categoria') as HTMLSelectElement | null
 
     const cupEl = document.getElementById('precio-cup') as HTMLInputElement | null
@@ -356,6 +374,7 @@ const grupos = [
       }
       if (tituloEl) tituloEl.value = p.titulo
       if (descEl) descEl.value = p.descripcion
+      if (largaEl) largaEl.value = p.descripcion_larga ?? ''
       if (categoriaEl) {
         let existe = false
         for (const opt of categoriaEl.querySelectorAll('option')) {
@@ -410,6 +429,7 @@ const grupos = [
         tipo,
         titulo: texto('campo-titulo'),
         descripcion: texto('campo-descripcion'),
+        descripcion_larga: texto('campo-larga'),
         categoria: categoriaEl?.value ?? '',
         precios: { CUP: cup, USD: usd, EUR: eur },
       }
