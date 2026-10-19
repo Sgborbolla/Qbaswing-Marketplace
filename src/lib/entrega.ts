@@ -425,7 +425,9 @@ export async function servirDesdeMaestro(maestro: ArchivoProducto, env: Env): Pr
   if (almacen === 'pixeldrain') {
     const url = `https://pixeldrain.com/api/file/${encodeURIComponent(maestro.clave)}`
     const headersInit: Record<string,string> = {}
-    if (env.PIXELDRAIN_API_KEY) headersInit.Authorization = `Basic ${btoa(`${env.PIXELDRAIN_API_KEY}:`)}`
+    // Mismo detalle que en la subida (`panel.ts`): la clave de Pixeldrain va en
+    // el campo contrasena con el usuario vacio (`:clave`). Al reves da 401.
+    if (env.PIXELDRAIN_API_KEY) headersInit.Authorization = `Basic ${btoa(`:${env.PIXELDRAIN_API_KEY}`)}`
     const res = await fetch(url, { headers: headersInit, redirect: 'follow' })
     if (!res.ok || !res.body) throw new ErrorEntrega('archivo-no-disponible', `Pixeldrain respondió ${res.status}`)
     return new Response(res.body, { status: 200, headers: headersCliente(maestro, res.headers) })

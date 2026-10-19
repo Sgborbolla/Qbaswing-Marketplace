@@ -53,7 +53,10 @@ async function subirArchivoADrive(env: Env, archivo: File) {
 }
 async function subirArchivoAPixeldrain(env: Env, archivo: File) {
   const form = new FormData(); form.append('file', archivo)
-  const headers: Record<string,string>={}; if (env.PIXELDRAIN_API_KEY) headers.Authorization = 'Basic '+btoa(env.PIXELDRAIN_API_KEY+':')
+  // La clave va en el campo CONTRASENA, con el usuario vacio: `:clave`. Al reves
+  // (`clave:`) Pixeldrain contesta 401 y la subida acaba siendo anonima, sin
+  // relacion con la cuenta.
+  const headers: Record<string,string>={}; if (env.PIXELDRAIN_API_KEY) headers.Authorization = 'Basic '+btoa(':'+env.PIXELDRAIN_API_KEY)
   const res = await fetch('https://pixeldrain.com/api/file', {method:'POST', headers, body:form})
   if (!res.ok) throw new Error('Pixeldrain upload falló')
   const j = await res.json() as any

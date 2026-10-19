@@ -30,9 +30,15 @@
 #
 #   CLOUDFLARE_API_TOKEN   token con permiso de editar Workers y D1
 #   CLOUDFLARE_ACCOUNT_ID  id de la cuenta de Cloudflare
+#   PIXELDRAIN_API_KEY     (opcional) clave de la cuenta de Pixeldrain
 #
 # El token NO se escribe en el repositorio. Sin ellos, el flujo falla al
 # desplegar; con ellos, el despliegue sale solo.
+#
+# PIXELDRAIN_API_KEY no es obligatoria: sin ella las subidas a Pixeldrain
+# funcionan igual, pero anonimas (sin cuenta y con caducidad de la casa). Si
+# existe, este flujo la inyecta en el Worker con `wrangler secret put`, que es
+# la unica forma de que llegue al Worker sin quedar escrita en el repositorio.
 # =============================================================================
 
 name: Desplegar API
@@ -89,6 +95,22 @@ jobs:
 
       - name: Aplicar migraciones a D1
         run: node scripts/aplicar-migraciones.mjs
+
+      # Antes del despliegue y no despues: `secret put` republica el Worker, y
+      # hacerlo despues desplegaria dos veces el mismo codigo.
+      #
+      # Se pasa por `env` y no interpolando la clave en el `run` para que no
+      # aparezca en la linea de comandos. Si el secreto no existe, se omite: el
+      # flujo sigue sirviendo para todo lo demas.
+      - name: Configurar el secreto de Pixeldrain
+        env:
+          PIXELDRAIN_API_KEY: ${{ secrets.PIXELDRAIN_API_KEY }}
+        run: |
+          if [ -z "$PIXELDRAIN_API_KEY" ]; then
+            echo "Sin PIXELDRAIN_API_KEY: se omite el secreto."
+            exit 0
+          fi
+          printf '%s' "$PIXELDRAIN_API_KEY" | npx wrangler secret put PIXELDRAIN_API_KEY -c wrangler.worker.toml
 
       - name: Desplegar el Worker
         run: npx wrangler deploy -c wrangler.worker.toml
