@@ -44,6 +44,33 @@ const SECRETOS_REQUERIDOS = [
   'TROPIPAY_CLIENT_SECRET',
 ] as const
 
+/**
+ * Integraciones que se pueden quedar sin configurar sin que nada se rompa.
+ *
+ * Cada grupo son las variables que tienen que estar TODAS para que el canal
+ * funcione. Se informan aparte de `SECRETOS_REQUERIDOS` a proposito: la falta de
+ * una de estas no es una averia, y marcarlas como requeridas pondria el estado
+ * en `degraded` para siempre por canales que quiza no se quieran usar (el SMS,
+ * por ejemplo, no entrega a Cuba).
+ *
+ * El valor es la lista de variables, que ya esta en el repositorio: publicarla
+ * no revela nada y ahorra tener que buscar en el codigo que hay que cargar.
+ */
+const INTEGRACIONES_OPCIONALES = {
+  drive: ['GOOGLE_SERVICE_ACCOUNT_JSON'],
+  gofile: ['GOFILE_API_TOKEN'],
+  correo: ['CORREO_API_KEY', 'CORREO_REMITENTE'],
+  whatsapp: ['WHATSAPP_TOKEN', 'WHATSAPP_PHONE_ID'],
+  sms: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM'],
+} as const satisfies Record<string, readonly (keyof Env)[]>
+
+type NombreIntegracion = keyof typeof INTEGRACIONES_OPCIONALES
+
+/** Un secreto esta puesto si existe y no es solo espacios. */
+function presente(env: Env, nombre: keyof Env): boolean {
+  return String(env[nombre] ?? '').trim().length > 0
+}
+
 export async function responderSalud(env: Env, soloLectura: boolean): Promise<Response> {
   // `/api/salud` acepta GET y HEAD, y nada mas. Con POST devuelve 405: un
   // endpoint que dice "estoy vivo" no deberia poder escribir nada.
@@ -57,9 +84,22 @@ export async function responderSalud(env: Env, soloLectura: boolean): Promise<Re
   const expiracion = numero(env.EXPIRACION_ENLACE_SEG, 300)
   const ventana = numero(env.VENTANA_TIMESTAMP_SEG, 300)
 
-  const faltan = SECRETOS_REQUERIDOS.filter(
-    (nombre) => !String(env[nombre as keyof Env] ?? '').trim(),
-  )
+  const faltan = SECRETOS_REQUERIDOS.filter((nombre) => !presente(env, nombre))
+
+  // Que canales opcionales estan listos. No entra en `ok` ni en `estado`: una
+  // integracion sin configurar no es un fallo, y mezclarlas haria que el estado
+  // mintiera.
+  const integraciones = Object.fromEntries(
+    (Object.keys(INTEGRACIONES_OPCIONALES) as NombreIntegracion[]).map((canal) => [
+      canal,
+      {
+        configurado: INTEGRACIONES_OPCIONALES[canal].every((nombre) => presente(env, nombre)),
+      },
+    ]),
+  ) as Record<NombreIntegracion, { configurado: boolean }>
+
+  const integracionesFaltantes = (Object.keys(integraciones) as NombreIntegracion[])
+    .filter((canal) => !integraciones[canal].configurado)
 
   const base = await estadoDeLaBase(env)
   const ok = base.ok
@@ -90,6 +130,11 @@ export async function responderSalud(env: Env, soloLectura: boolean): Promise<Re
         },
       },
       enlaces: { expiran_en_seg: expiracion, tolerancia_webhook_seg: ventana },
+      // Canales que se pueden usar, con la verdad de cada uno. `drive` y
+      // `gofile` son almacenes de archivos maestros; `correo`, `whatsapp` y
+      // `sms` son avisos de venta. Ninguno hace falta para vender.
+      integraciones,
+      integraciones_faltantes: integracionesFaltantes,
       // Solo el NOMBRE de lo que falta, y solo porque sin esto no hay forma de
       // saber que cargar con `wrangler secret put`.
       secretos_faltantes: faltan,
