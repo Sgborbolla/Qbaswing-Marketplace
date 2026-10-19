@@ -32,7 +32,7 @@
 import Icono from '../components/Icono.astro'
 import Miniatura from '../components/Miniatura.astro'
 import Base from '../layouts/Base.astro'
-import { backendConfigurado, listarPaquetes } from '../lib/api'
+import { backendConfigurado, listarPaquetes, API_BASE } from '../lib/api'
 import { formatearPrecio } from '../lib/formato'
 import { miniaturaDeCategoria, type NombreMiniatura } from '../lib/miniaturas'
 import { diccionarioDe } from '../i18n/diccionario'
@@ -319,6 +319,51 @@ const pasos = [
       gofile: 'gofile',
     }
 
+    /*
+     * Que almacenes se pueden usar AHORA MISMO.
+     *
+     * El sitio es estatico y el Worker vive en otro host: este desplegable se
+     * pintaba con las cuatro opciones siempre, y elegir una sin configurar
+     * acababa en un fallo del servidor despues de rellenar todo. Se pregunta a
+     * `/api/salud`, que informa de si cada integracion tiene su secreto.
+     *
+     * Si la consulta no responde, NO se deshabilita nada: ofrecer un almacen de
+     * mas es menos malo que esconder KV por un fallo de red.
+     *
+     * KV no aparece en la respuesta porque vive en el propio Worker: no depende
+     * de ninguna integracion y por eso se salta.
+     */
+    async function marcarAlmacenes(): Promise<void> {
+      if (!almacenEl) return
+
+      try {
+        const r = await fetch(`${API_BASE}/api/salud`, {
+          headers: { Accept: 'application/json' },
+        })
+        if (!r.ok) return
+
+        const datos = (await r.json()) as {
+          integraciones?: Record<string, { configurado?: boolean }>
+        }
+        const integraciones = datos.integraciones ?? {}
+
+        for (const opcion of Array.from(almacenEl.options)) {
+          const valor = opcion.value
+          if (valor === 'kv' || valor === 'fraccionado') continue
+          // Sin noticia de ese almacen, se deja como estaba.
+          if (integraciones[valor]?.configurado !== false) continue
+
+          opcion.disabled = true
+          opcion.textContent = `${opcion.textContent} · no disponible`
+          if (almacenEl.value === valor) almacenEl.value = 'kv'
+        }
+      } catch {
+        // Sin diagnostico no se toca el desplegable.
+      }
+    }
+
+    void marcarAlmacenes()
+
     async function subirMaestro(): Promise<void> {
       if (!estado || !archivoEl || !almacenEl) return
 
@@ -337,7 +382,7 @@ const pasos = [
       // evita subir 30 MB para que el servidor diga que no.
       const MB = 1024 * 1024
       if (almacenEl.value === 'kv' && archivo.size > 25 * MB) {
-        estado.textContent = `KV admite hasta 25 MB y este archivo pesa ${(archivo.size / MB).toFixed(1)} MB. Elige Google Drive, Pixeldrain o GoFile.`
+        estado.textContent = `KV admite hasta 25 MB y este archivo pesa ${(archivo.size / MB).toFixed(1)} MB. Elige otro almacén en la lista.`
         return
       }
 
