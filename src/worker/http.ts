@@ -37,6 +37,7 @@
 // unico import que tiene el archivo: `cuerpoJson` necesita `ErrorApi` para
 // contestar en castellano, y traerlo de `constantes` es de donde sale.
 import { ErrorApi } from './constantes'
+import type { Env } from './entorno'
 
 /* ===========================================================================
  * Respuesta
@@ -56,6 +57,22 @@ export function json(cuerpo: unknown, status = 200, cabeceras: HeadersInit = {})
   h.set('Cache-Control', 'no-store')
   h.set('X-Content-Type-Options', 'nosniff')
   return new Response(JSON.stringify(cuerpo), { status, headers: h })
+}
+
+/**
+ * La base publica de la API, para armar URLs absolutas de archivos.
+ *
+ * La URL de una imagen subida se guarda ENTERA en la base (`https://api.../...`)
+ * porque el sitio es estatico y vive en otro origen: un `<img src>` con ruta
+ * relativa apuntaria a `pages.dev`, no a la API.
+ *
+ * El origen de la peticion es el respaldo y no la primera opcion: en produccion
+ * la peticion llega con la URL de la API igualmente, pero el dia que haya un
+ * dominio propio (`api.qbaswing.com`) la columna guardada tiene que decir ese
+ * dominio y no el de `workers.dev`, que es lo que trae la peticion.
+ */
+export function baseDeApi(env: Env, peticion: Request): string {
+  return (env.PUBLIC_API_BASE ?? new URL(peticion.url).origin).replace(/\/+$/, '')
 }
 
 /* ===========================================================================

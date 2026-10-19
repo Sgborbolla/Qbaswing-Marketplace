@@ -68,7 +68,7 @@ import { slugUnico } from '../slug'
  * buena que se cumple sola con la forma de la consulta.
  */
 const SQL_USUARIO_POR_EMAIL = `
-  SELECT id, email, nombre, rol, password_hash, verificado, vendedor_id
+  SELECT id, email, nombre, rol, password_hash, verificado, vendedor_id, avatar
     FROM usuarios
    WHERE email = ?
    LIMIT 1
@@ -131,7 +131,7 @@ const SQL_ABRIR_SESION = `
  * base vieja migrada antes de que existiera el `NOT NULL`.
  */
 const SQL_USUARIO_DE_SESION = `
-  SELECT u.id, u.email, u.nombre, u.rol, u.verificado, u.vendedor_id, s.id AS sesion_id
+  SELECT u.id, u.email, u.nombre, u.rol, u.verificado, u.vendedor_id, u.avatar, s.id AS sesion_id
     FROM sesiones s
     JOIN usuarios u ON u.id = s.usuario_id
    WHERE s.token_hash = ?
@@ -263,6 +263,8 @@ export interface UsuarioSesion {
   vendedor_id: number | null
   /** Session id. Se usa para revocar una sola sesion. */
   sesion_id: number
+  /** URL absoluta de la foto de la cuenta, o `null` si no tiene. */
+  avatar: string | null
   /** Privilegios de `privilegio_usuario`, no del rol. */
   privilegios: string[]
 }
@@ -304,6 +306,7 @@ export async function usuarioDePeticion(
       rol: UsuarioSesion['rol']
       verificado: number
       vendedor_id: number | null
+      avatar: string | null
       sesion_id: number
     }>()
 
@@ -322,6 +325,7 @@ export async function usuarioDePeticion(
       rol: fila.rol,
       verificado: fila.verificado,
       vendedor_id: fila.vendedor_id,
+      avatar: fila.avatar ?? null,
       sesion_id: fila.sesion_id,
       privilegios: (privilegios.results ?? []).map((p) => p.alcance),
     },
@@ -463,6 +467,9 @@ export async function registrar(
       rol: rolElegido,
       verificado: rolElegido === 'owner' ? 1 : 0,
       vendedor_id: vendedorId,
+      // La cuenta acaba de nacer: no tiene foto. Se escribe explicito y no se
+      // deja sin campo para que el tipo no tenga que admitir `undefined`.
+      avatar: null,
       sesion_id: 0,
       privilegios: (listaPrivilegios.results ?? []).map((p) => p.alcance),
     },
@@ -561,6 +568,7 @@ export async function iniciarSesion(
     password_hash: string
     verificado: number
     vendedor_id: number | null
+    avatar: string | null
   }>()
 
   if (!fila) {
@@ -596,6 +604,7 @@ export async function iniciarSesion(
       rol: fila.rol,
       verificado: fila.verificado,
       vendedor_id: fila.vendedor_id,
+      avatar: fila.avatar ?? null,
       sesion_id: 0,
       privilegios: (privilegios.results ?? []).map((p) => p.alcance),
     },

@@ -57,6 +57,8 @@ export interface UsuarioCliente {
   verificado: boolean
   esVendedor: boolean
   puedeAdministrar: boolean
+  /** URL absoluta de la foto de la cuenta, o `null` si no tiene. */
+  avatar: string | null
 }
 
 /**
@@ -89,6 +91,36 @@ export async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promis
     }
   }
 
+  // Solo los GET se repiten. Un GET no cambia nada en el servidor, mientras que
+  // reintentar un POST podria cobrar dos veces. Los fallos que se repiten son
+  // los de red y los de servidor caido; un error de formulario (contrasena
+  // mala, precio invalido) vuelve al instante, que es lo que la persona espera.
+  const esGet = !opciones.method || opciones.method.toUpperCase() === 'GET'
+  const fallosDeRed = ['sin_conexion', 'respuesta_ilegible', 'tiempo_agotado', 'sin_backend']
+  const intentos = esGet ? 3 : 1
+
+  let ultimo: Respuesta<T> = {
+    ok: false,
+    codigo: 'sin_conexion',
+    mensaje: 'No se pudo conectar con el servidor. Revisa tu conexion.',
+  }
+  for (let intento = 0; intento < intentos; intento++) {
+    if (intento > 0) await new Promise((r) => setTimeout(r, 600 * intento))
+    ultimo = await unIntento(ruta, opciones)
+    if (ultimo.ok || !fallosDeRed.includes(ultimo.codigo)) return ultimo
+  }
+  return ultimo
+}
+
+/**
+ * Un solo intento de `pedir`: pide, lee y traduce la respuesta.
+ *
+ * Separarlo de la logica de reintentos es lo que permite crear un
+ * `AbortController` nuevo en cada intento: uno solo compartido quedaria
+ * disparado tras el primer corte y los reintentos siguientes abortarian al
+ * instante.
+ */
+async function unIntento<T>(ruta: string, opciones: RequestInit): Promise<Respuesta<T>> {
   const control = new AbortController()
   // 20 s. Es lento para un movil con mala senal y eterno para alguien esperando.
   const reloj = setTimeout(() => control.abort(), 20_000)

@@ -3,7 +3,9 @@
  * Vendedor individual.
  */
 import Miniatura from '../../components/Miniatura.astro'
+import MediosDeCobro from '../../components/MediosDeCobro.astro'
 import Precios from '../../components/Precios.astro'
+import ReportarFoto from '../../components/ReportarFoto.astro'
 import Base from '../../layouts/Base.astro'
 import { recortar } from '../../lib/formato'
 import { miniaturaDeCategoria } from '../../lib/miniaturas'
@@ -109,8 +111,17 @@ const titulo = vendedor ? vendedor.nombreComercial || vendedor.nombre : t.produc
       {vendedor && (
         <>
           <header class="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-8 shadow-e1">
-            <div class="flex flex-wrap items-center justify-between gap-6">
-              <div>
+            <div class="flex flex-wrap items-center gap-5">
+              {(vendedor.avatarUrl ?? vendedor.avatarCuenta) && (
+                <img
+                  src={(vendedor.avatarUrl ?? vendedor.avatarCuenta) as string}
+                  alt={vendedor.nombreComercial || vendedor.nombre}
+                  width="80"
+                  height="80"
+                  class="h-20 w-20 shrink-0 rounded-full border border-outline-variant object-cover"
+                />
+              )}
+              <div class="min-w-0 flex-1">
                 <h1 class="font-headline text-headline-md text-on-surface">
                   {vendedor.nombreComercial || vendedor.nombre}
                 </h1>
@@ -126,7 +137,22 @@ const titulo = vendedor ? vendedor.nombreComercial || vendedor.nombre : t.produc
                 </div>
               </div>
             </div>
+            {(vendedor.avatarUrl ?? vendedor.avatarCuenta) && (
+              <ReportarFoto slug={vendedor.slug} tipo={vendedor.avatarUrl ? 'tienda' : 'cuenta'} />
+            )}
           </header>
+
+          {vendedor.mediosCobro.length > 0 && (
+            <section class="mt-8 rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6">
+              <h2 class="font-headline text-title-lg font-semibold text-on-surface">Formas de cobro</h2>
+              <p class="mt-1 text-body-sm text-on-surface-variant">
+                Cómo puedes pagarle directamente. Pregúntale antes si tienes dudas.
+              </p>
+              <div class="mt-4 max-w-2xl">
+                <MediosDeCobro medios={vendedor.mediosCobro} />
+              </div>
+            </section>
+          )}
 
           <section class="mt-8">
             <h2 class="font-headline text-title-lg font-semibold text-on-surface">{t.perfil.misProductos}</h2>

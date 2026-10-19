@@ -1,6 +1,6 @@
 import { ErrorApi } from '../constantes'
 import type { Env } from '../entorno'
-import { cuerpoJson, json } from '../http'
+import { baseDeApi, cuerpoJson, json } from '../http'
 import { esCategoriaValida } from '../../lib/categorias-producto'
 import { obtenerArchivoMaestro } from '../../lib/entrega'
 import {
@@ -134,10 +134,6 @@ async function productoDe(
   if (!suyo && !esAdmin(usuario)) throw ErrorApi.noEncontrado('Ese producto')
 
   return fila
-}
-
-function baseDeApi(env: Env, peticion: Request): string {
-  return (env.PUBLIC_API_BASE ?? new URL(peticion.url).origin).replace(/\/+$/, '')
 }
 
 /* ===========================================================================

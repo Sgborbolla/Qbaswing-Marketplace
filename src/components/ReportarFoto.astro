@@ -1,0 +1,135 @@
+---
+/**
+ * Boton de "reportar foto" para la ficha de un producto y la pagina de un
+ * vendedor.
+ *
+ * ============================================================================
+ *  POR QUE EXISTE
+ * ============================================================================
+ * Las fotos de perfil las sube su dueño, asi que la unica forma de que una foto
+ * obscena desaparezca sin revisar cada cuenta a mano es que quien la ve pueda
+ * avisar. Quitar este boton de la vista publica deja la moderacion en nada.
+ *
+ * ============================================================================
+ *  POR QUE NO ES UN DIALOGO DEL NAVEGADOR
+ * ============================================================================
+ * `window.prompt` bloquea la pagina, no se puede validar el texto y en movil se
+ * ve como un aviso del sistema. El aviso se pide aqui mismo, con un campo
+ * pequeno, y el texto viaja ya recortado.
+ *
+ * Lo que se manda es el SLUG del vendedor y CUAL de las dos fotos se reporta.
+ * El slug y no el id: es lo unico que la pagina conoce, y un id en el HTML se
+ * puede cambiar a mano para señalar a cualquiera.
+ */
+import { diccionarioDe } from '../i18n/diccionario'
+
+interface Props {
+  slug: string
+  /** Cual de las dos fotos se esta viendo. La de la tienda si no se dice otra. */
+  tipo?: 'cuenta' | 'tienda'
+}
+
+const { slug, tipo = 'tienda' } = Astro.props
+const t = diccionarioDe(Astro.currentLocale ?? 'es')
+---
+
+<div
+  data-reportar-foto
+  data-vendedor={slug}
+  data-tipo={tipo}
+  data-ayuda={t.comun.reportarFotoAyuda}
+  data-gracias={t.comun.reportarFotoGracias}
+  class="mt-2"
+>
+  <button
+    type="button"
+    data-abrir
+    class="text-label-sm text-on-surface-variant underline decoration-dotted underline-offset-2 transition hover:text-error"
+  >
+    {t.comun.reportarFoto}
+  </button>
+
+  <div data-panel class="mt-2 hidden max-w-sm">
+    <textarea
+      data-motivo
+      rows="2"
+      maxlength="500"
+      placeholder={t.comun.reportarFotoAyuda}
+      class="w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-body-sm text-on-surface"
+    ></textarea>
+    <div class="mt-2 flex items-center gap-2">
+      <button
+        type="button"
+        data-enviar
+        class="rounded-full border border-outline-variant px-3 py-1.5 text-label-md font-semibold text-on-surface transition hover:border-primary disabled:opacity-60"
+      >
+        {t.comun.confirmar}
+      </button>
+      <button
+        type="button"
+        data-cancelar
+        class="rounded-full px-3 py-1.5 text-label-md text-on-surface-variant transition hover:text-on-surface"
+      >
+        {t.comun.cancelar}
+      </button>
+    </div>
+    <p data-aviso class="mt-2 text-label-sm" role="status"></p>
+  </div>
+</div>
+
+<script>
+  import { reportarFoto } from '../lib/avatar-cliente'
+
+  document.querySelectorAll<HTMLElement>('[data-reportar-foto]').forEach((caja) => {
+    const abrir = caja.querySelector<HTMLButtonElement>('[data-abrir]')
+    const panel = caja.querySelector<HTMLElement>('[data-panel]')
+    const motivo = caja.querySelector<HTMLTextAreaElement>('[data-motivo]')
+    const enviar = caja.querySelector<HTMLButtonElement>('[data-enviar]')
+    const cancelar = caja.querySelector<HTMLButtonElement>('[data-cancelar]')
+    const aviso = caja.querySelector<HTMLElement>('[data-aviso]')
+    if (!abrir || !panel || !motivo || !enviar || !cancelar || !aviso) return
+
+    abrir.addEventListener('click', () => {
+      panel.classList.toggle('hidden')
+      if (!panel.classList.contains('hidden')) motivo.focus()
+    })
+
+    cancelar.addEventListener('click', () => {
+      panel.classList.add('hidden')
+      motivo.value = ''
+      aviso.textContent = ''
+    })
+
+    enviar.addEventListener('click', () => {
+      const texto = motivo.value.trim()
+      // Menos de 10 caracteres no dice nada y el Worker lo rechazaria con un
+      // error que aqui se puede evitar antes de gastar la peticion.
+      if (texto.length < 10) {
+        aviso.className = 'mt-2 text-label-sm text-error'
+        aviso.textContent = caja.dataset.ayuda ?? ''
+        return
+      }
+
+      enviar.disabled = true
+      void (async () => {
+        const resultado = await reportarFoto({
+          vendedorSlug: caja.dataset.vendedor ?? '',
+          tipo: caja.dataset.tipo === 'cuenta' ? 'cuenta' : 'tienda',
+          motivo: texto,
+        })
+
+        if (!resultado.ok) {
+          enviar.disabled = false
+          aviso.className = 'mt-2 text-label-sm text-error'
+          aviso.textContent = resultado.mensaje
+          return
+        }
+
+        aviso.className = 'mt-2 text-label-sm text-secondary'
+        aviso.textContent = caja.dataset.gracias ?? ''
+        motivo.disabled = true
+        panel.classList.add('hidden')
+      })()
+    })
+  })
+</script>

@@ -57,14 +57,37 @@ import { cuerpoJson, json } from '../http'
 import { usuarioDePeticion } from './registro'
 
 /**
- * Los cinco tipos que la tabla admite en su `CHECK`.
+ * Los diez tipos que la tabla admite en su `CHECK`.
  *
  * No es un tipo abierto: si aqui se anade uno nuevo sin tocar la migracion, el
  * `INSERT` falla en la base y el error llega al vendedor en ingles. Se declara
  * como union para que `tsc` lo note antes de desplegar.
+ *
+ * Los cinco ultimos son las formas de cobro de verdad: PayPal, Stripe, Payeer,
+ * cuenta bancaria y pago movil. `app` se queda aunque no se ofrezca en el
+ * desplegable, porque hay filas escritas con el y quitarlo las invalidaria.
  */
-const TIPOS = ['tarjeta', 'app', 'cripto', 'efectivo', 'otro'] as const
+const TIPOS = [
+  'tarjeta',
+  'cuenta',
+  'cripto',
+  'efectivo',
+  'paypal',
+  'stripe',
+  'payeer',
+  'movil',
+  'app',
+  'otro',
+] as const
 type TipoMedio = (typeof TIPOS)[number]
+
+/**
+ * Los tipos que se cobran abriendo un enlace de pago.
+ *
+ * En estos el unico dato es el enlace: no hay numero ni cartera que enseñar, y
+ * pedirlos seria pedirle al vendedor dos datos para una sola cosa.
+ */
+const TIPOS_DE_PASARELA: TipoMedio[] = ['paypal', 'stripe', 'payeer']
 
 /** Longitud maxima de cada texto. La base no las pone, pero un campo sin tope se rellena a mano. */
 const TOPE_NOMBRE = 80
@@ -481,6 +504,39 @@ function leerCampos(cuerpo: Record<string, unknown>, previo?: Record<string, unk
       throw ErrorApi.invalido(
         'numeroCuenta',
         'El numero de cuenta solo puede llevar digitos, sin letras ni guiones.',
+      )
+    }
+    direccion = null
+    red = null
+  } else if (TIPOS_DE_PASARELA.includes(tipoFinal)) {
+    // PayPal, Stripe y Payeer se cobran abriendo su enlace. Sin enlace, el
+    // comprador lee "Paga con PayPal" y no tiene a donde ir, asi que se para
+    // aqui con el nombre del campo en el mensaje: quien acaba de elegir PayPal
+    // esta mirando el formulario, no la respuesta del servidor.
+    if (!enlace) {
+      throw ErrorApi.invalido(
+        'enlace',
+        'Esta forma de cobro se cobra con un enlace de pago. Pega el tuyo, por ejemplo el de tu boton de PayPal o de Stripe.',
+      )
+    }
+    numeroCuenta = null
+    direccion = null
+    red = null
+  } else if (tipoFinal === 'cuenta' || tipoFinal === 'movil') {
+    // Una cuenta bancaria o un pago movil pueden ser un numero de cuenta, un
+    // telefono o un alias/correo de Zelle. Aqui si se admite texto: forzar
+    // digitos dejaria fuera al alias, que es como se cobra de verdad.
+    if (numeroCuenta) {
+      if (numeroCuenta.length > TOPE_DIRECCION) {
+        throw ErrorApi.invalido(
+          'numeroCuenta',
+          `El numero o alias no puede pasar de ${TOPE_DIRECCION} caracteres.`,
+        )
+      }
+    } else if (!enlace) {
+      throw ErrorApi.invalido(
+        'numeroCuenta',
+        'Pon el numero de cuenta, el telefono o el alias con el que te pagan. Si prefieres que paguen por un enlace, pon el enlace de pago.',
       )
     }
     direccion = null

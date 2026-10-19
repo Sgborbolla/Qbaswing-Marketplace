@@ -183,6 +183,21 @@ async function listarProductos(peticion: Request, env: Env) {
             p.precio_cup, p.precio_usd, p.precio_eur,
             p.vitalicia, p.creado_at,
             v.slug AS vendedor_slug, v.nombre_comercial AS vendedor_nombre,
+            -- La foto que se ve en la ficha: la de la tienda si la hay y, si
+            -- no, la de la cuenta. Se resuelve aqui y no en el cliente porque
+            -- es la misma regla para el listado y para la ficha.
+            COALESCE(
+              v.avatar_url,
+              (SELECT u.avatar FROM usuarios u WHERE u.vendedor_id = v.id LIMIT 1)
+            ) AS vendedor_avatar,
+            -- Cual de las dos se acabo enseñando. Sin esto, un aviso sobre la
+            -- foto no sabria si señala la de la tienda o la de la cuenta, y el
+            -- Owner borraria la que no era.
+            CASE
+              WHEN v.avatar_url IS NOT NULL THEN 'tienda'
+              WHEN (SELECT u.avatar FROM usuarios u WHERE u.vendedor_id = v.id LIMIT 1) IS NOT NULL THEN 'cuenta'
+              ELSE NULL
+            END AS vendedor_avatar_tipo,
             (SELECT i.url
                FROM producto_imagenes i
               WHERE i.producto_id = p.id
@@ -225,6 +240,15 @@ async function productoPorSlug(env: Env, slug: string, idioma: string) {
             v.id AS vendedor_id,
             v.slug AS vendedor_slug, v.nombre_comercial AS vendedor_nombre,
             v.ubicacion AS vendedor_ubicacion, v.verificado AS vendedor_verificado,
+            COALESCE(
+              v.avatar_url,
+              (SELECT u.avatar FROM usuarios u WHERE u.vendedor_id = v.id LIMIT 1)
+            ) AS vendedor_avatar,
+            CASE
+              WHEN v.avatar_url IS NOT NULL THEN 'tienda'
+              WHEN (SELECT u.avatar FROM usuarios u WHERE u.vendedor_id = v.id LIMIT 1) IS NOT NULL THEN 'cuenta'
+              ELSE NULL
+            END AS vendedor_avatar_tipo,
             d.stack, d.licencia, d.version, d.ultima_actualizacion, d.demo_url,
             d.formato_entrega,
             f.stock, f.envio, f.processing_time, f.peso_kg,
@@ -271,6 +295,7 @@ async function productoPorSlug(env: Env, slug: string, idioma: string) {
   // preguntar por ESTE producto habla con quien lo vende.
   const contacto = await contactoVendedor(env, fila.vendedor_id as number)
   const redes = await redesVendedor(env, fila.vendedor_id as number)
+  const medios = await mediosVendedor(env, fila.vendedor_id as number)
 
   return {
     ...fila,
@@ -278,6 +303,7 @@ async function productoPorSlug(env: Env, slug: string, idioma: string) {
     variantes: variantes.results,
     contacto,
     redes,
+    medios,
     requiere_pasarela_plataforma: requierePasarela,
   }
 }
@@ -319,6 +345,47 @@ async function redesVendedor(env: Env, vendedorId: number) {
     .all()
 
   return results ?? []
+}
+
+/**
+ * Formas de cobro que el vendedor pone a la vista del comprador.
+ *
+ * Solo las que estan encendidas (`activo = 1`) y SOLO con un dato que enseñar:
+ * una forma de cobro sin numero, sin direccion y sin enlace no le dice al
+ * comprador a donde pagar, y pintarla seria una etiqueta con nada al lado.
+ *
+ * `dato` se resuelve aqui con la misma prioridad que usa el panel (numero de
+ * cuenta, si no direccion, si no enlace) para que la ficha no tenga que saber
+ * cual de los tres campos venia relleno. No se manda la fila cruda: los campos
+ * que no son el dato no tienen por que salir de aqui.
+ *
+ * La relacion es usuario -> vendedor porque los medios son de la CUENTA (los
+ * pone en su panel), y la tienda es la cara publica de esa cuenta.
+ */
+async function mediosVendedor(env: Env, vendedorId: number) {
+  const { results } = await env.DB.prepare(
+    `SELECT nombre, tipo, color_marca, titular, red, instrucciones, enlace,
+            CASE
+              -- Las pasarelas se cobran con el enlace y no tienen numero.
+              WHEN tipo IN ('paypal', 'stripe', 'payeer') THEN enlace
+              -- Cripto enseña la direccion de la cartera, con su red al lado.
+              WHEN tipo = 'cripto' THEN direccion
+              -- Bancoin, tarjeta, telefono y demas: el numero o el alias.
+              ELSE COALESCE(
+                NULLIF(TRIM(COALESCE(numero_cuenta, '')), ''),
+                NULLIF(TRIM(COALESCE(enlace, '')), ''),
+                NULLIF(TRIM(COALESCE(direccion, '')), '')
+              )
+            END AS dato
+       FROM medios_pago_usuario
+      WHERE activo = 1
+        AND usuario_id = (SELECT id FROM usuarios WHERE vendedor_id = ?)
+      ORDER BY orden, id`,
+  )
+    .bind(vendedorId)
+    .all<Record<string, unknown>>()
+
+  return (results ?? []).filter((f) => String(f.dato ?? '').trim() !== '')
 }
 
 /* ===========================================================================
@@ -395,7 +462,11 @@ async function listarVendedores(peticion: Request, env: Env) {
 async function vendedorPorSlug(env: Env, slug: string, idioma: string) {
   const fila = await env.DB.prepare(
     `SELECT v.id, v.slug, v.nombre, v.nombre_comercial, v.descripcion, v.avatar_url,
-            v.ubicacion, v.verificado, v.creado_at
+            v.ubicacion, v.verificado, v.creado_at,
+            -- La foto de CUENTA va aparte de avatar_url (la de la tienda):
+            -- en la pagina del vendedor las dos tienen sentido a la vez, la del
+            -- negocio y la de la persona que lo lleva.
+            (SELECT u.avatar FROM usuarios u WHERE u.vendedor_id = v.id LIMIT 1) AS avatar_cuenta
        FROM vendedores v
       WHERE v.slug = ?`,
   )
@@ -422,12 +493,13 @@ async function vendedorPorSlug(env: Env, slug: string, idioma: string) {
 
   const contacto = await contactoVendedor(env, fila.id as number)
   const redes = await redesVendedor(env, fila.id as number)
+  const medios = await mediosVendedor(env, fila.id as number)
 
   // El `id` no se devuelve: es un detalle interno y la ficha navega por slug.
   const { id, ...resto } = fila
   void id
 
-  return { ...resto, contacto, redes, productos: productos.results }
+  return { ...resto, contacto, redes, medios, productos: productos.results }
 }
 
 /* ===========================================================================

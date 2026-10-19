@@ -68,6 +68,13 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
   } from '../lib/aprobaciones-owner'
   import { miCuenta, type DatosCuentaCliente, type UsuarioCliente } from '../lib/identidad-cliente'
   import {
+    atenderReporteAvatar,
+    listarReportesAvatar,
+    quitarAvatarCuenta,
+    subirAvatarCuenta,
+    type ReporteAvatar,
+  } from '../lib/avatar-cliente'
+  import {
     anadirMedio,
     borrarMedio,
     cambiarMedio,
@@ -103,6 +110,12 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
    * la cuenta no muestra la tienda pero el panel si, es una decision de
    * contenido, no de programacion.
    *
+   * `foto` SI esta en las tres. La foto de cuenta es de la persona, no del
+   * negocio: tambien la tiene quien solo compra, y es lo primero que se ve de
+   * alguien en una ficha. La foto de la TIENDA no va aqui, va con la tienda
+   * (`seccionTienda` en `panel` y la pagina `/panel/tienda`), porque es otro
+   * dato y se guarda en otra tabla.
+   *
    * `medios` no esta en `cuenta` a proposito. Los medios de cobro son la lista
    * de donde recibe dinero quien vende: un comprador que nunca vende no tiene
    * nada que poner ahi, y enseñarle un formulario para que rellene su numero de
@@ -136,14 +149,16 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     * la direccion.
     */
   const SECCIONES: Record<Variante, string[]> = {
-    cuenta: ['identidad', 'precios', 'exencion', 'sesiones'],
-    panel: ['identidad', 'tienda', 'productos', 'precios', 'medios', 'exencion', 'sesiones'],
+    cuenta: ['identidad', 'foto', 'precios', 'exencion', 'sesiones'],
+    panel: ['identidad', 'foto', 'tienda', 'productos', 'precios', 'medios', 'exencion', 'sesiones'],
     owner: [
       'identidad',
+      'foto',
       'exencion',
       'tienda',
       'productos',
       'aprobaciones',
+      'reportes',
       'precios',
       'tarifas',
       'medios',
@@ -257,6 +272,114 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     return caja
   }
 
+  /**
+   * La foto de la cuenta, con subida y borrado.
+   *
+   * La foto se normaliza en el navegador antes de salir (ver
+   * `src/lib/avatar-cliente.ts`): recorte cuadrado al centro y 512x512. Aqui
+   * solo se enseña el resultado y se dice lo que pasa mientras tanto, porque
+   * preparar una foto de movil tarda un momento y un boton que no dice nada
+   * parece un boton roto.
+   *
+   * El aviso de moderacion NO es decorativo: es la unica pantalla donde se
+   * puede decir antes de subir, no despues de que la cuenta se haya bloqueado.
+   */
+  function seccionFoto(usuario: UsuarioCliente): HTMLElement {
+    const caja = tarjeta('Tu foto', 'photo_camera')
+
+    const marco = el(
+      'div',
+      'flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-outline-variant bg-surface-container-high',
+    )
+    const pintarFoto = (url: string | null) => {
+      marco.replaceChildren()
+      if (url) {
+        const imagen = el('img', 'h-full w-full object-cover')
+        imagen.src = url
+        imagen.alt = 'Tu foto de cuenta'
+        marco.append(imagen)
+      } else {
+        marco.append(crearIcono('badge', 'text-headline-md text-on-surface-variant'))
+      }
+    }
+    pintarFoto(usuario.avatar)
+
+    const aviso = el('p', 'mt-3 text-body-md text-on-surface-variant')
+    const decir = (mensaje: string, error = false) => {
+      aviso.textContent = mensaje
+      aviso.className = error
+        ? 'mt-3 text-body-md text-error'
+        : 'mt-3 text-body-md text-on-surface-variant'
+    }
+
+    const entrada = el('input', 'sr-only') as HTMLInputElement
+    entrada.type = 'file'
+    entrada.accept = 'image/*'
+    entrada.id = 'foto-cuenta'
+
+    const elegir = el(
+      'label',
+      'inline-flex cursor-pointer items-center gap-2 rounded-full border border-outline-variant px-4 py-2 text-label-md font-semibold text-on-surface transition hover:border-primary',
+      'Subir una foto',
+    )
+    elegir.htmlFor = 'foto-cuenta'
+
+    const quitar = el(
+      'button',
+      'inline-flex items-center gap-1.5 rounded-full border border-outline-variant px-4 py-2 text-label-md font-semibold text-on-surface transition hover:border-error',
+    )
+    quitar.type = 'button'
+    quitar.append(crearIcono('delete', 'text-label-md'), el('span', '', 'Quitar'))
+    quitar.hidden = usuario.avatar === null
+
+    entrada.addEventListener('change', () => {
+      const archivo = entrada.files?.[0]
+      if (!archivo) return
+      decir('Preparando la foto...')
+      void (async () => {
+        const resultado = await subirAvatarCuenta(archivo)
+        entrada.value = ''
+        if (!resultado.ok) {
+          decir(resultado.mensaje, true)
+          return
+        }
+        pintarFoto(resultado.datos.avatar)
+        quitar.hidden = false
+        decir('Foto guardada.')
+      })()
+    })
+
+    quitar.addEventListener('click', () => {
+      quitar.disabled = true
+      void (async () => {
+        const resultado = await quitarAvatarCuenta()
+        quitar.disabled = false
+        if (!resultado.ok) {
+          decir(resultado.mensaje, true)
+          return
+        }
+        pintarFoto(null)
+        quitar.hidden = true
+        decir('Foto quitada.')
+      })()
+    })
+
+    const controles = el('div', 'flex flex-wrap items-center gap-3')
+    controles.append(elegir, quitar)
+
+    const filaFoto = el('div', 'mt-4 flex flex-wrap items-center gap-4')
+    filaFoto.append(marco, controles)
+
+    const moderacion = el(
+      'p',
+      'mt-4 rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3 text-body-md text-on-surface-variant',
+      'Una foto obscena, con desnudos o que ofenda puede hacer que bloqueemos o eliminemos tu cuenta. Cualquiera que vea tu foto puede reportarla.',
+    )
+
+    caja.append(filaFoto, aviso, moderacion)
+    return caja
+  }
+
   function etiquetaDeRol(rol: UsuarioCliente['rol']): string {
     switch (rol) {
       case 'owner':
@@ -324,20 +447,40 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
   /* ---------------------------------------------------------------------- */
 
   /**
-   * Los cinco tipos de la base, en palabras de persona.
+   * Los tipos de medio, en palabras de persona y en el orden del desplegable.
    *
-   * La tabla guarda `tarjeta`, `app`, `cripto`, `efectivo` y `otro` porque son
-   * cinco valores fijos con los que el `CHECK` puede comprobar algo. Pero
-   * `tarjeta` no le dice nada a quien va a elegir donde cobrar: ahi se traduce
-   * a lo que se lee en el desplegable.
+   * La tabla guarda claves cortas ('tarjeta', 'cripto', 'paypal'...) con las que
+   * el `CHECK` puede comprobar algo. Pero 'tarjeta' no le dice nada a quien va a
+   * elegir donde cobrar: aqui se traduce a lo que se lee en el desplegable.
+   *
+   * El orden no es alfabetico ni casual: primero lo que se usa para cobrar todos
+   * los dias (la cuenta, la tarjeta, el telefono), despues las pasarelas, y al
+   * final el efectivo y 'otro' para lo que no estaba previsto. 'app' se queda al
+   * fondo aunque no se ofrezca de nuevo: hay medios guardados con ese tipo y sin
+   * su opcion en el desplegable no se podrian ni abrir para editar.
    */
   const TIPOS_DE_MEDIO: Record<TipoMedio, string> = {
-    tarjeta: 'Tarjeta o cuenta bancaria',
-    app: 'App de pago o billetera',
+    cuenta: 'Cuenta bancaria o transferencia',
+    tarjeta: 'Tarjeta',
+    movil: 'Pago movil o billetera (Zelle, Transfermovil)',
     cripto: 'Criptomoneda',
+    paypal: 'PayPal',
+    stripe: 'Stripe',
+    payeer: 'Payeer',
     efectivo: 'Efectivo en mano',
     otro: 'Otra forma de cobro',
+    app: 'App de pago (antiguo)',
   }
+
+  /**
+   * Los tipos que se cobran con un enlace de pago y sin numero.
+   *
+   * La lista tiene que decir lo mismo que `TIPOS_DE_PASARELA` en el Worker y que
+   * la rama del `CHECK` de la migracion. Lo que las mantiene iguales es el
+   * mensaje de error del servidor, que es el que manda: si aqui se olvidara uno,
+   * el vendedor no podria guardarlo hasta rellenar el enlace, y el error se lee.
+   */
+  const TIPOS_DE_PASARELA: TipoMedio[] = ['paypal', 'stripe', 'payeer']
 
   /**
    * Lo que se advierte antes de rellenar nada.
@@ -396,7 +539,7 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
    * es lo que pasa si un apagado o un borrado sale mal. El que rellena acaba de
    * ver sus medios y perderlos por un error de red seria confuso, y ademas el
    * error casi siempre es una frase que el servidor escribio para que se lea
-   * ("ya tienes esa cuenta activa"), no un fallo del sitio.
+   * ("pon el numero de la cuenta"), no un fallo del sitio.
    */
   async function refrescarMedios(contenedor: HTMLElement, aviso?: string): Promise<void> {
     const respuesta = await misMedios()
@@ -1683,7 +1826,7 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     etiqueta: string,
     valor: string,
     ayuda?: string,
-  ): { grupo: HTMLElement; entrada: HTMLInputElement } {
+  ): { grupo: HTMLElement; rotulo: HTMLLabelElement; entrada: HTMLInputElement; ayuda: HTMLElement | null } {
     const grupo = el('div', 'space-y-1')
     const rotulo = el('label', 'text-label-md font-medium text-on-surface', etiqueta)
     rotulo.htmlFor = `medio-${nombre}`
@@ -1695,8 +1838,12 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     entrada.id = `medio-${nombre}`
     entrada.value = valor
     grupo.append(rotulo, entrada)
-    if (ayuda) grupo.append(el('p', 'text-body-sm text-on-surface-variant', ayuda))
-    return { grupo, entrada }
+    // La ayuda se devuelve para poder cambiarla: el mismo campo sirve de "numero
+    // de cuenta" en una tarjeta y de "numero o alias" en un pago movil, y
+    // esconder el texto viejo dejaria la pista equivocada debajo.
+    const nota = ayuda ? el('p', 'text-body-sm text-on-surface-variant', ayuda) : null
+    if (nota) grupo.append(nota)
+    return { grupo, rotulo, entrada, ayuda: nota }
   }
 
   /**
@@ -1776,10 +1923,34 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     // vendedor cambia de "cripto" a "tarjeta" y vuelve atras, su direccion
     // sigue ahi.
     function mostrarLoQueCorresponde(): void {
-      const actual = tipo.value
-      numero.grupo.hidden = actual !== 'tarjeta' && actual !== 'app'
+      const actual = tipo.value as TipoMedio
+      const esPasarela = TIPOS_DE_PASARELA.includes(actual)
+      const conNumero =
+        actual === 'tarjeta' || actual === 'app' || actual === 'cuenta' || actual === 'movil'
+      const admiteTexto = actual === 'cuenta' || actual === 'movil'
+
+      numero.grupo.hidden = !conNumero
+      numero.rotulo.textContent = admiteTexto ? 'Numero, telefono o alias' : 'Numero de cuenta'
+      if (numero.ayuda) {
+        numero.ayuda.textContent = admiteTexto
+          ? 'Como te pagan: el numero de cuenta, el telefono del pago movil o el alias de Zelle.'
+          : 'Solo digitos: los espacios se quitan solos.'
+      }
+
       direccion.grupo.hidden = actual !== 'cripto'
       red.grupo.hidden = actual !== 'cripto'
+
+      // El enlace vale para casi todo: en una pasarela es obligatorio y es LO
+      // que se cobra, en una cuenta o un pago movil es la alternativa, y en
+      // efectivo u 'otro' es donde va el enlace si lo hay. En cripto se esconde:
+      // ahi se cobra a una cartera, no a un boton.
+      enlace.grupo.hidden = actual === 'cripto'
+      enlace.rotulo.textContent = esPasarela ? 'Enlace de pago (obligatorio)' : 'Enlace de pago (opcional)'
+      if (enlace.ayuda) {
+        enlace.ayuda.textContent = esPasarela
+          ? 'Sin enlace no hay a donde pagar. Pega el de tu boton de PayPal, Stripe o Payeer.'
+          : 'Una direccion https:// publica. Nunca una clave.'
+      }
     }
     tipo.addEventListener('change', mostrarLoQueCorresponde)
     mostrarLoQueCorresponde()
@@ -1950,6 +2121,105 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
     return concedido ? texto : `${texto} - no concedido a esta cuenta`
   }
 
+  /**
+   * La cola de fotos reportadas, para el Owner.
+   *
+   * Cada aviso se resuelve con un solo boton: borra LA foto reportada (la de la
+   * tienda o la de la cuenta, la que sea) y cierra el aviso. No se borra la
+   * cuenta ni la tienda: quitar una foto y cerrar una cuenta son decisiones de
+   * distinta gravedad, y el panel solo ofrece la primera. El bloqueo o la
+   * eliminacion de la cuenta, si llega, se hace desde el panel de cuentas.
+   *
+   * La lista se pide a su propia ruta y se pinta sola, como `aprobaciones`.
+   */
+  function seccionReportes(): HTMLElement {
+    const caja = tarjeta('Fotos reportadas', 'shield')
+    const contenido = el('div', 'mt-4')
+    contenido.append(vacio('Cargando los avisos...'))
+    caja.append(contenido)
+
+    void (async () => {
+      const resultado = await listarReportesAvatar()
+      contenido.replaceChildren()
+      if (!resultado.ok) {
+        contenido.append(vacio(resultado.mensaje))
+        return
+      }
+      if (resultado.datos.reportes.length === 0) {
+        contenido.append(vacio('No hay fotos reportadas.'))
+        return
+      }
+      const lista = el('ul', 'space-y-3')
+      for (const reporte of resultado.datos.reportes) lista.append(filaDeReporte(reporte))
+      contenido.append(lista)
+    })()
+
+    return caja
+  }
+
+  /** Un aviso con su foto, quien lo manda y el boton que lo cierra. */
+  function filaDeReporte(reporte: ReporteAvatar): HTMLElement {
+    const fila = el(
+      'li',
+      'flex flex-wrap items-start gap-4 rounded-xl border border-outline-variant/60 bg-surface-container-low p-4',
+    )
+
+    const marco = el(
+      'div',
+      'h-12 w-12 shrink-0 overflow-hidden rounded-full border border-outline-variant bg-surface-container-high',
+    )
+    const imagen = el('img', 'h-full w-full object-cover')
+    imagen.src = reporte.url
+    imagen.alt = reporte.tipo === 'tienda' ? 'Foto de la tienda' : 'Foto de la cuenta'
+    imagen.loading = 'lazy'
+    marco.append(imagen)
+
+    const texto = el('div', 'min-w-0 flex-1')
+    texto.append(
+      el(
+        'p',
+        'text-body-md font-semibold text-on-surface',
+        `${reporte.vendedorNombre} (${reporte.vendedorSlug})`,
+      ),
+      el('p', 'text-label-md text-on-surface-variant', reporte.vendedorEmail ?? 'Sin correo'),
+      el('p', 'mt-1 text-body-md text-on-surface', reporte.motivo),
+    )
+    const meta = el(
+      'p',
+      'mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant',
+      `${reporte.tipo === 'tienda' ? 'Foto de tienda' : 'Foto de cuenta'} - ${reporte.creadoAt.slice(0, 10)}`,
+    )
+    texto.append(meta)
+
+    const accion = el('div', 'shrink-0')
+    if (reporte.atendido) {
+      accion.append(insignia('Atendido', true))
+    } else {
+      const boton = el(
+        'button',
+        'inline-flex items-center gap-1.5 rounded-full bg-error/10 px-4 py-2 text-label-md font-semibold text-error transition hover:bg-error/20',
+      )
+      boton.type = 'button'
+      boton.append(crearIcono('delete', 'text-label-md'), el('span', '', 'Borrar la foto'))
+      boton.addEventListener('click', () => {
+        boton.disabled = true
+        void (async () => {
+          const resultado = await atenderReporteAvatar(reporte.id)
+          if (!resultado.ok) {
+            boton.disabled = false
+            return
+          }
+          accion.replaceChildren(insignia('Atendido', true))
+          meta.append(el('span', '', ' - atendido'))
+        })()
+      })
+      accion.append(boton)
+    }
+
+    fila.append(marco, texto, accion)
+    return fila
+  }
+
   /* ---------------------------------------------------------------------- */
   /* Pints                                                                  */
   /* ---------------------------------------------------------------------- */
@@ -1961,6 +2231,13 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
       switch (seccion) {
         case 'identidad':
           zona.append(seccionIdentidad(datos.usuario))
+          break
+        case 'foto':
+          // La foto SI viene en `datos`: viaja con el usuario (`avatar`), no en
+          // una ruta aparte como los medios o las tarifas. Aun asi se pinta en
+          // su propia tarjeta porque subirla es una accion con su propio estado
+          // ("subiendo", "guardada"), y eso no cabe en la ficha de identidad.
+          zona.append(seccionFoto(datos.usuario))
           break
         case 'exencion':
           zona.append(seccionExencion(datos.exencion))
@@ -1980,6 +2257,15 @@ const { variante = 'cuenta' } = Astro.props as { variante?: Variante }
           // y alli lo que el vendedor tiene. Su lista vive en
           // `/api/owner/productos`, que pide rol de Owner tambien para leer.
           zona.append(seccionAprobaciones())
+          break
+        case 'reportes':
+          // Los avisos sobre fotos. Solo en `owner`: el vendedor no decide si
+          // la foto de otro se queda o se va, y su propia cola no tendria nada
+          // que mostrarle.
+          //
+          // Se pide a su propia ruta (`/api/owner/reportes-avatar`), como
+          // `aprobaciones`: en `datos` no esta, y no tiene por que estar.
+          zona.append(seccionReportes())
           break
         case 'medios':
           // Se pinta sola y no recibe nada: sus datos no estan en `datos`, que

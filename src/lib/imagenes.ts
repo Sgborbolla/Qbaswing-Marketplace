@@ -58,6 +58,17 @@ export const MAX_BYTES_IMAGEN = 2 * 1024 * 1024
 export const PREFIJO_IMAGEN = 'img/'
 
 /**
+ * Prefijo de toda clave de avatar: `avatar/<usuarioId>/<uuid>.<ext>`.
+ *
+ * Es un prefijo DISTINTO del de las imagenes de producto a proposito. El borrado
+ * por prefijo (`list({ prefix })`) es una operacion que existe en este proyecto,
+ * y con las dos cosas bajo el mismo prefijo barrer los avatares de alguien se
+ * llevaria por delante su galeria. Ademas, ver el prefijo en una clave dice que
+ * es sin preguntar en que tabla esta guardada.
+ */
+export const PREFIJO_AVATAR = 'avatar/'
+
+/**
  * La extension valida de un nombre de archivo, o `null`.
  *
  * Se queda con el ULTIMO punto (`foto.algo.jpg` es `jpg`) y en minusculas, para
@@ -103,9 +114,39 @@ export function claveDeImagen(vendedorId: number, productoId: number, nombre: st
   return `${PREFIJO_IMAGEN}${vendedorId}/${productoId}/${crypto.randomUUID()}.${ext}`
 }
 
-/** `true` si la clave es de una imagen y por tanto se puede servir en publico. */
+/**
+ * Arma la clave de un avatar nuevo.
+ *
+ * Forma: `avatar/<usuarioId>/<uuid>.<ext>`.
+ *
+ * El `uuid` por el mismo motivo que en `claveDeImagen`: dos subidas seguidas de
+ * la misma persona guardando `foto.jpg` no pueden chocar, porque en KV `put`
+ * con la misma clave pisa el valor anterior sin avisar.
+ *
+ * El prefijo lleva el `usuarioId` para poder borrar todas las fotos de alguien
+ * de una pasada si algun dia hace falta, sin tocar nada mas.
+ */
+export function claveDeAvatar(usuarioId: number, nombre: string): string {
+  const ext = extensionDeImagen(nombre) ?? 'jpg'
+  return `${PREFIJO_AVATAR}${usuarioId}/${crypto.randomUUID()}.${ext}`
+}
+
+/**
+ * `true` si la clave es de una imagen y por tanto se puede servir en publico.
+ *
+ * Cubre los DOS prefijos: las imagenes de producto (`img/`) y los avatares
+ * (`avatar/`). Lo que decide es el prefijo, no la extension: una clave con
+ * extension `.jpg` pero con un prefijo que no es de este proyecto no se sirve,
+ * porque podria ser cualquier cosa guardada en el mismo KV.
+ */
 export function esClaveDeImagen(clave: string): boolean {
-  return clave.startsWith(PREFIJO_IMAGEN) && contentTypeDeImagen(clave) !== null
+  if (contentTypeDeImagen(clave) === null) return false
+  return clave.startsWith(PREFIJO_IMAGEN) || clave.startsWith(PREFIJO_AVATAR)
+}
+
+/** `true` si la clave es la de un avatar. */
+export function esClaveAvatar(clave: string): boolean {
+  return clave.startsWith(PREFIJO_AVATAR) && contentTypeDeImagen(clave) !== null
 }
 
 /**
@@ -119,6 +160,10 @@ export function esClaveDeImagen(clave: string): boolean {
  * Se comprueba que empiece por `img/`: una URL que no sea una imagen nuestra no
  * se toca. Sin esa comprobacion, borrar un producto podria intentar borrar una
  * clave de otra cosa.
+ *
+ * Vale tambien para una URL de avatar: `esClaveDeImagen` acepta los dos
+ * prefijos, asi que la misma funcion sirve para borrar la foto de perfil al
+ * cambiarla, sin una segunda copia del parseo de la URL.
  */
 export function claveDesdeUrlImagen(url: string): string | null {
   const marca = '/api/imagenes/'

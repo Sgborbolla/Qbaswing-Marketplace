@@ -52,15 +52,34 @@ import Miniatura from '../../components/Miniatura.astro'
             <textarea id="descripcion" rows="4" maxlength="2000" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface"></textarea>
           </label>
 
-          <div class="grid gap-4 sm:grid-cols-2">
-            <label class="block">
-              <span class="text-label-md text-on-surface">Ubicación</span>
-              <input id="ubicacion" type="text" maxlength="120" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
-            </label>
-            <label class="block">
-              <span class="text-label-md text-on-surface">Avatar (URL)</span>
-              <input id="avatar_url" type="url" maxlength="500" placeholder="https://..." class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
-            </label>
+          <label class="block">
+            <span class="text-label-md text-on-surface">Ubicación</span>
+            <input id="ubicacion" type="text" maxlength="120" class="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-4 py-2 text-body-md text-on-surface" />
+          </label>
+
+          <div class="rounded-xl border border-outline-variant bg-surface-container-low p-4">
+            <p class="text-label-md text-on-surface">Logo de la tienda</p>
+            <p class="mt-1 text-body-sm text-on-surface-variant">
+              Cuadrado: se recorta al centro y se reduce solo. Si no pones ninguno, en la ficha se enseña tu foto de cuenta.
+            </p>
+
+            <div class="mt-3 flex flex-wrap items-center gap-4">
+              <div id="tienda-foto-marco" class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-outline-variant bg-surface-container-high"></div>
+              <div class="flex flex-wrap items-center gap-3">
+                <input id="tienda-foto" type="file" accept="image/*" class="sr-only" />
+                <label for="tienda-foto" class="cursor-pointer rounded-full border border-outline-variant px-4 py-2 text-label-md font-semibold text-on-surface transition hover:border-primary">
+                  Subir un logo
+                </label>
+                <button type="button" id="tienda-foto-quitar" class="hidden rounded-full border border-outline-variant px-4 py-2 text-label-md font-semibold text-on-surface transition hover:border-error">
+                  Quitar
+                </button>
+              </div>
+            </div>
+
+            <p id="tienda-foto-aviso" class="mt-2 text-body-sm text-on-surface-variant" role="status"></p>
+            <p class="mt-3 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface-variant">
+              Una foto obscena, con desnudos o que ofenda puede hacer que bloqueemos o eliminemos la cuenta. Cualquiera que vea la foto puede reportarla.
+            </p>
           </div>
         </fieldset>
 
@@ -114,11 +133,25 @@ import Miniatura from '../../components/Miniatura.astro'
 
 <script>
   import { miTienda, guardarTienda, REDES_TIENDA, type CuerpoTienda } from '../../lib/tienda-cliente'
+  import { quitarAvatarTienda, subirAvatarTienda } from '../../lib/avatar-cliente'
+  import { crearIcono } from '../../lib/icono-dom'
 
   const formulario = document.getElementById('tienda-form') as HTMLFormElement | null
   const cargando = document.getElementById('tienda-cargando')
   const aviso = document.getElementById('tienda-aviso')
   const contenedorRedes = document.getElementById('redes')
+
+  /*
+    La foto de la tienda NO viaja en el `PUT` de la tienda: se sube por su
+    propia ruta (`/api/panel/tienda/avatar`), que valida el archivo y borra el
+    anterior de KV. Aqui solo se guarda la URL que devuelve el servidor, para
+    reenviarla tal cual en el `PUT` y que un guardado de textos no la borre.
+  */
+  let avatarActual: string | null = null
+  const marcoFoto = document.getElementById('tienda-foto-marco')
+  const entradaFoto = document.getElementById('tienda-foto') as HTMLInputElement | null
+  const botonQuitarFoto = document.getElementById('tienda-foto-quitar')
+  const avisoFoto = document.getElementById('tienda-foto-aviso')
 
   const campo = (id: string) =>
     document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null
@@ -177,6 +210,62 @@ import Miniatura from '../../components/Miniatura.astro'
     aviso.className = esError ? 'text-body-md text-error' : 'text-body-md text-secondary'
   }
 
+  /** Pinta el logo actual, o el icono de tienda cuando no hay ninguno. */
+  function pintarLogo(url: string | null) {
+    if (!marcoFoto) return
+    marcoFoto.replaceChildren()
+    if (url) {
+      const imagen = document.createElement('img')
+      imagen.className = 'h-full w-full object-cover'
+      imagen.alt = 'Logo de la tienda'
+      imagen.src = url
+      marcoFoto.append(imagen)
+    } else {
+      marcoFoto.append(crearIcono('storefront', 'text-headline-md text-on-surface-variant'))
+    }
+    botonQuitarFoto?.classList.toggle('hidden', url === null)
+  }
+
+  function decirFoto(mensaje: string, esError = false) {
+    if (!avisoFoto) return
+    avisoFoto.textContent = mensaje
+    avisoFoto.className = esError
+      ? 'mt-2 text-body-sm text-error'
+      : 'mt-2 text-body-sm text-on-surface-variant'
+  }
+
+  entradaFoto?.addEventListener('change', () => {
+    const archivo = entradaFoto.files?.[0]
+    if (!archivo) return
+    decirFoto('Preparando el logo...')
+    void (async () => {
+      const resultado = await subirAvatarTienda(archivo)
+      entradaFoto.value = ''
+      if (!resultado.ok) {
+        decirFoto(resultado.mensaje, true)
+        return
+      }
+      avatarActual = resultado.datos.avatar
+      pintarLogo(avatarActual)
+      decirFoto('Logo guardado.')
+    })()
+  })
+
+  botonQuitarFoto?.addEventListener('click', () => {
+    botonQuitarFoto.setAttribute('disabled', '')
+    void (async () => {
+      const resultado = await quitarAvatarTienda()
+      botonQuitarFoto.removeAttribute('disabled')
+      if (!resultado.ok) {
+        decirFoto(resultado.mensaje, true)
+        return
+      }
+      avatarActual = null
+      pintarLogo(null)
+      decirFoto('Logo quitado.')
+    })()
+  })
+
   document.getElementById('anadir-red')?.addEventListener('click', () => agregarRed())
 
   async function cargar() {
@@ -189,7 +278,8 @@ import Miniatura from '../../components/Miniatura.astro'
     ;(campo('nombre_comercial') as HTMLInputElement).value = tienda.nombre_comercial ?? ''
     ;(campo('descripcion') as HTMLTextAreaElement).value = tienda.descripcion ?? ''
     ;(campo('ubicacion') as HTMLInputElement).value = tienda.ubicacion ?? ''
-    ;(campo('avatar_url') as HTMLInputElement).value = tienda.avatar_url ?? ''
+    avatarActual = tienda.avatar_url ?? null
+    pintarLogo(avatarActual)
     ;(campo('telefono') as HTMLInputElement).value = contacto.telefono ?? ''
     ;(campo('whatsapp') as HTMLInputElement).value = contacto.whatsapp ?? ''
     ;(campo('correo') as HTMLInputElement).value = contacto.correo ?? ''
@@ -209,7 +299,9 @@ import Miniatura from '../../components/Miniatura.astro'
       nombre_comercial: (campo('nombre_comercial') as HTMLInputElement).value.trim(),
       descripcion: (campo('descripcion') as HTMLTextAreaElement).value.trim(),
       ubicacion: (campo('ubicacion') as HTMLInputElement).value.trim(),
-      avatar_url: (campo('avatar_url') as HTMLInputElement).value.trim() || null,
+      // Se reenvia la URL que ya devolvio el servidor al subir, para que este
+      // guardado de textos no borre el logo. La subida de verdad va aparte.
+      avatar_url: avatarActual,
       contacto: {
         telefono: (campo('telefono') as HTMLInputElement).value.trim(),
         whatsapp: (campo('whatsapp') as HTMLInputElement).value.trim(),

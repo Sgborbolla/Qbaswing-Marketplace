@@ -267,6 +267,24 @@ export interface ProductoResumen {
   fechaPublicacion: string
   vendedorSlug: string
   vendedorNombre: string
+  /**
+   * Foto del vendedor que se enseña en la ficha: la de su tienda y, si no
+   * tiene, la de su cuenta. `null` cuando no tiene ninguna de las dos.
+   *
+   * Se resuelve en el servidor y no aqui a proposito: la regla "tienda primero,
+   * cuenta despues" es la misma para el listado y para la ficha, y tenerla en
+   * dos sitios es tenerla distinta el dia que cambie.
+   */
+  vendedorAvatar: string | null
+  /**
+   * Cual de las dos fotos es `vendedorAvatar`: la de la tienda o la de la
+   * cuenta. `null` cuando no hay ninguna.
+   *
+   * El cliente lo necesita para REPORTAR la foto correcta: sin esto, un aviso
+   * sobre la foto de una cuenta se guardaria como si fuera la de la tienda, y
+   * al atenderlo se borraria la que no era.
+   */
+  vendedorAvatarTipo: 'cuenta' | 'tienda' | null
   /** Primera imagen del producto, o `null` si no tiene ninguna. */
   imagen: string | null
 }
@@ -290,6 +308,13 @@ function mapearResumen(f: Registro): ProductoResumen {
     fechaPublicacion: String(f.creado_at),
     vendedorSlug: String(f.vendedor_slug ?? ''),
     vendedorNombre: String(f.vendedor_nombre ?? ''),
+    vendedorAvatar: (f.vendedor_avatar as string | null) ?? null,
+    vendedorAvatarTipo:
+      f.vendedor_avatar_tipo === 'tienda'
+        ? 'tienda'
+        : f.vendedor_avatar_tipo === 'cuenta'
+          ? 'cuenta'
+          : null,
     imagen: (f.imagen as string | null) ?? null,
   }
 }
@@ -348,6 +373,11 @@ export interface Producto extends ProductoResumen {
   contacto: ContactoTienda | null
   /** Redes sociales de la tienda, en orden. */
   redes: RedTienda[]
+  /**
+   * Formas de cobro encendidas de la tienda. Lista vacia si no configuró
+   * ninguna o si todas estan apagadas.
+   */
+  mediosCobro: MedioCobroPublico[]
   vendedorUbicacion: string | null
   vendedorVerificado: boolean
   /**
@@ -379,6 +409,51 @@ export interface RedTienda {
   red: string
   url: string
   orden: number
+}
+
+/**
+ * Una forma de cobro de la tienda, tal como se enseña en publico.
+ *
+ * ============================================================================
+ *  QUE NO TIENE, Y POR QUE
+ * ============================================================================
+ * No tiene `id`, ni `clave`, ni `activo`: son datos del panel del vendedor, y
+ * la ruta publica solo devuelve las que ya estan encendidas y con algo que
+ * enseñar. Mandar el `activo` al navegador para que el frontend filtre seria
+ * mandar lo apagado y confiar en que nadie mire el JSON.
+ *
+ * `dato` llega resuelto por el Worker: el numero de cuenta, el alias, la
+ * direccion de la cartera o el enlace, segun el tipo. Asi ni la ficha ni la
+ * tienda repiten un `switch` que el dia que cambie un tipo se olvida en una de
+ * las dos.
+ */
+export interface MedioCobroPublico {
+  nombre: string
+  tipo: string
+  colorMarca: string | null
+  titular: string | null
+  red: string | null
+  dato: string | null
+  /** Enlace de pago, si el medio lo tiene (PayPal, Stripe, Payeer...). */
+  enlace: string | null
+  instrucciones: string
+}
+
+function mapearMedios(valor: unknown): MedioCobroPublico[] {
+  if (!Array.isArray(valor)) return []
+  return valor.map((m) => {
+    const fila = m as Registro
+    return {
+      nombre: String(fila.nombre ?? ''),
+      tipo: String(fila.tipo ?? 'otro'),
+      colorMarca: (fila.color_marca as string | null) ?? null,
+      titular: (fila.titular as string | null) ?? null,
+      red: (fila.red as string | null) ?? null,
+      dato: (fila.dato as string | null) ?? null,
+      enlace: (fila.enlace as string | null) ?? null,
+      instrucciones: String(fila.instrucciones ?? ''),
+    }
+  })
 }
 
 export async function obtenerProducto(
@@ -425,6 +500,7 @@ export async function obtenerProducto(
     variantes: mapearVariantes(cuerpo.variantes),
     contacto: mapearContacto(cuerpo.contacto),
     redes: mapearRedes(cuerpo.redes),
+    mediosCobro: mapearMedios(cuerpo.medios),
     vendedorUbicacion: (f.vendedor_ubicacion as string | null) ?? null,
     vendedorVerificado: f.vendedor_verificado === 1,
     requierePasarelaPlataforma: f.requiere_pasarela_plataforma === true,
@@ -620,10 +696,20 @@ export async function listarVendedores(
 
 export interface Vendedor extends VendedorResumen {
   creadoAt: string
+  /**
+   * Foto de la CUENTA, aparte de `avatarUrl` (la de la tienda).
+   *
+   * En la pagina de un vendedor las dos tienen sentido: la de la tienda es el
+   * negocio, la de la cuenta es la persona. Por eso no se mezclan en un solo
+   * campo, como si se hace en la ficha de un producto, donde solo cabe una.
+   */
+  avatarCuenta: string | null
   /** Contacto directo de la tienda. `null` si no configuró ninguno. */
   contacto: ContactoTienda | null
   /** Redes sociales de la tienda, en orden. */
   redes: RedTienda[]
+  /** Formas de cobro encendidas de la tienda. */
+  mediosCobro: MedioCobroPublico[]
   productos: ProductoResumen[]
 }
 
@@ -646,8 +732,10 @@ export async function obtenerVendedor(
     verificado: f.verificado === 1,
     productosPublicados: productos.length,
     creadoAt: String(f.creado_at ?? ''),
+    avatarCuenta: (f.avatar_cuenta as string | null) ?? null,
     contacto: mapearContacto(cuerpo.contacto),
     redes: mapearRedes(cuerpo.redes),
+    mediosCobro: mapearMedios(cuerpo.medios),
     productos: productos.map(mapearResumen),
   }
 }

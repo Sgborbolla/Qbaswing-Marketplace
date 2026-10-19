@@ -787,6 +787,9 @@ export const ES = {
 
   /* --- Accesibilidad y comun --- */
   comun: {
+    reportarFoto: 'Reportar foto',
+    reportarFotoAyuda: 'Cuéntanos qué le pasa a esta foto.',
+    reportarFotoGracias: 'Gracias. Revisaremos esa foto.',
     saltarContenido: 'Saltar al contenido',
     volver: 'Volver',
     siguiente: 'Siguiente',
@@ -1438,6 +1441,9 @@ const EN: Diccionario = {
     sinTraducir: 'Not translated yet',
   },
   comun: {
+    reportarFoto: 'Report photo',
+    reportarFotoAyuda: 'Tell us what is wrong with this photo.',
+    reportarFotoGracias: 'Thank you. We will review that photo.',
     saltarContenido: 'Skip to content',
     volver: 'Back',
     siguiente: 'Next',
@@ -2085,6 +2091,9 @@ const PT: Diccionario = {
     sinTraducir: 'Ainda sem tradução',
   },
   comun: {
+    reportarFoto: 'Denunciar foto',
+    reportarFotoAyuda: 'Conta pra gente o que há de errado com esta foto.',
+    reportarFotoGracias: 'Obrigado. Vamos revisar essa foto.',
     saltarContenido: 'Ir para o conteúdo',
     volver: 'Voltar',
     siguiente: 'Próximo',
@@ -2740,6 +2749,9 @@ const FR: Diccionario = {
     sinTraducir: 'Pas encore traduit',
   },
   comun: {
+    reportarFoto: 'Signaler la photo',
+    reportarFotoAyuda: 'Dis-nous ce qui ne va pas avec cette photo.',
+    reportarFotoGracias: 'Merci. Nous allons examiner cette photo.',
     saltarContenido: 'Aller au contenu',
     volver: 'Retour',
     siguiente: 'Suivant',
@@ -3393,6 +3405,9 @@ const DE: Diccionario = {
     sinTraducir: 'Noch nicht übersetzt',
   },
   comun: {
+    reportarFoto: 'Foto melden',
+    reportarFotoAyuda: 'Sag uns, was mit diesem Foto nicht stimmt.',
+    reportarFotoGracias: 'Danke. Wir prüfen dieses Foto.',
     saltarContenido: 'Zum Inhalt springen',
     volver: 'Zurück',
     siguiente: 'Weiter',
@@ -4045,6 +4060,9 @@ const IT: Diccionario = {
     sinTraducir: 'Non ancora tradotto',
   },
   comun: {
+    reportarFoto: 'Segnala la foto',
+    reportarFotoAyuda: 'Dicci cosa non va in questa foto.',
+    reportarFotoGracias: 'Grazie. Controlleremo quella foto.',
     saltarContenido: 'Vai al contenuto',
     volver: 'Indietro',
     siguiente: 'Avanti',
@@ -4633,6 +4651,9 @@ const CA: Diccionario = {
     sinTraducir: 'Encara sense traduir',
   },
   comun: {
+    reportarFoto: 'Denunciar la foto',
+    reportarFotoAyuda: 'Digues què li passa a aquesta foto.',
+    reportarFotoGracias: 'Gràcies. Revisarem aquesta foto.',
     saltarContenido: 'Saltar al contingut',
     volver: 'Tornar',
     siguiente: 'Següent',
@@ -5220,6 +5241,9 @@ const GL: Diccionario = {
     sinTraducir: 'Aínda non traducido',
   },
   comun: {
+    reportarFoto: 'Denunciar a foto',
+    reportarFotoAyuda: 'Contanos que lle pasa a esta foto.',
+    reportarFotoGracias: 'Grazas. Revisaremos esa foto.',
     saltarContenido: 'Ir ao contido',
     volver: 'Volver',
     siguiente: 'Seguindo',
@@ -5807,6 +5831,9 @@ const EU: Diccionario = {
     sinTraducir: 'Oraindik itzuli gabe',
   },
   comun: {
+    reportarFoto: 'Argazkia salatu',
+    reportarFotoAyuda: 'Esan zer gertatzen den argazki honekin.',
+    reportarFotoGracias: 'Eskerrik asko. Argazki hori berrikusiko dugu.',
     saltarContenido: 'Saltatu edukira',
     volver: 'Itzuli',
     siguiente: 'Jarraian',
@@ -6394,6 +6421,9 @@ const RU: Diccionario = {
     sinTraducir: 'Еще не переведено',
   },
   comun: {
+    reportarFoto: 'Пожаловаться на фото',
+    reportarFotoAyuda: 'Расскажите, что не так с этим фото.',
+    reportarFotoGracias: 'Спасибо. Мы проверим это фото.',
     saltarContenido: 'Перейти к содержимому',
     volver: 'Возвращаться',
     siguiente: 'Следующий',
@@ -6981,6 +7011,9 @@ const AR: Diccionario = {
     sinTraducir: 'لم تترجم بعد',
   },
   comun: {
+    reportarFoto: 'الإبلاغ عن الصورة',
+    reportarFotoAyuda: 'أخبرنا ما المشكلة في هذه الصورة.',
+    reportarFotoGracias: 'شكرًا. سنراجع هذه الصورة.',
     saltarContenido: 'انتقل إلى المحتوى',
     volver: 'يعود',
     siguiente: 'التالي',
@@ -7568,6 +7601,9 @@ const ZH_CN: Diccionario = {
     sinTraducir: '尚未翻译',
   },
   comun: {
+    reportarFoto: '举报照片',
+    reportarFotoAyuda: '告诉我们这张照片有什么问题。',
+    reportarFotoGracias: '谢谢，我们会审核这张照片。',
     saltarContenido: '跳至内容',
     volver: '返回',
     siguiente: '下列的',
@@ -8155,6 +8191,9 @@ const ZH_TW: Diccionario = {
     sinTraducir: '尚未翻譯',
   },
   comun: {
+    reportarFoto: '檢舉照片',
+    reportarFotoAyuda: '告訴我們這張照片有什麼問題。',
+    reportarFotoGracias: '謝謝，我們會審核這張照片。',
     saltarContenido: '跳至內容',
     volver: '返回',
     siguiente: '下列的',
@@ -8742,6 +8781,9 @@ const JA: Diccionario = {
     sinTraducir: 'まだ翻訳されていません',
   },
   comun: {
+    reportarFoto: '写真を報告',
+    reportarFotoAyuda: 'この写真の問題を教えてください。',
+    reportarFotoGracias: 'ありがとうございます。確認します。',
     saltarContenido: 'コンテンツにスキップ',
     volver: '戻る',
     siguiente: '続く',
@@ -9329,6 +9371,9 @@ const KO: Diccionario = {
     sinTraducir: '아직 번역되지 않음',
   },
   comun: {
+    reportarFoto: '사진 신고',
+    reportarFotoAyuda: '이 사진에 무슨 문제가 있는지 알려주세요.',
+    reportarFotoGracias: '감사합니다. 해당 사진을 검토하겠습니다.',
     saltarContenido: '콘텐츠로 건너뛰기',
     volver: '반품',
     siguiente: '수행원',

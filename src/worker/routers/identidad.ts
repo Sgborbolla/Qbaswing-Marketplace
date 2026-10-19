@@ -359,6 +359,7 @@ function usuarioPublico(usuario: {
   rol: 'owner' | 'administrador' | 'vendedor' | 'comprador'
   verificado: number
   vendedor_id: number | null
+  avatar?: string | null
   privilegios: string[]
 }) {
   return {
@@ -369,5 +370,9 @@ function usuarioPublico(usuario: {
     verificado: usuario.verificado === 1,
     esVendedor: usuario.vendedor_id !== null,
     puedeAdministrar: usuario.rol === 'owner' || usuario.rol === 'administrador' || usuario.privilegios.includes('administracion'),
+    // La URL tal cual se guardo. El panel la pone en un `<img src>` y ya esta:
+    // es absoluta, asi que funciona desde el sitio estatico igual que una
+    // imagen de producto.
+    avatar: usuario.avatar ?? null,
   }
 }

@@ -46,6 +46,7 @@ import { responderOwnerProductos } from './routers/owner-productos'
 import { responderOwnerCuentas } from './routers/owner-cuentas'
 import { responderOwnerFaq } from './routers/owner-faq'
 import { responderTienda } from './routers/panel-tienda'
+import { responderAvatar } from './routers/avatar'
 import { responderImagen } from './routers/imagenes'
 import { responderCatalogo } from './routers/catalogo'
 import { responderSalud } from './routers/salud'
@@ -137,6 +138,28 @@ async function enrutar(peticion: Request, env: Env, ctx: ExecutionContext): Prom
     return new Response(null, { status: 200, headers: cors })
   }
 
+  // CSRF. La cookie de sesion viaja en `SameSite=None` (el sitio y la API son
+  // origenes distintos), asi que el navegador la manda tambien en peticiones
+  // que salen de otra pagina. CORS no protege aqui: CORS decide quien LEE la
+  // respuesta, no quien EJECUTA la accion. La defensa es comprobar `Origin`
+  // en todo lo que escribe.
+  //
+  // Sin cabecera `Origin` (curl, scripts, los webhooks de las pasarelas) no hay
+  // cookie ambiental que explotar desde otro sitio, asi que se deja pasar; y a
+  // los webhooks, que son POST de proveedores ajenos, se les pasa siempre.
+  const esLectura = peticion.method === 'GET' || peticion.method === 'HEAD'
+  const origen = peticion.headers.get('Origin')
+  if (!esLectura && origen && !ruta.startsWith('/webhook/') && !origenPermitido(origen, env)) {
+    return json(
+      {
+        ok: false,
+        codigo: 'origen_no_permitido',
+        mensaje: 'Este sitio no esta autorizado para esa accion.',
+      },
+      403,
+    )
+  }
+
   const respuesta = await despachar(ruta, peticion, env, ctx)
   return conCors(respuesta, cors)
 }
@@ -185,6 +208,20 @@ async function despachar(
   // resto del panel del vendedor, y comparte con el la comprobacion de sesion.
   if (ruta === RUTAS.tiendaPropia) {
     return responderTienda(peticion, env)
+  }
+
+  // Avatares: la foto de la cuenta, la de la tienda y los avisos publicos
+  // sobre fotos. Van juntos porque son la misma familia —las tres cosas
+  // hablan de las mismas dos fotos—, y el prefijo con el `id` al final cubre
+  // el "atender" del Owner sin una lista de condiciones que crezca sola.
+  if (
+    ruta === RUTAS.avatarPropio ||
+    ruta === RUTAS.avatarTiendaPropio ||
+    ruta === RUTAS.reportesAvatar ||
+    ruta === RUTAS.ownerReportesAvatar ||
+    ruta.startsWith(`${RUTAS.ownerReportesAvatar}/`)
+  ) {
+    return responderAvatar(peticion, env)
   }
 
   // Avisos de la tienda: quien eligio o compro sus productos. Misma familia que
@@ -324,11 +361,25 @@ async function despachar(
  * orígenes distintos para el navegador, y algunos resuelven uno como otro. Se
  * permiten los dos para no tener que depender de como el navegador lo trate.
  */
-function cabecerasCors(peticion: Request, env: Env): Record<string, string> {
-  const permitidos = (env.ALLOWED_ORIGIN || '')
+function listaDeOrigenes(env: Env): string[] {
+  return (env.ALLOWED_ORIGIN || '')
     .split(',')
     .map((o) => o.trim().replace(/\/+$/, ''))
     .filter(Boolean)
+}
+
+/**
+ * `true` cuando un cabecera `Origin` coincide con un sitio permitido.
+ *
+ * Comparacion exacta y sin barra final: un `startsWith` dejaria pasar a
+ * `https://sitio.pages.dev.ataque.com` si el prefijo esta permitido.
+ */
+function origenPermitido(origen: string, env: Env): boolean {
+  return listaDeOrigenes(env).includes(origen.trim().replace(/\/+$/, ''))
+}
+
+function cabecerasCors(peticion: Request, env: Env): Record<string, string> {
+  const permitidos = listaDeOrigenes(env)
 
   const origenRecibido = peticion.headers.get('Origin')
   const origemSolicitado = origenRecibido ? origenRecibido.replace(/\/+$/, '') : ''

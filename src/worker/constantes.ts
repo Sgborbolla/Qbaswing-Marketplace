@@ -117,6 +117,22 @@ export const RUTAS = {
   // distintas y se guardan por caminos distintos.
   tiendaPropia: '/api/panel/tienda',
 
+  // Avatares de la cuenta y de la tienda. Viven bajo el mismo prefijo privado
+  // que las tres patas anteriores porque son lo mismo: datos que solo toca su
+  // dueño. Se separan de `tiendaPropia` porque subir un archivo binario no es
+  // guardar un texto, y va con su propio camino de validacion y borrado.
+  avatarPropio: '/api/panel/avatar',
+  avatarTiendaPropio: '/api/panel/tienda/avatar',
+
+  // Aviso PUBLICO de una foto que no deberia estar. No lleva `/panel` ni
+  // `/owner` porque quien lo manda no es ninguna de las dos cosas: es
+  // cualquiera que este viendo una ficha, aunque no tenga cuenta.
+  reportesAvatar: '/api/reportes/avatar',
+
+  // Cola de avisos de fotos para el Owner. Va bajo `/api/owner`, como el resto
+  // de lo que decide el Owner y no el vendedor.
+  ownerReportesAvatar: '/api/owner/reportes-avatar',
+
   // Avisos de la tienda: quien eligio o compro sus productos. Es la cuarta pata
   // del panel, y va bajo el mismo prefijo privado porque tambien son datos de
   // la cuenta: solo los ve el dueño de esa tienda.

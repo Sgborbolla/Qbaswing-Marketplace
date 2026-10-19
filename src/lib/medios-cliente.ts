@@ -30,7 +30,17 @@ import { pedir, type Respuesta } from './identidad-cliente'
 const RUTA = '/api/panel/medios-pago'
 
 /** Tipos que la tabla admite. Los mismos cinco que el `CHECK` de la migracion. */
-export type TipoMedio = 'tarjeta' | 'app' | 'cripto' | 'efectivo' | 'otro'
+export type TipoMedio =
+  | 'tarjeta'
+  | 'cuenta'
+  | 'cripto'
+  | 'efectivo'
+  | 'paypal'
+  | 'stripe'
+  | 'payeer'
+  | 'movil'
+  | 'app'
+  | 'otro'
 
 /**
  * Una fila tal cual sale de la base: `snake_case` y sin transformar.
