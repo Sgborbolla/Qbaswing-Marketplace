@@ -42,14 +42,21 @@ async function sha256Archivo(file: File): Promise<string> {
 }
 async function subirArchivoADrive(env: Env, archivo: File) {
   const token = await obtenerTokenDrivePanel(env)
+  const folderId = (env as any).GOOGLE_DRIVE_FOLDER_ID as string | undefined
+  const metadata: any = { name: archivo.name }
+  if (folderId) metadata.parents = [folderId]
   const form = new FormData()
-  form.append('metadata', new Blob([JSON.stringify({name: archivo.name})], {type:'application/json'}))
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
   form.append('file', archivo)
-  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=false', {method:'POST', headers:{Authorization:'Bearer '+token}, body:form})
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=false', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token },
+    body: form,
+  })
   if (!res.ok) throw new Error('Drive upload falló')
   const j = await res.json() as any
   if (!j.id) throw new Error('Drive sin fileId')
-  return {fileId:j.id, bytes:archivo.size, contentType:archivo.type||'application/octet-stream', nombre:archivo.name}
+  return { fileId: j.id, bytes: archivo.size, contentType: archivo.type || 'application/octet-stream', nombre: archivo.name }
 }
 async function subirArchivoAPixeldrain(env: Env, archivo: File) {
   const form = new FormData(); form.append('file', archivo)

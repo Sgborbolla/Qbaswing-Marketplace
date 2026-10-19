@@ -122,5 +122,25 @@ jobs:
           fi
           printf '%s' "$GOFILE_API_TOKEN" | npx wrangler secret put GOFILE_API_TOKEN -c wrangler.worker.toml
 
+      - name: Configurar el secreto de Google Drive (Service Account)
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "Sin GOOGLE_SERVICE_ACCOUNT_JSON: se omite el secreto."
+            exit 0
+          fi
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" | npx wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON -c wrangler.worker.toml
+
+      - name: Configurar el secreto de Google Drive (Folder ID)
+        env:
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        run: |
+          if [ -z "$GOOGLE_DRIVE_FOLDER_ID" ]; then
+            echo "Sin GOOGLE_DRIVE_FOLDER_ID: se omite el secreto."
+            exit 0
+          fi
+          printf '%s' "$GOOGLE_DRIVE_FOLDER_ID" | npx wrangler secret put GOOGLE_DRIVE_FOLDER_ID -c wrangler.worker.toml
+
       - name: Desplegar el Worker
         run: npx wrangler deploy -c wrangler.worker.toml

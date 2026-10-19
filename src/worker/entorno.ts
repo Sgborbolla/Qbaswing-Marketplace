@@ -114,6 +114,7 @@ export interface Env {
 
   /* --- Almacenamiento maestro gratuito (secrets) --- */
   GOOGLE_SERVICE_ACCOUNT_JSON?: string
+  GOOGLE_DRIVE_FOLDER_ID?: string
   PIXELDRAIN_API_KEY?: string
   GOFILE_API_TOKEN?: string
 
