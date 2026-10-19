@@ -37,7 +37,8 @@ const t = diccionarioDe(Astro.currentLocale ?? 'es')
         </div>
       )}
 
-      <form id="formulario" class="mt-8 space-y-5" novalidate data-campos={t.entrar.escribeCorreoContrasena}>
+      <form id="formulario" class="mt-8 space-y-5" novalidate data-campos={t.entrar.escribeCorreoContrasena}
+        data-cookie={t.comun.cookieBloqueada}>
         <div>
           <label for="email" class="block text-label-md font-medium text-on-surface">
             {t.cuenta.campoCorreo}
@@ -107,7 +108,7 @@ const t = diccionarioDe(Astro.currentLocale ?? 'es')
 </Base>
 
 <script>
-  import { iniciarSesion } from '../lib/identidad-cliente'
+  import { iniciarSesion, miCuenta } from '../lib/identidad-cliente'
 
   const formulario = document.getElementById('formulario') as HTMLFormElement
   const aviso = document.getElementById('aviso')
@@ -162,6 +163,34 @@ const t = diccionarioDe(Astro.currentLocale ?? 'es')
 
     if (!resultado.ok) {
       avisar(resultado.mensaje)
+      return
+    }
+
+    /*
+     * La sesion se comprueba de VERDAD antes de navegar.
+     *
+     * ============================================================================
+     *  POR QUE NO BASTA CON QUE EL LOGIN DIGA `ok`
+     * ============================================================================
+     * El Worker contesta `ok` y manda la cookie en el mismo mensaje. Pero hay
+     * navegadores (Safari con la prevencion de rastreo, o cualquiera con las
+     * cookies de terceros bloqueadas) que NO guardan una cookie que viene de
+     * otro origen, y el sitio y la API estan en origenes distintos. En ese caso
+     * el login es correcto y el panel no ve la sesion: quien acaba de entrar va
+     * a `/cuenta` o a `/panel` y lo devuelven al formulario sin ninguna
+     * explicacion. Ese ida y vuelta es lo que se corta aqui.
+     *
+     * Se pregunta por la cuenta con la cookie recien puesta: si contesta
+     * `no_dentro`, la cookie NO se guardo, y se dice con esas palabras en vez de
+     * dejar que lo descubra al llegar al panel.
+     */
+    const sesion = await miCuenta()
+    if (!sesion.ok) {
+      avisar(
+        sesion.codigo === 'no_dentro'
+          ? (formulario.dataset.cookie ?? 'Tu navegador no esta guardando la cookie de sesion.')
+          : sesion.mensaje,
+      )
       return
     }
 

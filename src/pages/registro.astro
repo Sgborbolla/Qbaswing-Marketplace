@@ -54,7 +54,8 @@ const tipoInicial = Astro.url.searchParams.get('tipo') === 'vendedor' ? 'vendedo
         </div>
       )}
 
-      <form id="formulario" class="mt-8 space-y-5" novalidate data-campos={t.registro.rellenaTresCampos}>
+      <form id="formulario" class="mt-8 space-y-5" novalidate data-campos={t.registro.rellenaTresCampos}
+        data-cookie={t.comun.cookieBloqueada}>
         {/*
           La eleccion de rol. No es un desplegable con "owner/admin", que la
           base rechazaria: son los dos caminos reales, comprar o vender. El
@@ -195,7 +196,7 @@ const tipoInicial = Astro.url.searchParams.get('tipo') === 'vendedor' ? 'vendedo
 </Base>
 
 <script>
-  import { registrar } from '../lib/identidad-cliente'
+  import { registrar, miCuenta } from '../lib/identidad-cliente'
 
   const formulario = document.getElementById('formulario') as HTMLFormElement
   const aviso = document.getElementById('aviso')
@@ -263,6 +264,25 @@ const tipoInicial = Astro.url.searchParams.get('tipo') === 'vendedor' ? 'vendedo
 
     if (!resultado.ok) {
       avisar(resultado.mensaje)
+      return
+    }
+
+    /*
+     * La cuenta se creo, pero la sesion se comprueba de VERDAD antes de
+     * navegar: el Worker manda la cookie junto al `ok`, y hay navegadores
+     * (Safari con la prevencion de rastreo, o cualquiera con las cookies de
+     * terceros bloqueadas) que no guardan una cookie que llega de otro origen.
+     * Sin esta comprobacion, quien se acaba de registrar aterriza en `/cuenta`,
+     * lo devuelven al formulario y no entiende que ha pasado: parece que el
+     * registro fallo cuando en realidad la cuenta existe.
+     */
+    const sesion = await miCuenta()
+    if (!sesion.ok) {
+      avisar(
+        sesion.codigo === 'no_dentro'
+          ? (formulario.dataset.cookie ?? 'Tu navegador no esta guardando la cookie de sesion.')
+          : sesion.mensaje,
+      )
       return
     }
 
